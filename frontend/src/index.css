@@ -1,0 +1,24 @@
+:root {
+  --pf-bg: #141517;
+  --pf-bg2: #1C1E22;
+  --pf-text: #F2F2F2;
+  --pf-text2: #9EA4AA;
+  --pf-accent: #D7DADF;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--pf-bg);
+  color: var(--pf-text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
