@@ -1,32 +1,29 @@
-# React + TypeScript + Vite
+# Pathfinder Studio
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Plataforma para ejecutar pipelines de IA generativa desde una interfaz web propia.
 
-Currently, two official plugins are available:
+## Estado actual
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Frontend React + Vite + TypeScript
+- Backend: Supabase (registro de runtimes)
+- Runtime: Kaggle + Gradio
+- Pipeline integrado: LTX-2.3 22B (quanto int8)
 
-## React Compiler
+## Estructura
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `frontend/`: Aplicación React
+- `docs/`: Documentación técnica y de uso
+- `runtimes/`: Scripts de Kaggle
+- `supabase/`: SQL y configuración de base de datos
 
-## Expanding the Oxlint configuration
+## Despliegue
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+El frontend se despliega en Cloudflare Pages. Consulta [docs/despliegue/cloudflare.md](docs/despliegue/cloudflare.md).
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+## Documentación
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Índice general en [docs/index.md](docs/index.md).
+
+## Licencia
+
+Privado - Pathfinder
