@@ -1,10 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { ChangeEvent } from "react";
 import { Client } from "@gradio/client";
 import { supabase } from "./lib/supabaseClient";
 
+// ============================================================
+// CONFIGURACIÓN SUPABASE (Pathfinder Runtime Registry)
+// ============================================================
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 type Status = "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
 
+// ---- Mismas opciones que los dropdowns de Gradio (backend) ----
 const DURATION_OPTIONS = [
   "2 Seconds (49 frames)",
   "3 Seconds (73 frames)",
@@ -15,6 +22,7 @@ const DURATION_OPTIONS = [
 ];
 
 const RESOLUTION_OPTIONS = ["1080p", "720p", "540p", "480p"];
+
 const ASPECT_RATIO_OPTIONS = [
   "16:9 Landscape",
   "4:3 Standard",
@@ -24,6 +32,7 @@ const ASPECT_RATIO_OPTIONS = [
 ];
 
 function App() {
+  // ---------- Autenticación y perfil ----------
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [email, setEmail] = useState("");
@@ -31,8 +40,11 @@ function App() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // ---------- Estado del runtime ----------
   const [gradioUrl, setGradioUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("UNKNOWN");
+
+  // ---------- Inputs de generación ----------
   const [imageStartFile, setImageStartFile] = useState<File | null>(null);
   const [imageStartPreview, setImageStartPreview] = useState<string | null>(null);
   const [imageEndFile, setImageEndFile] = useState<File | null>(null);
@@ -42,6 +54,7 @@ function App() {
   const [duration, setDuration] = useState<string>("3 Seconds (73 frames)");
   const [resolution, setResolution] = useState<string>("720p");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9 Landscape");
+
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -50,7 +63,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const endFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 1. Obtener sesión al cargar
+  // ---------- 1. Obtener sesión al cargar ----------
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -76,41 +89,55 @@ function App() {
     if (!error) setProfile(data);
   }
 
-  // 2. Obtener gradioUrl desde Supabase cuando hay perfil
+  // ---------- 2. Obtener gradioUrl desde Supabase usando station_id del perfil ----------
   useEffect(() => {
     if (!profile?.station_id) return;
+
     const fetchRuntime = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("runtimes")
         .select("gradio_url")
         .eq("station_id", profile.station_id)
         .order("created_at", { ascending: false })
         .limit(1);
-      if (data && data.length > 0) setGradioUrl(data[0].gradio_url);
+
+      if (!error && data && data.length > 0) {
+        setGradioUrl(data[0].gradio_url);
+      }
     };
+
     fetchRuntime();
     const interval = setInterval(fetchRuntime, 5000);
     return () => clearInterval(interval);
   }, [profile?.station_id]);
 
-  // 3. Polling del estado del runtime
+  // ---------- 3. Polling del estado del runtime ----------
   useEffect(() => {
     if (!gradioUrl) return;
+
+    let cancelled = false;
     const pollStatus = async () => {
       try {
         const client = await Client.connect(gradioUrl);
         const result = await client.predict("/status", []);
-        const value = Array.isArray(result.data) ? result.data[0] : result.data;
-        setStatus((value as Status) ?? "UNKNOWN");
+        if (!cancelled) {
+          const value = Array.isArray(result.data) ? result.data[0] : result.data;
+          setStatus((value as Status) ?? "UNKNOWN");
+        }
       } catch {
-        setStatus("UNKNOWN");
+        if (!cancelled) setStatus("UNKNOWN");
       }
     };
+
     pollStatus();
-    const interval = setInterval(pollStatus, 2000);
-    return () => clearInterval(interval);
+    const intervalId = setInterval(pollStatus, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [gradioUrl]);
 
+  // ---------- Autenticación ----------
   async function handleAuth() {
     setAuthError(null);
     if (authMode === "signup") {
@@ -131,6 +158,7 @@ function App() {
     setStatus("UNKNOWN");
   }
 
+  // ---------- Manejadores de archivos ----------
   const handleStartFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setImageStartFile(file);
@@ -145,12 +173,15 @@ function App() {
     setImageEndPreview(file ? URL.createObjectURL(file) : null);
   };
 
+  // ---------- Generación de video ----------
   const handleGenerate = async () => {
     if (!imageStartFile || !prompt || status !== "READY" || !gradioUrl) return;
+
     setIsLoading(true);
     setErrorMsg(null);
     setVideoSrc(null);
     setStatusMsg(null);
+
     try {
       const client = await Client.connect(gradioUrl);
       const result = await client.predict("/generate", [
@@ -162,15 +193,19 @@ function App() {
         resolution,
         aspectRatio,
       ]);
+
       const data = result.data as unknown[];
       const videoData = data[0];
       const statusText = data[1] as string;
+
       let url: string | null = null;
-      if (typeof videoData === "string") url = videoData;
-      else if (videoData && typeof videoData === "object") {
+      if (typeof videoData === "string") {
+        url = videoData;
+      } else if (videoData && typeof videoData === "object") {
         const maybe = videoData as { url?: string; video?: { url?: string } };
         url = maybe.url ?? maybe.video?.url ?? null;
       }
+
       if (url) setVideoSrc(url);
       else setErrorMsg("No se devolvió un video válido.");
       if (statusText) setStatusMsg(statusText);
@@ -189,8 +224,10 @@ function App() {
     UNKNOWN: "#9E9E9E",
   };
 
-  const isButtonDisabled = status !== "READY" || isLoading || !imageStartFile || !prompt || !gradioUrl;
+  const isButtonDisabled =
+    status !== "READY" || isLoading || !imageStartFile || !prompt || !gradioUrl;
 
+  // ==================== RENDER ====================
   if (!session) {
     return (
       <div style={{ maxWidth: 400, margin: "80px auto", textAlign: "center" }}>
@@ -230,7 +267,15 @@ function App() {
         <h1>Pathfinder Studio — LTX-2.3</h1>
         <button onClick={handleLogout}>Cerrar sesión</button>
       </div>
+
+      {profile?.station_id && (
+        <p style={{ color: "#9EA4AA", marginBottom: 16 }}>
+          Tu Station ID: <strong>{profile.station_id}</strong>
+        </p>
+      )}
+
       {!gradioUrl && <p style={{ color: "#6b7280" }}>Buscando runtime Pathfinder...</p>}
+
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <span
           style={{
@@ -244,50 +289,76 @@ function App() {
         <span>Estado del backend: {gradioUrl ? status : "SIN CONEXIÓN"}</span>
       </div>
 
+      {/* ---- Start Frame ---- */}
       <div style={{ marginBottom: 16 }}>
-        <label>Start Frame</label>
+        <label style={{ display: "block", marginBottom: 4 }}>Start Frame</label>
         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleStartFileChange} />
-        {imageStartPreview && <img src={imageStartPreview} alt="start preview" style={{ maxWidth: 240, borderRadius: 8, marginTop: 8 }} />}
+        {imageStartPreview && (
+          <div style={{ marginTop: 8 }}>
+            <img src={imageStartPreview} alt="start preview" style={{ maxWidth: 240, borderRadius: 8 }} />
+          </div>
+        )}
       </div>
 
+      {/* ---- End Frame ---- */}
       <div style={{ marginBottom: 16 }}>
-        <label>End Frame (opcional)</label>
+        <label style={{ display: "block", marginBottom: 4 }}>End Frame (opcional)</label>
         <input type="file" accept="image/*" ref={endFileInputRef} onChange={handleEndFileChange} />
-        {imageEndPreview && <img src={imageEndPreview} alt="end preview" style={{ maxWidth: 240, borderRadius: 8, marginTop: 8 }} />}
+        {imageEndPreview && (
+          <div style={{ marginTop: 8 }}>
+            <img src={imageEndPreview} alt="end preview" style={{ maxWidth: 240, borderRadius: 8 }} />
+          </div>
+        )}
       </div>
 
-      <textarea
-        placeholder="A cinematic shot of a red fox walking through a snowy forest..."
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        rows={3}
-        style={{ width: "100%", padding: 8, marginBottom: 16 }}
-      />
+      {/* ---- Prompt ---- */}
+      <div style={{ marginBottom: 16 }}>
+        <textarea
+          placeholder="A cinematic shot of a red fox walking through a snowy forest..."
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={3}
+          style={{ width: "100%", padding: 8 }}
+        />
+      </div>
 
+      {/* ---- Seed / Duration ---- */}
       <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
         <div style={{ flex: 1 }}>
-          <label>Seed (-1 = random)</label>
-          <input type="number" value={seed} onChange={(e) => setSeed(parseInt(e.target.value, 10))} style={{ width: "100%", padding: 8 }} />
+          <label style={{ display: "block", marginBottom: 4 }}>Seed (-1 = random)</label>
+          <input
+            type="number"
+            value={seed}
+            onChange={(e) => setSeed(parseInt(e.target.value, 10))}
+            style={{ width: "100%", padding: 8 }}
+          />
         </div>
         <div style={{ flex: 1 }}>
-          <label>Duración</label>
+          <label style={{ display: "block", marginBottom: 4 }}>Duración</label>
           <select value={duration} onChange={(e) => setDuration(e.target.value)} style={{ width: "100%", padding: 8 }}>
-            {DURATION_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+            {DURATION_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
           </select>
         </div>
       </div>
 
+      {/* ---- Resolution / Aspect ratio ---- */}
       <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
         <div style={{ flex: 1 }}>
-          <label>Resolución</label>
+          <label style={{ display: "block", marginBottom: 4 }}>Resolución</label>
           <select value={resolution} onChange={(e) => setResolution(e.target.value)} style={{ width: "100%", padding: 8 }}>
-            {RESOLUTION_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+            {RESOLUTION_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <label>Aspect Ratio</label>
+          <label style={{ display: "block", marginBottom: 4 }}>Aspect Ratio</label>
           <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} style={{ width: "100%", padding: 8 }}>
-            {ASPECT_RATIO_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+            {ASPECT_RATIO_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -298,7 +369,12 @@ function App() {
 
       {errorMsg && <p style={{ color: "#F44336", marginTop: 12 }}>{errorMsg}</p>}
       {statusMsg && !errorMsg && <p style={{ color: "#6b7280", marginTop: 12 }}>{statusMsg}</p>}
-      {videoSrc && <div style={{ marginTop: 24 }}><video src={videoSrc} controls width={640} /></div>}
+
+      {videoSrc && (
+        <div style={{ marginTop: 24 }}>
+          <video src={videoSrc} controls width={640} />
+        </div>
+      )}
     </div>
   );
 }
