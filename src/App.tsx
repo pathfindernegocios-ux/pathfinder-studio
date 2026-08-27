@@ -1,13 +1,13 @@
-import { useState, useRef, useEffect, ChangeEvent } from "react";
+import { useState, useRef, useEffect } from "react";
+import type { ChangeEvent } from "react";
 import { Client } from "@gradio/client";
 
 // ============================================================
 // CONFIGURACIÓN SUPABASE (Pathfinder Runtime Registry)
 // ============================================================
-const SUPABASE_URL = "https://sxvgldvnxwjtvqownayr.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dmdsZHZueHdqdHZxb3duYXlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3OTcwMDUsImV4cCI6MjEwMzM3MzAwNX0.KYClvOPXrVNGT76vizj5og4j7upw6IavO7K--XJkN3Q"; // <-- REEMPLAZA CON TU ANON KEY LEGACY
-const STATION_ID = "PF-0001"; // Debe coincidir con el que pusiste en run_ltx.py
-
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const STATION_ID = import.meta.env.VITE_STATION_ID;
 type Status = "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
 
 // ---- Mismas opciones que los dropdowns de Gradio (backend) ----
