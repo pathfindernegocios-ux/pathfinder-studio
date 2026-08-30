@@ -226,6 +226,14 @@ function App() {
     setStatusMsg(null);
 
     try {
+      // Obtener token de sesión para validar en el backend
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setErrorMsg("No hay sesión activa. Inicia sesión.");
+        return;
+      }
+
       const client = await Client.connect(gradioUrl);
       const result = await client.predict("/generate", [
         prompt,
@@ -235,6 +243,7 @@ function App() {
         duration,
         resolution,
         aspectRatio,
+        token, // <-- JWT
       ]);
 
       const data = result.data as unknown[];
