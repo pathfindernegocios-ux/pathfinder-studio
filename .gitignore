@@ -24,3 +24,9 @@ supabase/supabase/
 # Generados
 runtimes/generated/
 notebook_*.ipynb
+supabase/config.toml
+supabase/functions/
+frontend/gr
+notebook_*.ipynb
+runtimes/generated/
+__pycache__/
