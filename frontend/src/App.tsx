@@ -156,6 +156,51 @@ function App() {
     setStatus("UNKNOWN");
   }
 
+  // ---------- Descargar notebook personalizado ----------
+  const handleDownloadNotebook = async () => {
+    setErrorMsg(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setErrorMsg("No hay sesión activa. Inicia sesión.");
+        return;
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        setErrorMsg("Falta VITE_SUPABASE_URL en el entorno.");
+        return;
+      }
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/generate-notebook`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        setErrorMsg(err?.error || `Error ${res.status}`);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `notebook_${profile?.station_id || "personal"}.ipynb`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("No se pudo descargar el notebook.");
+    }
+  };
+
   // ---------- Manejadores de archivos ----------
   const handleStartFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -263,7 +308,12 @@ function App() {
     <div style={{ maxWidth: 640, margin: "40px auto", fontFamily: "sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Pathfinder Studio — LTX-2.3</h1>
-        <button onClick={handleLogout}>Cerrar sesión</button>
+        <div>
+          <button onClick={handleDownloadNotebook} style={{ marginRight: 8 }}>
+            Descargar mi notebook
+          </button>
+          <button onClick={handleLogout}>Cerrar sesión</button>
+        </div>
       </div>
 
       {profile?.station_id && (
