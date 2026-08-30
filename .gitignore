@@ -12,3 +12,15 @@ frontend/.env
 .vscode/
 .idea/
 .DS_Store
+
+# Generados
+runtimes/generated/
+notebook_*.ipynb
+
+# Supabase local
+supabase/.temp/
+supabase/supabase/
+
+# Generados
+runtimes/generated/
+notebook_*.ipynb
