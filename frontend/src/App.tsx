@@ -3,20 +3,18 @@ import type { ChangeEvent } from "react";
 import { Client } from "@gradio/client";
 import { supabase } from "./lib/supabaseClient";
 
-// ============================================================
-// CONFIGURACIÓN SUPABASE (Pathfinder Runtime Registry)
-// ============================================================
-
 type Status = "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
 
-// ---- Mismas opciones que los dropdowns de Gradio (backend) ----
 const DURATION_OPTIONS = [
   "2 Seconds (49 frames)",
   "3 Seconds (73 frames)",
   "5 Seconds (121 frames)",
+  "8 Seconds (193 frames)",
   "10 Seconds (241 frames)",
   "15 Seconds (361 frames)",
   "20 Seconds (481 frames)",
+  "25 Seconds (601 frames)",
+  "30 Seconds (721 frames)",
 ];
 
 const RESOLUTION_OPTIONS = ["1080p", "720p", "540p", "480p"];
@@ -29,8 +27,18 @@ const ASPECT_RATIO_OPTIONS = [
   "9:16 Portrait",
 ];
 
+interface GenerationInfo {
+  id?: string;
+  status?: string;
+  progress?: number;
+  stage?: string;
+  started_at?: number;
+  finished_at?: number;
+  output_url?: string;
+  error?: string;
+}
+
 function App() {
-  // ---------- Autenticación y perfil ----------
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [email, setEmail] = useState("");
@@ -38,30 +46,60 @@ function App() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // ---------- Estado del runtime ----------
   const [gradioUrl, setGradioUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("UNKNOWN");
 
-  // ---------- Inputs de generación ----------
   const [imageStartFile, setImageStartFile] = useState<File | null>(null);
   const [imageStartPreview, setImageStartPreview] = useState<string | null>(null);
   const [imageEndFile, setImageEndFile] = useState<File | null>(null);
   const [imageEndPreview, setImageEndPreview] = useState<string | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioName, setAudioName] = useState<string>("");
+
   const [prompt, setPrompt] = useState<string>("");
   const [seed, setSeed] = useState<number>(-1);
-  const [duration, setDuration] = useState<string>("3 Seconds (73 frames)");
+  const [duration, setDuration] = useState<string>("5 Seconds (121 frames)");
   const [resolution, setResolution] = useState<string>("720p");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9 Landscape");
+  const [guideScale, setGuideScale] = useState<number>(4.0);
+  const [matchAudioDur, setMatchAudioDur] = useState<boolean>(false);
 
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const endFileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ---------- 1. Obtener sesión al cargar ----------
+  // Sesión
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [sessionUptime, setSessionUptime] = useState<string>("00:00:00");
+
+  useEffect(() => {
+    if (gradioUrl && status === "READY") {
+      setSessionStartTime(Date.now());
+    }
+  }, [gradioUrl, status]);
+
+  useEffect(() => {
+    if (!sessionStartTime) return;
+    const update = () => {
+      const elapsed = Date.now() - sessionStartTime;
+      const h = String(Math.floor(elapsed / 3600000)).padStart(2, "0");
+      const m = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, "0");
+      const s = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, "0");
+      setSessionUptime(`${h}:${m}:${s}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [sessionStartTime]);
+
+  // Autenticación
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -87,7 +125,7 @@ function App() {
     if (!error) setProfile(data);
   }
 
-  // ---------- 2. Obtener gradioUrl desde Supabase usando station_id del perfil ----------
+  // Obtener URL del runtime
   useEffect(() => {
     if (!profile?.station_id) return;
 
@@ -109,7 +147,7 @@ function App() {
     return () => clearInterval(interval);
   }, [profile?.station_id]);
 
-  // ---------- 3. Polling del estado del runtime ----------
+  // Polling de estado de estación (tolerante a fallos)
   useEffect(() => {
     if (!gradioUrl) return;
 
@@ -123,19 +161,44 @@ function App() {
           setStatus((value as Status) ?? "UNKNOWN");
         }
       } catch {
-        if (!cancelled) setStatus("UNKNOWN");
+        // mantener último estado conocido
       }
     };
 
     pollStatus();
-    const intervalId = setInterval(pollStatus, 2000);
+    const intervalId = setInterval(pollStatus, 4000);
     return () => {
       cancelled = true;
       clearInterval(intervalId);
     };
   }, [gradioUrl]);
 
-  // ---------- Autenticación ----------
+  // Polling de progreso de generación
+  useEffect(() => {
+    if (!isLoading || !gradioUrl) return;
+
+    let cancelled = false;
+    const pollGeneration = async () => {
+      try {
+        const client = await Client.connect(gradioUrl);
+        const result = await client.predict("/generation_status", []);
+        if (!cancelled) {
+          const data = Array.isArray(result.data) ? result.data[0] : result.data;
+          setGenerationInfo(data as GenerationInfo);
+        }
+      } catch {
+        // silencioso
+      }
+    };
+
+    pollGeneration();
+    const interval = setInterval(pollGeneration, 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isLoading, gradioUrl]);
+
   async function handleAuth() {
     setAuthError(null);
     if (authMode === "signup") {
@@ -154,9 +217,10 @@ function App() {
     setProfile(null);
     setGradioUrl(null);
     setStatus("UNKNOWN");
+    setSessionStartTime(null);
+    setSessionUptime("00:00:00");
   }
 
-  // ---------- Descargar notebook personalizado ----------
   const handleDownloadNotebook = async () => {
     setErrorMsg(null);
     try {
@@ -201,7 +265,6 @@ function App() {
     }
   };
 
-  // ---------- Manejadores de archivos ----------
   const handleStartFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setImageStartFile(file);
@@ -216,17 +279,24 @@ function App() {
     setImageEndPreview(file ? URL.createObjectURL(file) : null);
   };
 
-  // ---------- Generación de video ----------
+  const handleAudioChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setAudioFile(file);
+    setAudioName(file ? file.name : "");
+  };
+
   const handleGenerate = async () => {
     if (!imageStartFile || !prompt || status !== "READY" || !gradioUrl) return;
 
+    const startTime = Date.now();
     setIsLoading(true);
     setErrorMsg(null);
     setVideoSrc(null);
     setStatusMsg(null);
+    setElapsedSeconds(null);
+    setGenerationInfo({ status: "preparing", progress: 0, stage: "preparing" });
 
     try {
-      // Obtener token de sesión para validar en el backend
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) {
@@ -235,15 +305,19 @@ function App() {
       }
 
       const client = await Client.connect(gradioUrl);
+
       const result = await client.predict("/generate", [
         prompt,
         imageStartFile,
-        imageEndFile,
+        imageEndFile || undefined,
+        audioFile || undefined,
         seed,
         duration,
         resolution,
         aspectRatio,
-        token, // <-- JWT
+        guideScale,
+        matchAudioDur,
+        token,
       ]);
 
       const data = result.data as unknown[];
@@ -261,10 +335,15 @@ function App() {
       if (url) setVideoSrc(url);
       else setErrorMsg("No se devolvió un video válido.");
       if (statusText) setStatusMsg(statusText);
+
+      const endTime = Date.now();
+      setElapsedSeconds(Math.round((endTime - startTime) / 1000));
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Error al generar video.");
     } finally {
       setIsLoading(false);
+      // no forzar complete; el backend ya lo hará
+      setGenerationInfo((prev) => (prev ? { ...prev } : prev));
     }
   };
 
@@ -279,7 +358,13 @@ function App() {
   const isButtonDisabled =
     status !== "READY" || isLoading || !imageStartFile || !prompt || !gradioUrl;
 
-  // ==================== RENDER ====================
+  const formatElapsed = (sec: number) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
   if (!session) {
     return (
       <div style={{ maxWidth: 400, margin: "80px auto", textAlign: "center" }}>
@@ -325,99 +410,99 @@ function App() {
         </div>
       </div>
 
-      {profile?.station_id && (
-        <p style={{ color: "#9EA4AA", marginBottom: 16 }}>
-          Tu Station ID: <strong>{profile.station_id}</strong>
-        </p>
-      )}
+      <div style={{ background: "#1C1E22", borderRadius: 12, padding: 16, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: statusColor[status] }} />
+          <span style={{ fontWeight: 600, color: "#F2F2F2" }}>{status === "READY" ? "Online" : status}</span>
+          <span style={{ marginLeft: "auto", color: "#9EA4AA", fontSize: 12 }}>
+            Sesión: {sessionUptime}
+          </span>
+        </div>
+        <div style={{ marginTop: 8, color: "#9EA4AA", fontSize: 14 }}>
+          <span>LTX 2.3</span> · <span>Kaggle</span> · <span>GPU: T4</span>
+        </div>
+      </div>
 
       {!gradioUrl && <p style={{ color: "#6b7280" }}>Buscando runtime Pathfinder...</p>}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <span
-          style={{
-            display: "inline-block",
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            backgroundColor: statusColor[status],
-          }}
-        />
-        <span>Estado del backend: {gradioUrl ? status : "SIN CONEXIÓN"}</span>
-      </div>
+      {isLoading && generationInfo && (
+        <div style={{ marginBottom: 16, padding: 12, background: "#1C1E22", borderRadius: 8 }}>
+          <p style={{ margin: 0, color: "#D7DADF" }}>
+            {generationInfo.stage || "Procesando..."}
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <progress value={generationInfo.progress ?? 0} max={1} style={{ flex: 1, height: 8 }} />
+            <span style={{ color: "#9EA4AA", fontSize: 12 }}>
+              {Math.round((generationInfo.progress ?? 0) * 100)}%
+            </span>
+          </div>
+        </div>
+      )}
 
-      {/* ---- Start Frame ---- */}
+      {elapsedSeconds !== null && videoSrc && (
+        <p style={{ color: "#8BC34A", fontSize: 14 }}>
+          Completado en {formatElapsed(elapsedSeconds)}
+        </p>
+      )}
+
+      {/* Inputs */}
       <div style={{ marginBottom: 16 }}>
         <label style={{ display: "block", marginBottom: 4 }}>Start Frame</label>
         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleStartFileChange} />
-        {imageStartPreview && (
-          <div style={{ marginTop: 8 }}>
-            <img src={imageStartPreview} alt="start preview" style={{ maxWidth: 240, borderRadius: 8 }} />
-          </div>
-        )}
+        {imageStartPreview && <img src={imageStartPreview} alt="start" style={{ maxWidth: 240, borderRadius: 8, marginTop: 8 }} />}
       </div>
 
-      {/* ---- End Frame ---- */}
       <div style={{ marginBottom: 16 }}>
         <label style={{ display: "block", marginBottom: 4 }}>End Frame (opcional)</label>
         <input type="file" accept="image/*" ref={endFileInputRef} onChange={handleEndFileChange} />
-        {imageEndPreview && (
-          <div style={{ marginTop: 8 }}>
-            <img src={imageEndPreview} alt="end preview" style={{ maxWidth: 240, borderRadius: 8 }} />
-          </div>
-        )}
+        {imageEndPreview && <img src={imageEndPreview} alt="end" style={{ maxWidth: 240, borderRadius: 8, marginTop: 8 }} />}
       </div>
 
-      {/* ---- Prompt ---- */}
       <div style={{ marginBottom: 16 }}>
-        <textarea
-          placeholder="A cinematic shot of a red fox walking through a snowy forest..."
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          rows={3}
-          style={{ width: "100%", padding: 8 }}
-        />
+        <label style={{ display: "block", marginBottom: 4 }}>Audio (opcional)</label>
+        <input type="file" accept="audio/*" ref={audioInputRef} onChange={handleAudioChange} />
+        {audioName && <p style={{ color: "#9EA4AA", fontSize: 12 }}>Audio: {audioName}</p>}
+        <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+          <input type="checkbox" checked={matchAudioDur} onChange={(e) => setMatchAudioDur(e.target.checked)} disabled={!audioFile} />
+          <span>Ajustar duración al audio</span>
+        </label>
       </div>
 
-      {/* ---- Seed / Duration ---- */}
+      <div style={{ marginBottom: 16 }}>
+        <textarea placeholder="Describe el video..." value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} style={{ width: "100%", padding: 8 }} />
+      </div>
+
       <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
         <div style={{ flex: 1 }}>
-          <label style={{ display: "block", marginBottom: 4 }}>Seed (-1 = random)</label>
-          <input
-            type="number"
-            value={seed}
-            onChange={(e) => setSeed(parseInt(e.target.value, 10))}
-            style={{ width: "100%", padding: 8 }}
-          />
+          <label>Seed</label>
+          <input type="number" value={seed} onChange={(e) => setSeed(parseInt(e.target.value, 10))} style={{ width: "100%", padding: 8 }} />
         </div>
         <div style={{ flex: 1 }}>
-          <label style={{ display: "block", marginBottom: 4 }}>Duración</label>
+          <label>Duración</label>
           <select value={duration} onChange={(e) => setDuration(e.target.value)} style={{ width: "100%", padding: 8 }}>
-            {DURATION_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {DURATION_OPTIONS.map((opt) => <option key={opt}>{opt}</option>)}
           </select>
         </div>
       </div>
 
-      {/* ---- Resolution / Aspect ratio ---- */}
       <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
         <div style={{ flex: 1 }}>
-          <label style={{ display: "block", marginBottom: 4 }}>Resolución</label>
+          <label>Resolución</label>
           <select value={resolution} onChange={(e) => setResolution(e.target.value)} style={{ width: "100%", padding: 8 }}>
-            {RESOLUTION_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {RESOLUTION_OPTIONS.map((opt) => <option key={opt}>{opt}</option>)}
           </select>
         </div>
         <div style={{ flex: 1 }}>
-          <label style={{ display: "block", marginBottom: 4 }}>Aspect Ratio</label>
+          <label>Aspect Ratio</label>
           <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} style={{ width: "100%", padding: 8 }}>
-            {ASPECT_RATIO_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {ASPECT_RATIO_OPTIONS.map((opt) => <option key={opt}>{opt}</option>)}
           </select>
         </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label>Prompt Influence: {guideScale.toFixed(1)}</label>
+        <input type="range" min={1} max={8} step={0.5} value={guideScale} onChange={(e) => setGuideScale(parseFloat(e.target.value))} style={{ width: "100%" }} />
       </div>
 
       <button onClick={handleGenerate} disabled={isButtonDisabled}>
