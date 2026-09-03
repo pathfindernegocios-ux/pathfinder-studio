@@ -17,6 +17,25 @@ const DURATION_OPTIONS = [
   "30 Seconds (721 frames)",
 ];
 
+// Motor que Pathfinder utiliza. Solo etiqueta de producto: no expone hardware.
+const ENGINE_LABEL = "LTX-2.3";
+
+// Los valores de DURATION_OPTIONS son los que espera el backend (no tocar).
+// Estas funciones solo cambian cómo se muestran al usuario.
+function durationSeconds(opt: string): string {
+  return opt.split(" ")[0];
+}
+
+function durationLabel(opt: string): string {
+  const s = durationSeconds(opt);
+  return `${s} ${s === "1" ? "segundo" : "segundos"}`;
+}
+
+function durationFrames(opt: string): string | null {
+  const m = opt.match(/\((\d+)\s*frames\)/i);
+  return m ? m[1] : null;
+}
+
 const RESOLUTION_OPTIONS = ["1080p", "720p", "540p", "480p"];
 
 // Misma lógica que get_resolution() en el backend (run_ltx_audio.py):
@@ -249,12 +268,15 @@ const pillButton = (active: boolean): React.CSSProperties => ({
   transition: "all 0.15s ease",
 });
 
-function ReferenceChip({
+// Chip de imagen: Start Frame (protagonista) / End Frame (secundario, opcional).
+// Solo presentación: el File sigue viajando exactamente igual al backend.
+function FrameChip({
   inputId,
   inputRef,
   onChange,
   preview,
   label,
+  sublabel,
   emphasized,
   onOpen,
   onClear,
@@ -264,76 +286,94 @@ function ReferenceChip({
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   preview: string | null;
   label: string;
+  sublabel: string;
   emphasized?: boolean;
   onOpen: () => void;
   onClear: () => void;
 }) {
-  const size = emphasized ? 56 : 48;
+  const size = emphasized ? 64 : 48;
   return (
-    <div style={{ position: "relative" }}>
-      {preview ? (
-        <div
-          onClick={onOpen}
-          title={`Ver ${label.toLowerCase()} completa`}
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        {preview ? (
+          <div
+            onClick={onOpen}
+            title={`Ver ${label.toLowerCase()} completa`}
+            style={{
+              width: size,
+              height: size,
+              borderRadius: 12,
+              overflow: "hidden",
+              cursor: "zoom-in",
+              border: `1px solid ${emphasized ? "rgba(139,195,74,0.35)" : palette.borderStrong}`,
+            }}
+          >
+            <img src={preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
+        ) : (
+          <label
+            htmlFor={inputId}
+            style={{
+              width: size,
+              height: size,
+              borderRadius: 12,
+              border: `1px dashed ${emphasized ? palette.borderStrong : palette.border}`,
+              background: emphasized ? "rgba(255,255,255,0.02)" : "transparent",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: emphasized ? palette.inkMuted : palette.inkFaint,
+              fontSize: emphasized ? 18 : 15,
+              cursor: "pointer",
+            }}
+          >
+            ＋
+          </label>
+        )}
+        <input id={inputId} type="file" accept="image/*" ref={inputRef} onChange={onChange} style={{ display: "none" }} />
+        {preview && (
+          <button
+            type="button"
+            onClick={onClear}
+            aria-label={`Quitar ${label.toLowerCase()}`}
+            title="Quitar"
+            style={{
+              position: "absolute",
+              top: -6,
+              right: -6,
+              width: 18,
+              height: 18,
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.15)",
+              background: "rgba(7,8,10,0.9)",
+              color: palette.ink,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10,
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <span
           style={{
-            width: size,
-            height: size,
-            borderRadius: 12,
-            overflow: "hidden",
-            cursor: "zoom-in",
-            border: `1px solid ${palette.borderStrong}`,
+            fontSize: emphasized ? 13 : 12,
+            fontWeight: 500,
+            color: emphasized ? palette.ink : palette.inkMuted,
+            whiteSpace: "nowrap",
           }}
         >
-          <img src={preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        </div>
-      ) : (
-        <label
-          htmlFor={inputId}
-          style={{
-            width: size,
-            height: size,
-            borderRadius: 12,
-            border: `1px dashed ${palette.border}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: palette.inkFaint,
-            fontSize: 16,
-            cursor: "pointer",
-          }}
-        >
-          ＋
-        </label>
-      )}
-      <input id={inputId} type="file" accept="image/*" ref={inputRef} onChange={onChange} style={{ display: "none" }} />
-      {preview && (
-        <button
-          type="button"
-          onClick={onClear}
-          aria-label={`Quitar ${label.toLowerCase()}`}
-          title="Quitar"
-          style={{
-            position: "absolute",
-            top: -6,
-            right: -6,
-            width: 18,
-            height: 18,
-            borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(7,8,10,0.9)",
-            color: palette.ink,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 10,
-            lineHeight: 1,
-          }}
-        >
-          ✕
-        </button>
-      )}
-      <div style={{ fontSize: 10.5, color: palette.inkFaint, textAlign: "center", marginTop: 4 }}>{label}</div>
+          {label}
+        </span>
+        <span style={{ fontSize: 10.5, color: palette.inkFaint, whiteSpace: "nowrap", letterSpacing: 0.2 }}>
+          {sublabel}
+        </span>
+      </div>
     </div>
   );
 }
@@ -680,6 +720,9 @@ function App() {
   const [matchAudioDur, setMatchAudioDur] = useState<boolean>(false);
 
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  // Solo presentación: relación de aspecto real del video (metadata) para
+  // dimensionar el espacio de "Tu creación". No afecta payload ni pipeline.
+  const [videoRatio, setVideoRatio] = useState<number | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -1058,6 +1101,7 @@ function App() {
     setIsLoading(true);
     setErrorMsg(null);
     setVideoSrc(null);
+    setVideoRatio(null);
     setStatusMsg(null);
     setLogs([]);
     lastLogSeqRef.current = 0;
@@ -1463,8 +1507,9 @@ function App() {
                 minHeight: 360,
               }}
             >
-              <span className="pf-pulse" style={{ fontSize: 13, color: palette.accentStrong, letterSpacing: 0.3, marginBottom: 10 }}>
-                ● Pathfinder está creando
+              <span style={{ fontSize: 13, color: palette.accentStrong, letterSpacing: 0.3, marginBottom: 10 }}>
+                <span className="pf-pulse">●</span> Pathfinder está creando
+                <span style={{ color: palette.inkFaint, fontWeight: 400 }}> · {ENGINE_LABEL}</span>
               </span>
               <div style={{ fontFamily: fontDisplay, fontSize: 26, fontWeight: 600, color: palette.ink, marginBottom: 22 }}>
                 {generationInfo?.stage || "Dando forma a tu video"}
@@ -1519,13 +1564,8 @@ function App() {
               </div>
 
               {canCancel && (
-                <button
-                  onClick={handleCancel}
-                  disabled={isCancelling}
-                  className="pf-btn-danger"
-                  style={{ padding: "10px 20px", fontSize: 13 }}
-                >
-                  {isCancelling ? "Cancelando..." : "Detener"}
+                <button onClick={handleCancel} disabled={isCancelling} className="pf-btn-cancel">
+                  {isCancelling ? "Cancelando..." : "Cancelar generación"}
                 </button>
               )}
             </div>
@@ -1534,83 +1574,115 @@ function App() {
                 MODO RESULTADO — el video domina la pantalla, acotado a la
                 ventana sin importar el aspect ratio (9:16 incluido)
                ============================================================ */
-            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-              <div
-                style={{
-                  fontFamily: fontDisplay,
-                  fontSize: 22,
-                  fontWeight: 600,
-                  color: palette.ink,
-                  marginBottom: 4,
-                  letterSpacing: -0.3,
-                }}
-              >
-                Tu creación
-              </div>
-              {completedDurationSec !== null && (
-                <div style={{ fontSize: 13, color: palette.inkFaint, marginBottom: 18 }}>
-                  Completado en {formatHMS(completedDurationSec)}
+            (() => {
+              const selectedAspect = ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio);
+              // Ratio real del video si ya cargó metadata; si no, el formato elegido.
+              const ratio = videoRatio ?? selectedAspect?.ratio ?? 16 / 9;
+              const aspectShort = selectedAspect?.short ?? aspectRatio;
+              // El contenedor adopta exactamente el aspect ratio del video y se
+              // acota a la ventana: el video se ve completo sin dejar zona negra vacía.
+              const maxH = "min(66vh, 720px)";
+              return (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: "100%", maxWidth: 720, marginBottom: 22 }}>
+                    <div
+                      style={{
+                        fontFamily: fontDisplay,
+                        fontSize: 22,
+                        fontWeight: 600,
+                        color: palette.ink,
+                        letterSpacing: -0.3,
+                      }}
+                    >
+                      Tu creación
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12.5, color: palette.inkFaint, letterSpacing: 0.2 }}>
+                      {ENGINE_LABEL} · {aspectShort} · {durationSeconds(duration)} s
+                      {completedDurationSec !== null && (
+                        <span style={{ opacity: 0.8 }}> · Completado en {formatHMS(completedDurationSec)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      aspectRatio: String(ratio),
+                      width: `min(100%, calc(${maxH} * ${ratio}))`,
+                      maxHeight: maxH,
+                      borderRadius: 18,
+                      overflow: "hidden",
+                      background: "#000",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      boxShadow:
+                        "0 30px 90px rgba(0,0,0,0.6), 0 0 120px rgba(139,195,74,0.05), 0 0 0 1px rgba(255,255,255,0.02) inset",
+                    }}
+                  >
+                    <video
+                      src={videoSrc}
+                      controls
+                      playsInline
+                      onLoadedMetadata={(e) => {
+                        const { videoWidth, videoHeight } = e.currentTarget;
+                        if (videoWidth > 0 && videoHeight > 0) setVideoRatio(videoWidth / videoHeight);
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        background: "#000",
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      width: "100%",
+                      maxWidth: 720,
+                      display: "flex",
+                      gap: 14,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginTop: 26,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button onClick={() => setVideoSrc(null)} className="pf-btn-primary" style={{ padding: "12px 22px", fontSize: 14 }}>
+                      Crear otra versión
+                    </button>
+                    <a
+                      href={videoSrc}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="pf-btn-ghost"
+                      style={{ padding: "12px 22px", fontSize: 14, textDecoration: "none", display: "inline-block" }}
+                    >
+                      Descargar
+                    </a>
+                  </div>
+                  <span style={{ fontSize: 12.5, color: palette.inkFaint, marginTop: 14, textAlign: "center" }}>
+                    Tu prompt, imágenes, audio y configuración siguen listos para crear otra versión.
+                  </span>
                 </div>
-              )}
-
-              <div
-                style={{
-                  borderRadius: 20,
-                  overflow: "hidden",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                  background: "#000",
-                  display: "flex",
-                  justifyContent: "center",
-                  maxHeight: "68vh",
-                }}
-              >
-                <video
-                  src={videoSrc}
-                  controls
-                  style={{
-                    display: "block",
-                    maxWidth: "100%",
-                    maxHeight: "68vh",
-                    width: "auto",
-                    height: "auto",
-                    background: "#000",
-                  }}
-                />
-              </div>
-
-              <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 22, flexWrap: "wrap" }}>
-                <button onClick={() => setVideoSrc(null)} className="pf-btn-primary" style={{ padding: "12px 22px", fontSize: 14 }}>
-                  Crear otra versión
-                </button>
-                <a
-                  href={videoSrc}
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                  className="pf-btn-ghost"
-                  style={{ padding: "12px 22px", fontSize: 14, textDecoration: "none", display: "inline-block" }}
-                >
-                  Descargar
-                </a>
-                <span style={{ fontSize: 12.5, color: palette.inkFaint }}>
-                  Tu prompt y referencias siguen listos si quieres ajustar y regenerar.
-                </span>
-              </div>
-            </div>
+              );
+            })()
           ) : (
             /* ============================================================
-                MODO CREACIÓN — un solo lienzo: prompt + referencias +
-                configuración + Generate, sin cards separadas
+                MODO CREACIÓN — un solo lienzo: prompt + imágenes + audio +
+                configuración + Generate, sin cards separadas.
+                Superficie apenas insinuada: se lee como canvas, no como card.
                ============================================================ */
             <div
               style={{
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
-                background: "rgba(255,255,255,0.012)",
-                border: `1px solid rgba(255,255,255,0.045)`,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.014) 0%, rgba(255,255,255,0.004) 100%)",
+                border: `1px solid rgba(255,255,255,0.03)`,
                 borderRadius: 28,
-                padding: "34px 36px 24px",
+                padding: "38px 40px 26px",
               }}
             >
               <textarea
@@ -1635,29 +1707,31 @@ function App() {
                 Guía opcional · [VISUAL] [SPEECH] [SOUND]
               </div>
 
-              {/* Referencias — chips compactos, no dropzones grandes */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
-                <ReferenceChip
+              {/* Imágenes — Start Frame protagonista, End Frame secundario; chips compactos */}
+              <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", marginBottom: 22 }}>
+                <FrameChip
                   inputId="start-frame-input"
                   inputRef={fileInputRef}
                   onChange={handleStartFileChange}
                   preview={imageStartPreview}
-                  label="Inicio"
+                  label="Imagen de inicio"
+                  sublabel="Start Frame"
                   emphasized
-                  onOpen={() => imageStartPreview && setLightbox({ src: imageStartPreview, label: "Imagen inicial" })}
+                  onOpen={() => imageStartPreview && setLightbox({ src: imageStartPreview, label: "Imagen de inicio" })}
                   onClear={clearStartFile}
                 />
-                <ReferenceChip
+                <FrameChip
                   inputId="end-frame-input"
                   inputRef={endFileInputRef}
                   onChange={handleEndFileChange}
                   preview={imageEndPreview}
-                  label="Final"
+                  label="Imagen final"
+                  sublabel="End Frame · opcional"
                   onOpen={() => imageEndPreview && setLightbox({ src: imageEndPreview, label: "Imagen final" })}
                   onClear={clearEndFile}
                 />
 
-                <div style={{ width: 1, height: 48, background: palette.border, margin: "4px 2px 0" }} />
+                <div style={{ width: 1, height: 40, background: palette.border, margin: "0 2px" }} />
 
                 {audioName && audioPreview ? (
                   <AudioChip
@@ -1724,7 +1798,7 @@ function App() {
                   }}
                 >
                   <span>
-                    {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {duration.split(" ")[0]}s
+                    {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {durationSeconds(duration)} s
                   </span>
                   <span style={{ color: palette.accentStrong, textDecoration: "underline", textUnderlineOffset: 3 }}>
                     {paramsOpen ? "Cerrar" : "Configuración"}
@@ -1820,7 +1894,7 @@ function App() {
                     >
                       {DURATION_OPTIONS.map((opt) => (
                         <option key={opt} value={opt} style={{ background: "#14150F" }}>
-                          {opt}
+                          {durationLabel(opt)}
                         </option>
                       ))}
                     </select>
@@ -1900,10 +1974,29 @@ function App() {
             {logsOpen && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 12.5, color: palette.inkFaint, lineHeight: 1.9, marginBottom: 8 }}>
-                  <div>Estado · {statusLabel[status]}</div>
-                  <div>Resolución · {resolution} ({ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio})</div>
-                  <div>Duración objetivo · {duration}</div>
-                  {completedDurationSec !== null && <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>}
+                  {(() => {
+                    const aspectOpt = ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio);
+                    const dims = computeDims(resolution, aspectOpt?.ratio ?? 16 / 9);
+                    const frames = durationFrames(duration);
+                    return (
+                      <>
+                        <div>Modelo · {ENGINE_LABEL}</div>
+                        <div>Estado · {statusLabel[status]}</div>
+                        {generationInfo?.stage && <div>Etapa · {generationInfo.stage}</div>}
+                        <div>
+                          Formato · {aspectOpt?.short ?? aspectRatio} · {resolution} · {dims.width}×{dims.height}
+                        </div>
+                        <div>
+                          Duración objetivo · {durationLabel(duration)}
+                          {frames && ` · ${frames} frames`}
+                        </div>
+                        <div>Seed · {seed === -1 ? "aleatoria (-1)" : seed}</div>
+                        <div>Prompt influence · {guideScale.toFixed(1)}</div>
+                        {completedDurationSec !== null && <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>}
+                        {generationInfo?.id && <div>ID · {generationInfo.id}</div>}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <button
@@ -2037,6 +2130,26 @@ body { margin: 0; }
 }
 .pf-btn-danger:hover:not(:disabled) { background: rgba(229,72,77,0.2); }
 .pf-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Cancelación discreta: acción secundaria con danger sutil, no alerta */
+.pf-btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #9BA39A;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.pf-btn-cancel:hover:not(:disabled) {
+  color: #E5484D;
+  border-color: rgba(229,72,77,0.35);
+  background: rgba(229,72,77,0.06);
+}
+.pf-btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .pf-nav-item {
   display: flex;
