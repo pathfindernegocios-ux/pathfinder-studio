@@ -73,6 +73,85 @@ function formatHMS(totalSeconds: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+// mm:ss para la duración del audio (mucho más corta que una generación)
+function formatMMSS(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds)) return "0:00";
+  const s = Math.max(0, Math.round(totalSeconds));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
+// ---- Recorte de audio en el navegador (Web Audio API) ----
+// No agrega ningún parámetro nuevo al backend: el resultado sigue siendo
+// un simple File que viaja como "audioFile", igual que antes del recorte.
+function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const numFrames = buffer.length;
+  const bytesPerSample = 2; // 16-bit PCM
+  const blockAlign = numChannels * bytesPerSample;
+  const dataSize = numFrames * blockAlign;
+  const bufferOut = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(bufferOut);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bytesPerSample * 8, true);
+  writeString(36, "data");
+  view.setUint32(40, dataSize, true);
+
+  const channelData: Float32Array[] = [];
+  for (let ch = 0; ch < numChannels; ch++) channelData.push(buffer.getChannelData(ch));
+
+  let offset = 44;
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, channelData[ch][i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([bufferOut], { type: "audio/wav" });
+}
+
+async function trimAudioFile(file: File, startSec: number, endSec: number): Promise<File> {
+  const AudioCtx: typeof AudioContext =
+    (window as any).AudioContext || (window as any).webkitAudioContext;
+  const ctx = new AudioCtx();
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const decoded = await ctx.decodeAudioData(arrayBuffer);
+    const sampleRate = decoded.sampleRate;
+    const startSample = Math.max(0, Math.floor(startSec * sampleRate));
+    const endSample = Math.min(decoded.length, Math.floor(endSec * sampleRate));
+    const frameCount = Math.max(1, endSample - startSample);
+
+    const trimmed = ctx.createBuffer(decoded.numberOfChannels, frameCount, sampleRate);
+    for (let ch = 0; ch < decoded.numberOfChannels; ch++) {
+      trimmed.copyToChannel(decoded.getChannelData(ch).subarray(startSample, endSample), ch);
+    }
+
+    const wavBlob = audioBufferToWavBlob(trimmed);
+    return new File([wavBlob], "audio_recortado.wav", { type: "audio/wav" });
+  } finally {
+    ctx.close().catch(() => {});
+  }
+}
+
 interface GenerationInfo {
   id?: string;
   status?: string;
@@ -136,15 +215,6 @@ const glass: React.CSSProperties = {
   boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
 };
 
-const glassStrong: React.CSSProperties = {
-  background: palette.surfaceStrong,
-  border: `1px solid ${palette.borderStrong}`,
-  borderRadius: 20,
-  backdropFilter: "blur(24px)",
-  WebkitBackdropFilter: "blur(24px)",
-  boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
-};
-
 const inputBase: React.CSSProperties = {
   width: "100%",
   background: "rgba(255,255,255,0.04)",
@@ -179,24 +249,408 @@ const pillButton = (active: boolean): React.CSSProperties => ({
   transition: "all 0.15s ease",
 });
 
-const removeBtnStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 6,
-  right: 6,
-  width: 24,
-  height: 24,
-  borderRadius: "50%",
-  border: "1px solid rgba(255,255,255,0.15)",
-  background: "rgba(7,8,10,0.8)",
-  color: palette.ink,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 13,
-  lineHeight: 1,
-  backdropFilter: "blur(4px)",
-};
+function ReferenceChip({
+  inputId,
+  inputRef,
+  onChange,
+  preview,
+  label,
+  emphasized,
+  onOpen,
+  onClear,
+}: {
+  inputId: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  preview: string | null;
+  label: string;
+  emphasized?: boolean;
+  onOpen: () => void;
+  onClear: () => void;
+}) {
+  const size = emphasized ? 56 : 48;
+  return (
+    <div style={{ position: "relative" }}>
+      {preview ? (
+        <div
+          onClick={onOpen}
+          title={`Ver ${label.toLowerCase()} completa`}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: 12,
+            overflow: "hidden",
+            cursor: "zoom-in",
+            border: `1px solid ${palette.borderStrong}`,
+          }}
+        >
+          <img src={preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+      ) : (
+        <label
+          htmlFor={inputId}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: 12,
+            border: `1px dashed ${palette.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: palette.inkFaint,
+            fontSize: 16,
+            cursor: "pointer",
+          }}
+        >
+          ＋
+        </label>
+      )}
+      <input id={inputId} type="file" accept="image/*" ref={inputRef} onChange={onChange} style={{ display: "none" }} />
+      {preview && (
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label={`Quitar ${label.toLowerCase()}`}
+          title="Quitar"
+          style={{
+            position: "absolute",
+            top: -6,
+            right: -6,
+            width: 18,
+            height: 18,
+            borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.15)",
+            background: "rgba(7,8,10,0.9)",
+            color: palette.ink,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 10,
+            lineHeight: 1,
+          }}
+        >
+          ✕
+        </button>
+      )}
+      <div style={{ fontSize: 10.5, color: palette.inkFaint, textAlign: "center", marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+// ============================================================
+// Chip de audio — reproducción propia (sin <audio controls> nativo)
+// + recorte opcional. El File final sigue viajando como "audioFile",
+// no se agrega ningún parámetro nuevo al backend.
+// ============================================================
+function AudioChip({
+  audioName,
+  audioPreview,
+  matchAudioDur,
+  onToggleMatchDur,
+  onClear,
+  onTrimmed,
+}: {
+  audioName: string;
+  audioPreview: string;
+  matchAudioDur: boolean;
+  onToggleMatchDur: (v: boolean) => void;
+  onClear: () => void;
+  onTrimmed: (file: File) => void;
+}) {
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [trimOpen, setTrimOpen] = useState(false);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [isTrimming, setIsTrimming] = useState(false);
+  const [trimError, setTrimError] = useState<string | null>(null);
+
+  // Nueva fuente de audio -> reiniciar estado de reproducción/recorte
+  useEffect(() => {
+    setPlaying(false);
+    setCurrent(0);
+    setDuration(0);
+    setTrimOpen(false);
+    setTrimError(null);
+  }, [audioPreview]);
+
+  const togglePlay = () => {
+    const el = audioElRef.current;
+    if (!el) return;
+    if (playing) {
+      el.pause();
+    } else {
+      el.play().catch(() => {});
+    }
+  };
+
+  const seekFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = audioElRef.current;
+    if (!el || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    el.currentTime = frac * duration;
+    setCurrent(frac * duration);
+  };
+
+  const openTrim = () => {
+    if (!trimOpen) {
+      setTrimStart(0);
+      setTrimEnd(duration || 0);
+    }
+    setTrimOpen((v) => !v);
+  };
+
+  const handleApplyTrim = async () => {
+    const el = audioElRef.current;
+    if (!el || !audioPreview) return;
+    if (trimEnd - trimStart < 0.2) {
+      setTrimError("El recorte es demasiado corto.");
+      return;
+    }
+    setIsTrimming(true);
+    setTrimError(null);
+    try {
+      const res = await fetch(audioPreview);
+      const blob = await res.blob();
+      const originalFile = new File([blob], "audio_original", { type: blob.type || "audio/mpeg" });
+      const trimmedFile = await trimAudioFile(originalFile, trimStart, trimEnd);
+      onTrimmed(trimmedFile);
+      setTrimOpen(false);
+    } catch (err) {
+      setTrimError("No se pudo recortar este audio.");
+    } finally {
+      setIsTrimming(false);
+    }
+  };
+
+  const progressFrac = duration > 0 ? current / duration : 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "7px 12px 7px 8px",
+          borderRadius: 999,
+          border: `1px solid ${palette.border}`,
+          background: palette.surfaceSoft,
+        }}
+      >
+        <button
+          type="button"
+          onClick={togglePlay}
+          aria-label={playing ? "Pausar" : "Reproducir"}
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: "50%",
+            border: "none",
+            background: palette.accentDim,
+            color: palette.accentStrong,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            flexShrink: 0,
+          }}
+        >
+          {playing ? "❚❚" : "▶"}
+        </button>
+
+        <div
+          onClick={seekFromClick}
+          style={{
+            width: 84,
+            height: 4,
+            borderRadius: 999,
+            background: "rgba(255,255,255,0.1)",
+            cursor: "pointer",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              width: `${Math.round(progressFrac * 100)}%`,
+              height: "100%",
+              borderRadius: 999,
+              background: palette.accent,
+            }}
+          />
+        </div>
+
+        <span style={{ fontSize: 11, color: palette.inkFaint, minWidth: 74, whiteSpace: "nowrap" }}>
+          {formatMMSS(current)} / {formatMMSS(duration)}
+        </span>
+
+        <span
+          title={audioName}
+          style={{
+            fontSize: 12,
+            color: palette.inkMuted,
+            maxWidth: 90,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {audioName}
+        </span>
+
+        <button
+          type="button"
+          onClick={openTrim}
+          title="Recortar audio"
+          style={{
+            border: "none",
+            background: "transparent",
+            color: trimOpen ? palette.accentStrong : palette.inkFaint,
+            cursor: "pointer",
+            fontSize: 13,
+            padding: 2,
+          }}
+        >
+          ✂
+        </button>
+
+        <button
+          type="button"
+          onClick={onClear}
+          aria-label="Quitar audio"
+          title="Quitar"
+          style={{
+            border: "none",
+            background: "transparent",
+            color: palette.inkFaint,
+            cursor: "pointer",
+            fontSize: 12,
+            padding: 2,
+          }}
+        >
+          ✕
+        </button>
+
+        <audio
+          ref={audioElRef}
+          src={audioPreview}
+          onLoadedMetadata={(e) => {
+            const d = e.currentTarget.duration;
+            setDuration(Number.isFinite(d) ? d : 0);
+            setTrimEnd((prev) => (prev ? prev : Number.isFinite(d) ? d : 0));
+          }}
+          onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)}
+          style={{ display: "none" }}
+        />
+      </div>
+
+      <label
+        title="El video se generará con la misma duración que este audio"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          fontSize: 12,
+          color: matchAudioDur ? palette.accentStrong : palette.inkFaint,
+          cursor: "pointer",
+          paddingLeft: 4,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={matchAudioDur}
+          onChange={(e) => onToggleMatchDur(e.target.checked)}
+          style={{ accentColor: palette.accent, width: 12, height: 12 }}
+        />
+        Ajustar duración del video al audio
+      </label>
+
+      {trimOpen && (
+        <div
+          style={{
+            padding: "12px 14px",
+            borderRadius: 14,
+            border: `1px solid ${palette.border}`,
+            background: "rgba(255,255,255,0.02)",
+            maxWidth: 340,
+          }}
+        >
+          <div style={{ fontSize: 11.5, color: palette.inkFaint, marginBottom: 10 }}>
+            Recortar de {formatMMSS(trimStart)} a {formatMMSS(trimEnd)} (de {formatMMSS(duration)} totales)
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ ...labelStyle, fontSize: 11, marginBottom: 4 }}>Inicio</label>
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={trimStart}
+              onChange={(e) => {
+                const v = Math.min(parseFloat(e.target.value), trimEnd - 0.2);
+                setTrimStart(Math.max(0, v));
+              }}
+              style={{ width: "100%", accentColor: palette.accent }}
+            />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ ...labelStyle, fontSize: 11, marginBottom: 4 }}>Fin</label>
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={trimEnd}
+              onChange={(e) => {
+                const v = Math.max(parseFloat(e.target.value), trimStart + 0.2);
+                setTrimEnd(Math.min(duration || 0, v));
+              }}
+              style={{ width: "100%", accentColor: palette.accent }}
+            />
+          </div>
+
+          {trimError && (
+            <p style={{ color: palette.danger, fontSize: 12, marginBottom: 8 }}>{trimError}</p>
+          )}
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={handleApplyTrim}
+              disabled={isTrimming}
+              className="pf-btn-primary"
+              style={{ padding: "8px 16px", fontSize: 12.5 }}
+            >
+              {isTrimming ? "Recortando..." : "Aplicar recorte"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTrimOpen(false)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: palette.inkFaint,
+                fontSize: 12.5,
+                cursor: "pointer",
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -215,6 +669,7 @@ function App() {
   const [imageEndPreview, setImageEndPreview] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioName, setAudioName] = useState<string>("");
+  const [audioPreview, setAudioPreview] = useState<string | null>(null);
 
   const [prompt, setPrompt] = useState<string>("");
   const [seed, setSeed] = useState<number>(-1);
@@ -232,16 +687,16 @@ function App() {
 
   // Panel de parámetros (colapsable, en vez de todo apilado)
   const [paramsOpen, setParamsOpen] = useState<boolean>(false);
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
   const [logsOpen, setLogsOpen] = useState<boolean>(false);
   const [stationDetailsOpen, setStationDetailsOpen] = useState<boolean>(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState<boolean>(false);
+  const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
 
-  // Puerta puramente visual: pantalla de bienvenida antes de entrar al Studio.
-  // No agrega ninguna funcionalidad ni ruta nueva, solo un estado local de UI.
   const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(false);
 
-  // Reloj en vivo para el tiempo transcurrido/restante mientras genera
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -250,18 +705,17 @@ function App() {
   const lastLogSeqRef = useRef<number>(0);
   const logsEndRef = useRef<HTMLDivElement | null>(null);
 
-  // ---- Cliente Gradio único, reutilizado por todos los pollings y por
-  // generate/cancel. Cachea la PROMESA (no solo el resultado) para que dos
-  // llamadas casi simultáneas (p.ej. dos pollers disparando el mismo tick)
-  // no disparen dos Client.connect() en paralelo. Se reconecta solo si
-  // gradioUrl cambia, y cierra siempre la conexión anterior. ----
+  // Marca de tiempo local del click en "Crear video". Se usa para descartar
+  // snapshots de /generation_status que pertenezcan a una generación anterior
+  // (ver pollGeneration más abajo).
+  const generationStartRef = useRef<number>(0);
+
   const clientPromiseRef = useRef<{ url: string; promise: Promise<Client> } | null>(null);
 
   const closeClientRef = (entry: { url: string; promise: Promise<Client> } | null) => {
     if (!entry) return;
     entry.promise
       .then((c) => {
-        // client.close() cierra la conexión (incl. heartbeat SSE) del cliente JS de Gradio.
         (c as any).close?.();
       })
       .catch(() => {
@@ -276,12 +730,10 @@ function App() {
       try {
         return await clientPromiseRef.current.promise;
       } catch {
-        // la conexión cacheada falló: se limpia y se reintenta abajo
         if (clientPromiseRef.current?.url === gradioUrl) clientPromiseRef.current = null;
       }
     }
 
-    // gradioUrl cambió (o no había cliente): cerrar el anterior
     if (clientPromiseRef.current && clientPromiseRef.current.url !== gradioUrl) {
       closeClientRef(clientPromiseRef.current);
     }
@@ -294,7 +746,6 @@ function App() {
     return promise;
   }, [gradioUrl]);
 
-  // Cierra la conexión activa cuando gradioUrl cambia o al desmontar el componente.
   useEffect(() => {
     return () => {
       const entry = clientPromiseRef.current;
@@ -303,7 +754,6 @@ function App() {
     };
   }, [gradioUrl]);
 
-  // Sesión
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [sessionUptime, setSessionUptime] = useState<string>("00:00:00");
 
@@ -327,7 +777,6 @@ function App() {
     return () => clearInterval(interval);
   }, [sessionStartTime]);
 
-  // Autenticación
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -353,7 +802,6 @@ function App() {
     if (!error) setProfile(data);
   }
 
-  // Obtener URL del runtime
   useEffect(() => {
     if (!profile?.station_id) return;
 
@@ -375,7 +823,6 @@ function App() {
     return () => clearInterval(interval);
   }, [profile?.station_id]);
 
-  // Polling de estado de estación (tolerante a fallos)
   useEffect(() => {
     if (!gradioUrl) return;
 
@@ -402,7 +849,15 @@ function App() {
     };
   }, [gradioUrl, getClient]);
 
-  // Polling de progreso de generación
+  // Polling de progreso de generación.
+  // IMPORTANTE: justo después de pulsar "Crear video", el backend puede
+  // tardar en reiniciar su estado global (la llamada a /generate puede
+  // quedar encolada detrás de otras peticiones). Si en ese instante llega
+  // una respuesta de /generation_status, puede traer todavía el snapshot de
+  // la generación ANTERIOR (p.ej. "complete" con un tiempo transcurrido que
+  // no corresponde a esta corrida). Para evitar ese salto falso a
+  // "completado", se descarta cualquier snapshot cuyo started_at sea
+  // anterior al momento en que se pulsó el botón.
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
 
@@ -414,7 +869,11 @@ function App() {
         const result = await client.predict("/generation_status", []);
         if (!cancelled) {
           const data = Array.isArray(result.data) ? result.data[0] : result.data;
-          setGenerationInfo(data as GenerationInfo);
+          const info = data as GenerationInfo;
+          if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) {
+            return; // snapshot de una generación anterior: se ignora
+          }
+          setGenerationInfo(info);
         }
       } catch {
         // silencioso
@@ -429,7 +888,6 @@ function App() {
     };
   }, [isLoading, gradioUrl, getClient]);
 
-  // Polling incremental de logs en vivo (independiente del polling anterior)
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
 
@@ -461,21 +919,18 @@ function App() {
     };
   }, [isLoading, gradioUrl, getClient]);
 
-  // Reloj en vivo (tiempo transcurrido / restante) mientras hay una generación activa
   useEffect(() => {
     if (!isLoading) return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [isLoading]);
 
-  // Autoscroll del panel de logs
   useEffect(() => {
-    if (logsOpen) {
+    if (logsOpen && diagnosticsOpen) {
       logsEndRef.current?.scrollIntoView({ block: "end" });
     }
-  }, [logs, logsOpen]);
+  }, [logs, logsOpen, diagnosticsOpen]);
 
-  // Al llegar una generación, el panel de detalles pasa a segundo plano automáticamente
   useEffect(() => {
     if (isLoading) setParamsOpen(false);
   }, [isLoading]);
@@ -565,6 +1020,7 @@ function App() {
     const file = e.target.files?.[0] ?? null;
     setAudioFile(file);
     setAudioName(file ? file.name : "");
+    setAudioPreview(file ? URL.createObjectURL(file) : null);
   };
 
   const clearStartFile = () => {
@@ -582,12 +1038,22 @@ function App() {
   const clearAudioFile = () => {
     setAudioFile(null);
     setAudioName("");
+    setAudioPreview(null);
     setMatchAudioDur(false);
     if (audioInputRef.current) audioInputRef.current.value = "";
   };
 
+  const handleAudioTrimmed = (file: File) => {
+    setAudioFile(file);
+    setAudioName(file.name);
+    setAudioPreview(URL.createObjectURL(file));
+  };
+
   const handleGenerate = async () => {
     if (!imageStartFile || !prompt || status !== "READY" || !gradioUrl) return;
+
+    const localStart = Date.now() / 1000;
+    generationStartRef.current = localStart;
 
     setIsLoading(true);
     setErrorMsg(null);
@@ -595,7 +1061,7 @@ function App() {
     setStatusMsg(null);
     setLogs([]);
     lastLogSeqRef.current = 0;
-    setGenerationInfo({ status: "preparing", progress: 0, stage: "preparing", started_at: Date.now() / 1000 });
+    setGenerationInfo({ status: "preparing", progress: 0, stage: "preparing", started_at: localStart });
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -644,7 +1110,6 @@ function App() {
       setErrorMsg(err instanceof Error ? err.message : "Error al generar video.");
     } finally {
       setIsLoading(false);
-      // no forzar complete; el backend ya lo hará
       setGenerationInfo((prev) => (prev ? { ...prev } : prev));
     }
   };
@@ -677,17 +1142,16 @@ function App() {
   };
 
   const statusLabel: Record<Status, string> = {
-    STARTING: "Preparando la estación",
+    STARTING: "Preparando Pathfinder",
     READY: "Lista para crear",
     BUSY: "Creando",
-    ERROR: "Algo falló",
-    UNKNOWN: "Sin conexión",
+    ERROR: "No se pudo completar la creación",
+    UNKNOWN: "Conexión no disponible",
   };
 
   const isButtonDisabled =
     status !== "READY" || isLoading || !imageStartFile || !prompt.trim() || !gradioUrl;
 
-  // ---- Tiempos derivados del generationInfo que expone el backend ----
   const nowSec = nowTick / 1000;
   const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
 
@@ -695,7 +1159,7 @@ function App() {
     isLoading && generationInfo?.started_at ? Math.max(0, nowSec - generationInfo.started_at) : null;
 
   const remainingSec =
-    isLoading && generationInfo?.started_at && progressFrac > 0.03
+    isLoading && generationInfo?.started_at && progressFrac > 0.03 && progressFrac < 1
       ? Math.max(0, liveElapsedSec! / progressFrac - liveElapsedSec!)
       : null;
 
@@ -954,8 +1418,7 @@ function App() {
           </button>
           {stationDetailsOpen && (
             <div style={{ padding: "8px 10px 2px", fontSize: 12, color: palette.inkFaint, lineHeight: 1.7 }}>
-              <div>Cómputo: Kaggle T4</div>
-              <div>Sesión activa: {sessionUptime}</div>
+              <div>Sesión activa · {sessionUptime}</div>
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
@@ -969,208 +1432,261 @@ function App() {
         </div>
       </aside>
 
-      {/* Contenido principal */}
-      <main style={{ flex: 1, minWidth: 0, padding: "36px 40px 60px" }}>
-        <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      {/* Contenido principal — workspace de creación, no un formulario apilado */}
+      <main style={{ flex: 1, minWidth: 0, padding: "40px 48px 60px", display: "flex", flexDirection: "column" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
           {!gradioUrl && (
-            <div style={{ ...glass, padding: 18, marginBottom: 22, textAlign: "center", color: palette.inkMuted }}>
+            <div style={{ marginBottom: 20, color: palette.inkFaint, fontSize: 13 }}>
               Buscando tu estación Pathfinder...
             </div>
           )}
 
-          {/* Prompt central */}
-          <div style={{ ...glass, padding: 26, marginBottom: 16 }}>
-            <textarea
-              placeholder="Una mujer entra a un estudio y dice “hola”. Se escucha el ambiente del estudio."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={4}
-              style={{
-                ...inputBase,
-                background: "transparent",
-                border: "none",
-                padding: "0 0 14px",
-                fontSize: 18,
-                lineHeight: 1.55,
-                resize: "vertical",
-                minHeight: 96,
-              }}
-            />
+          {(errorMsg || backendError) && (
+            <p style={{ color: palette.danger, fontSize: 13, marginBottom: 14 }}>{errorMsg || backendError}</p>
+          )}
+          {statusMsg && !errorMsg && !backendError && !isLoading && !videoSrc && (
+            <p style={{ color: palette.inkMuted, fontSize: 13, marginBottom: 14 }}>{statusMsg}</p>
+          )}
+
+          {/* ============================================================
+              MODO GENERANDO — reemplaza todo el workspace mientras trabaja
+             ============================================================ */}
+          {isLoading ? (
             <div
               style={{
-                fontSize: 12,
-                color: palette.inkFaint,
-                paddingBottom: 18,
-                borderBottom: `1px solid ${palette.border}`,
-                marginBottom: 18,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                minHeight: 360,
               }}
             >
-              [VISUAL] escena · [SPEECH] diálogo o voz · [SOUND] ambiente o efectos — opcional
-            </div>
-
-            {/* Chips de archivos: Start / End / Audio */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {/* Start Frame */}
-              <div style={{ position: "relative", width: 128 }}>
-                <label
-                  htmlFor="start-frame-input"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 128,
-                    height: 128,
-                    borderRadius: 16,
-                    border: `1px dashed ${palette.border}`,
-                    background: imageStartPreview ? "transparent" : palette.surfaceSoft,
-                    cursor: "pointer",
-                    overflow: "hidden",
-                    position: "relative",
-                  }}
-                >
-                  {imageStartPreview ? (
-                    <img
-                      src={imageStartPreview}
-                      alt="start"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 20, color: palette.inkFaint }}>＋</span>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: palette.inkFaint,
-                          marginTop: 6,
-                          textAlign: "center",
-                          padding: "0 10px",
-                        }}
-                      >
-                        Imagen inicial
-                      </span>
-                    </>
-                  )}
-                </label>
-                <input
-                  id="start-frame-input"
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleStartFileChange}
-                  style={{ display: "none" }}
-                />
-                {imageStartPreview && (
-                  <button
-                    type="button"
-                    onClick={clearStartFile}
-                    style={removeBtnStyle}
-                    aria-label="Quitar imagen inicial"
-                    title="Quitar"
-                  >
-                    ✕
-                  </button>
-                )}
+              <span className="pf-pulse" style={{ fontSize: 13, color: palette.accentStrong, letterSpacing: 0.3, marginBottom: 10 }}>
+                ● Pathfinder está creando
+              </span>
+              <div style={{ fontFamily: fontDisplay, fontSize: 26, fontWeight: 600, color: palette.ink, marginBottom: 22 }}>
+                {generationInfo?.stage || "Dando forma a tu video"}
               </div>
 
-              {/* End Frame */}
-              <div style={{ position: "relative", width: 128 }}>
-                <label
-                  htmlFor="end-frame-input"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 128,
-                    height: 128,
-                    borderRadius: 16,
-                    border: `1px dashed ${palette.border}`,
-                    background: imageEndPreview ? "transparent" : palette.surfaceSoft,
-                    cursor: "pointer",
-                    overflow: "hidden",
-                    position: "relative",
-                  }}
-                >
-                  {imageEndPreview ? (
-                    <img
-                      src={imageEndPreview}
-                      alt="end"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 20, color: palette.inkFaint }}>＋</span>
-                      <span
+              <div style={{ width: "100%", maxWidth: 360, marginBottom: 16 }}>
+                {generationInfo?.progress != null ? (
+                  <>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 6,
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.06)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
                         style={{
-                          fontSize: 11,
-                          color: palette.inkFaint,
-                          marginTop: 6,
-                          textAlign: "center",
-                          padding: "0 10px",
+                          width: `${Math.round(progressFrac * 100)}%`,
+                          height: "100%",
+                          background: `linear-gradient(90deg, ${palette.accent}, ${palette.accentStrong})`,
+                          borderRadius: 999,
+                          transition: "width 0.4s ease",
+                          boxShadow: `0 0 10px ${palette.accentDim}`,
                         }}
-                      >
-                        Imagen final (opcional)
-                      </span>
-                    </>
-                  )}
-                </label>
-                <input
-                  id="end-frame-input"
-                  type="file"
-                  accept="image/*"
-                  ref={endFileInputRef}
-                  onChange={handleEndFileChange}
-                  style={{ display: "none" }}
-                />
-                {imageEndPreview && (
-                  <button
-                    type="button"
-                    onClick={clearEndFile}
-                    style={removeBtnStyle}
-                    aria-label="Quitar imagen final"
-                    title="Quitar"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Audio */}
-              <div style={{ position: "relative", width: 128 }}>
-                <label
-                  htmlFor="audio-input"
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 128,
-                    height: 128,
-                    borderRadius: 16,
-                    border: `1px dashed ${palette.border}`,
-                    background: palette.surfaceSoft,
-                    cursor: "pointer",
-                    padding: "0 10px",
-                    textAlign: "center",
-                    position: "relative",
-                  }}
-                >
-                  <span style={{ fontSize: 20, color: audioName ? palette.accentStrong : palette.inkFaint }}>
-                    {audioName ? "♪" : "＋"}
-                  </span>
-                  <span
+                      />
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 13, color: palette.accentStrong, fontWeight: 600 }}>
+                      {Math.round(progressFrac * 100)}%
+                    </div>
+                  </>
+                ) : (
+                  <div
                     style={{
-                      fontSize: 11,
-                      color: audioName ? palette.ink : palette.inkFaint,
-                      marginTop: 6,
-                      wordBreak: "break-word",
-                      lineHeight: 1.3,
+                      width: "100%",
+                      height: 6,
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.06)",
+                      overflow: "hidden",
+                      position: "relative",
                     }}
                   >
-                    {audioName || "Audio (opcional)"}
-                  </span>
-                </label>
+                    <div className="pf-indeterminate" />
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 22, fontSize: 12, color: palette.inkFaint, marginBottom: 26 }}>
+                <span>Tiempo transcurrido · {liveElapsedSec !== null ? formatHMS(liveElapsedSec) : "--:--:--"}</span>
+                {remainingSec !== null && <span>Tiempo estimado · {formatHMS(remainingSec)}</span>}
+              </div>
+
+              {canCancel && (
+                <button
+                  onClick={handleCancel}
+                  disabled={isCancelling}
+                  className="pf-btn-danger"
+                  style={{ padding: "10px 20px", fontSize: 13 }}
+                >
+                  {isCancelling ? "Cancelando..." : "Detener"}
+                </button>
+              )}
+            </div>
+          ) : videoSrc ? (
+            /* ============================================================
+                MODO RESULTADO — el video domina la pantalla, acotado a la
+                ventana sin importar el aspect ratio (9:16 incluido)
+               ============================================================ */
+            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <div
+                style={{
+                  fontFamily: fontDisplay,
+                  fontSize: 22,
+                  fontWeight: 600,
+                  color: palette.ink,
+                  marginBottom: 4,
+                  letterSpacing: -0.3,
+                }}
+              >
+                Tu creación
+              </div>
+              {completedDurationSec !== null && (
+                <div style={{ fontSize: 13, color: palette.inkFaint, marginBottom: 18 }}>
+                  Completado en {formatHMS(completedDurationSec)}
+                </div>
+              )}
+
+              <div
+                style={{
+                  borderRadius: 20,
+                  overflow: "hidden",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                  background: "#000",
+                  display: "flex",
+                  justifyContent: "center",
+                  maxHeight: "68vh",
+                }}
+              >
+                <video
+                  src={videoSrc}
+                  controls
+                  style={{
+                    display: "block",
+                    maxWidth: "100%",
+                    maxHeight: "68vh",
+                    width: "auto",
+                    height: "auto",
+                    background: "#000",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 14, alignItems: "center", marginTop: 22, flexWrap: "wrap" }}>
+                <button onClick={() => setVideoSrc(null)} className="pf-btn-primary" style={{ padding: "12px 22px", fontSize: 14 }}>
+                  Crear otra versión
+                </button>
+                <a
+                  href={videoSrc}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  className="pf-btn-ghost"
+                  style={{ padding: "12px 22px", fontSize: 14, textDecoration: "none", display: "inline-block" }}
+                >
+                  Descargar
+                </a>
+                <span style={{ fontSize: 12.5, color: palette.inkFaint }}>
+                  Tu prompt y referencias siguen listos si quieres ajustar y regenerar.
+                </span>
+              </div>
+            </div>
+          ) : (
+            /* ============================================================
+                MODO CREACIÓN — un solo lienzo: prompt + referencias +
+                configuración + Generate, sin cards separadas
+               ============================================================ */
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                background: "rgba(255,255,255,0.012)",
+                border: `1px solid rgba(255,255,255,0.045)`,
+                borderRadius: 28,
+                padding: "34px 36px 24px",
+              }}
+            >
+              <textarea
+                placeholder="Una mujer entra a un estudio y dice “hola”. Se escucha el ambiente del estudio."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={5}
+                style={{
+                  ...inputBase,
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  fontSize: 21,
+                  lineHeight: 1.55,
+                  resize: "none",
+                  minHeight: 140,
+                  flex: 1,
+                }}
+              />
+
+              <div style={{ fontSize: 11, color: palette.inkFaint, opacity: 0.75, marginBottom: 18 }}>
+                Guía opcional · [VISUAL] [SPEECH] [SOUND]
+              </div>
+
+              {/* Referencias — chips compactos, no dropzones grandes */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap", marginBottom: 22 }}>
+                <ReferenceChip
+                  inputId="start-frame-input"
+                  inputRef={fileInputRef}
+                  onChange={handleStartFileChange}
+                  preview={imageStartPreview}
+                  label="Inicio"
+                  emphasized
+                  onOpen={() => imageStartPreview && setLightbox({ src: imageStartPreview, label: "Imagen inicial" })}
+                  onClear={clearStartFile}
+                />
+                <ReferenceChip
+                  inputId="end-frame-input"
+                  inputRef={endFileInputRef}
+                  onChange={handleEndFileChange}
+                  preview={imageEndPreview}
+                  label="Final"
+                  onOpen={() => imageEndPreview && setLightbox({ src: imageEndPreview, label: "Imagen final" })}
+                  onClear={clearEndFile}
+                />
+
+                <div style={{ width: 1, height: 48, background: palette.border, margin: "4px 2px 0" }} />
+
+                {audioName && audioPreview ? (
+                  <AudioChip
+                    audioName={audioName}
+                    audioPreview={audioPreview}
+                    matchAudioDur={matchAudioDur}
+                    onToggleMatchDur={setMatchAudioDur}
+                    onClear={clearAudioFile}
+                    onTrimmed={handleAudioTrimmed}
+                  />
+                ) : (
+                  <label
+                    htmlFor="audio-input"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 14px",
+                      borderRadius: 999,
+                      border: `1px dashed ${palette.border}`,
+                      color: palette.inkFaint,
+                      fontSize: 12,
+                      cursor: "pointer",
+                      marginTop: 4,
+                    }}
+                  >
+                    <span>＋</span> Audio
+                  </label>
+                )}
                 <input
                   id="audio-input"
                   type="file"
@@ -1179,248 +1695,128 @@ function App() {
                   onChange={handleAudioChange}
                   style={{ display: "none" }}
                 />
-                {audioName && (
-                  <button
-                    type="button"
-                    onClick={clearAudioFile}
-                    style={removeBtnStyle}
-                    aria-label="Quitar audio"
-                    title="Quitar"
-                  >
-                    ✕
-                  </button>
-                )}
               </div>
 
-              {audioFile && (
-                <label
+              {/* Barra inferior: resumen de configuración + Generate */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 16,
+                  paddingTop: 18,
+                  borderTop: `1px solid ${palette.border}`,
+                }}
+              >
+                <button
+                  onClick={() => setParamsOpen((v) => !v)}
                   style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: fontUI,
+                    color: palette.inkMuted,
+                    fontSize: 13,
+                    padding: 0,
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    fontSize: 13,
-                    color: palette.inkMuted,
-                    alignSelf: "flex-end",
-                    marginBottom: 6,
-                    cursor: "pointer",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={matchAudioDur}
-                    onChange={(e) => setMatchAudioDur(e.target.checked)}
-                  />
-                  Ajustar duración al audio
-                </label>
-              )}
-            </div>
-          </div>
+                  <span>
+                    {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {duration.split(" ")[0]}s
+                  </span>
+                  <span style={{ color: palette.accentStrong, textDecoration: "underline", textUnderlineOffset: 3 }}>
+                    {paramsOpen ? "Cerrar" : "Configuración"}
+                  </span>
+                </button>
 
-          {/* Botón principal + cancelar */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            <button
-              onClick={handleGenerate}
-              disabled={isButtonDisabled}
-              className="pf-btn-primary"
-              style={{ flex: 1, padding: "17px 0", fontSize: 15 }}
-            >
-              {isLoading ? (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-                  <span className="pf-spinner" />
-                  Creando...
-                </span>
-              ) : (
-                "Generate"
-              )}
-            </button>
-            {canCancel && (
-              <button
-                onClick={handleCancel}
-                disabled={isCancelling}
-                className="pf-btn-danger"
-                style={{ padding: "17px 22px", fontSize: 14 }}
-              >
-                {isCancelling ? "Cancelando..." : "Detener"}
-              </button>
-            )}
-          </div>
-
-          {/* Progreso en vivo */}
-          {isLoading && generationInfo && (
-            <div style={{ ...glass, padding: 22, marginBottom: 16 }}>
-              <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>Pathfinder está creando</div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                <span style={{ fontSize: 13, color: palette.inkMuted }}>
-                  {generationInfo.stage || "Procesando"}
-                </span>
-                <span style={{ fontSize: 13, color: palette.accentStrong, fontWeight: 600 }}>
-                  {Math.round(progressFrac * 100)}%
-                </span>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isButtonDisabled}
+                  className="pf-btn-primary"
+                  style={{ padding: "13px 26px", fontSize: 14.5, letterSpacing: 0.1 }}
+                >
+                  Crear video
+                </button>
               </div>
-              <div
-                style={{
-                  width: "100%",
-                  height: 7,
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.06)",
-                  overflow: "hidden",
-                  marginBottom: 14,
-                }}
-              >
-                <div
-                  style={{
-                    width: `${Math.round(progressFrac * 100)}%`,
-                    height: "100%",
-                    background: `linear-gradient(90deg, ${palette.accent}, ${palette.accentStrong})`,
-                    borderRadius: 999,
-                    transition: "width 0.4s ease",
-                    boxShadow: `0 0 10px ${palette.accentDim}`,
-                  }}
-                />
-              </div>
-              <div style={{ display: "flex", gap: 22, fontSize: 12, color: palette.inkFaint }}>
-                <span>Transcurrido: {liveElapsedSec !== null ? formatHMS(liveElapsedSec) : "--:--:--"}</span>
-                <span>Restante (est.): {remainingSec !== null ? formatHMS(remainingSec) : "calculando..."}</span>
-              </div>
-            </div>
-          )}
 
-          {completedDurationSec !== null && videoSrc && (
-            <p style={{ color: palette.accentStrong, fontSize: 13, marginBottom: 10 }}>
-              Listo — completado en {formatHMS(completedDurationSec)}
-            </p>
-          )}
-
-          {(errorMsg || backendError) && (
-            <p style={{ color: palette.danger, fontSize: 13, marginBottom: 10 }}>{errorMsg || backendError}</p>
-          )}
-          {statusMsg && !errorMsg && !backendError && (
-            <p style={{ color: palette.inkMuted, fontSize: 13, marginBottom: 10 }}>{statusMsg}</p>
-          )}
-
-          {/* Resultado — protagonista */}
-          {videoSrc && (
-            <div style={{ ...glassStrong, padding: 14, marginBottom: 16 }}>
-              <video src={videoSrc} controls style={{ width: "100%", borderRadius: 14, display: "block" }} />
-            </div>
-          )}
-
-          {/* Advanced — parámetros técnicos, en segundo plano */}
-          <div style={{ ...glass, marginBottom: 16, overflow: "hidden" }}>
-            <button
-              onClick={() => setParamsOpen((v) => !v)}
-              style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "16px 20px",
-                background: "transparent",
-                border: "none",
-                color: palette.inkMuted,
-                cursor: "pointer",
-                fontFamily: fontUI,
-              }}
-            >
-              <span style={{ fontSize: 14 }}>Advanced</span>
-              <span style={{ color: palette.inkFaint, fontSize: 13 }}>{paramsOpen ? "Ocultar" : "Mostrar"}</span>
-            </button>
-
-            {paramsOpen && (
-              <div style={{ padding: "0 20px 22px" }}>
-                {/* Resolución */}
-                <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>Resolución base</label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {RESOLUTION_OPTIONS.map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setResolution(opt)}
-                        style={pillButton(resolution === opt)}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Aspect ratio visual */}
-                <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>Aspect ratio</label>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {ASPECT_RATIO_OPTIONS.map((opt) => {
-                      const dims = computeDims(resolution, opt.ratio);
-                      const active = aspectRatio === opt.label;
-                      const maxBox = 28;
-                      const boxW = opt.ratio >= 1 ? maxBox : maxBox * opt.ratio;
-                      const boxH = opt.ratio >= 1 ? maxBox / opt.ratio : maxBox;
-                      return (
-                        <button
-                          key={opt.label}
-                          type="button"
-                          onClick={() => setAspectRatio(opt.label)}
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "12px 14px",
-                            borderRadius: 14,
-                            cursor: "pointer",
-                            fontFamily: fontUI,
-                            border: `1px solid ${active ? palette.accent : palette.border}`,
-                            background: active ? palette.accentDim : palette.surfaceSoft,
-                            minWidth: 84,
-                            transition: "all 0.15s ease",
-                          }}
-                        >
-                          <div
+              {/* Configuración — básica primero, avanzada plegada aparte */}
+              {paramsOpen && (
+                <div style={{ paddingTop: 22, marginTop: 4 }}>
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={labelStyle}>Formato</label>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {ASPECT_RATIO_OPTIONS.map((opt) => {
+                        const dims = computeDims(resolution, opt.ratio);
+                        const active = aspectRatio === opt.label;
+                        const maxBox = 28;
+                        const boxW = opt.ratio >= 1 ? maxBox : maxBox * opt.ratio;
+                        const boxH = opt.ratio >= 1 ? maxBox / opt.ratio : maxBox;
+                        return (
+                          <button
+                            key={opt.label}
+                            type="button"
+                            onClick={() => setAspectRatio(opt.label)}
                             style={{
-                              width: 32,
-                              height: 32,
                               display: "flex",
+                              flexDirection: "column",
                               alignItems: "center",
-                              justifyContent: "center",
+                              gap: 6,
+                              padding: "12px 14px",
+                              borderRadius: 14,
+                              cursor: "pointer",
+                              fontFamily: fontUI,
+                              border: `1px solid ${active ? palette.accent : palette.border}`,
+                              background: active ? palette.accentDim : palette.surfaceSoft,
+                              minWidth: 84,
+                              transition: "all 0.15s ease",
                             }}
                           >
-                            <div
-                              style={{
-                                width: boxW,
-                                height: boxH,
-                                border: `1.5px solid ${active ? palette.accentStrong : palette.inkFaint}`,
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: active ? palette.accentStrong : palette.ink }}>
-                            {opt.short}
-                          </span>
-                          <span style={{ fontSize: 10, color: palette.inkFaint }}>
-                            {dims.width}×{dims.height}
-                          </span>
-                        </button>
-                      );
-                    })}
+                            <div style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div
+                                style={{
+                                  width: boxW,
+                                  height: boxH,
+                                  border: `1.5px solid ${active ? palette.accentStrong : palette.inkFaint}`,
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: active ? palette.accentStrong : palette.ink }}>
+                              {opt.short}
+                            </span>
+                            <span style={{ fontSize: 10, color: palette.inkFaint }}>
+                              {dims.width}×{dims.height}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-                  <div>
-                    <label style={labelStyle}>Seed</label>
-                    <input
-                      type="number"
-                      value={seed}
-                      onChange={(e) => setSeed(parseInt(e.target.value, 10))}
-                      style={inputBase}
-                    />
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={labelStyle}>Resolución</label>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {RESOLUTION_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setResolution(opt)}
+                          style={pillButton(resolution === opt)}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div>
+
+                  <div style={{ marginBottom: 6 }}>
                     <label style={labelStyle}>Duración</label>
                     <select
                       value={duration}
                       onChange={(e) => setDuration(e.target.value)}
-                      style={{ ...inputBase, cursor: "pointer" }}
+                      style={{ ...inputBase, cursor: "pointer", maxWidth: 260 }}
                     >
                       {DURATION_OPTIONS.map((opt) => (
                         <option key={opt} value={opt} style={{ background: "#14150F" }}>
@@ -1429,77 +1825,167 @@ function App() {
                       ))}
                     </select>
                   </div>
-                </div>
 
-                <div>
-                  <label style={labelStyle}>
-                    Prompt influence · <span style={{ color: palette.ink }}>{guideScale.toFixed(1)}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={8}
-                    step={0.5}
-                    value={guideScale}
-                    onChange={(e) => setGuideScale(parseFloat(e.target.value))}
-                    style={{ width: "100%", accentColor: palette.accent }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${palette.border}` }}>
+                    <button
+                      type="button"
+                      onClick={() => setAdvancedOpen((v) => !v)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        color: palette.inkFaint,
+                        fontSize: 12.5,
+                        fontFamily: fontUI,
+                        padding: 0,
+                        textDecoration: "underline",
+                        textUnderlineOffset: 3,
+                      }}
+                    >
+                      {advancedOpen ? "Ocultar avanzado" : "Avanzado"}
+                    </button>
 
-          {/* Generation details (logs) */}
-          <div style={{ ...glass, overflow: "hidden" }}>
+                    {advancedOpen && (
+                      <div style={{ marginTop: 16 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
+                          <div>
+                            <label style={labelStyle}>Seed</label>
+                            <input
+                              type="number"
+                              value={seed}
+                              onChange={(e) => setSeed(parseInt(e.target.value, 10))}
+                              style={inputBase}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label style={labelStyle}>
+                            Prompt influence · <span style={{ color: palette.ink }}>{guideScale.toFixed(1)}</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={1}
+                            max={8}
+                            step={0.5}
+                            value={guideScale}
+                            onChange={(e) => setGuideScale(parseFloat(e.target.value))}
+                            style={{ width: "100%", accentColor: palette.accent }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Detalles de generación — enlace discreto, sin card, con diagnóstico anidado */}
+          <div style={{ marginTop: 22 }}>
             <button
               onClick={() => setLogsOpen((v) => !v)}
               style={{
-                width: "100%",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "14px 20px",
                 background: "transparent",
                 border: "none",
-                color: palette.inkMuted,
                 cursor: "pointer",
                 fontFamily: fontUI,
-                fontSize: 13,
+                fontSize: 12.5,
+                color: palette.inkFaint,
+                padding: 0,
               }}
             >
-              <span>Generation details {logs.length > 0 ? `(${logs.length})` : ""}</span>
-              <span>{logsOpen ? "Ocultar" : "Mostrar"}</span>
+              {logsOpen ? "Ocultar detalles de generación" : "Detalles de generación"}
             </button>
             {logsOpen && (
-              <div
-                className="pf-log-scroll"
-                style={{
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  padding: "0 20px 16px",
-                  fontFamily: "'JetBrains Mono', 'Courier New', monospace",
-                  fontSize: 11.5,
-                  color: palette.inkFaint,
-                }}
-              >
-                {logs.length === 0 ? (
-                  <div style={{ color: palette.inkFaint, padding: "8px 0" }}>Sin actividad todavía.</div>
-                ) : (
-                  logs.map((entry) => (
-                    <div key={entry.seq} style={{ padding: "2px 0", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                      <span style={{ color: palette.inkFaint, opacity: 0.6 }}>
-                        [{new Date(entry.ts * 1000).toLocaleTimeString()}]
-                      </span>{" "}
-                      <span style={{ color: palette.inkMuted }}>{entry.msg}</span>
-                    </div>
-                  ))
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12.5, color: palette.inkFaint, lineHeight: 1.9, marginBottom: 8 }}>
+                  <div>Estado · {statusLabel[status]}</div>
+                  <div>Resolución · {resolution} ({ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio})</div>
+                  <div>Duración objetivo · {duration}</div>
+                  {completedDurationSec !== null && <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>}
+                </div>
+
+                <button
+                  onClick={() => setDiagnosticsOpen((v) => !v)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: palette.inkFaint,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontFamily: fontUI,
+                    padding: 0,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  {diagnosticsOpen ? "Ocultar diagnóstico" : "Ver diagnóstico"}
+                  {logs.length > 0 ? ` (${logs.length})` : ""}
+                </button>
+
+                {diagnosticsOpen && (
+                  <div
+                    className="pf-log-scroll"
+                    style={{
+                      maxHeight: 220,
+                      overflowY: "auto",
+                      marginTop: 10,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      background: "rgba(0,0,0,0.25)",
+                      fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+                      fontSize: 11.5,
+                      color: palette.inkFaint,
+                    }}
+                  >
+                    {logs.length === 0 ? (
+                      <div style={{ color: palette.inkFaint, padding: "4px 0" }}>Sin actividad todavía.</div>
+                    ) : (
+                      logs.map((entry) => (
+                        <div key={entry.seq} style={{ padding: "2px 0", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          <span style={{ color: palette.inkFaint, opacity: 0.6 }}>
+                            [{new Date(entry.ts * 1000).toLocaleTimeString()}]
+                          </span>{" "}
+                          <span style={{ color: palette.inkMuted }}>{entry.msg}</span>
+                        </div>
+                      ))
+                    )}
+                    <div ref={logsEndRef} />
+                  </div>
                 )}
-                <div ref={logsEndRef} />
               </div>
             )}
           </div>
         </div>
       </main>
+
+      {/* Lightbox — ver una referencia visual completa, se cierra al hacer clic de nuevo */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(3,4,3,0.86)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+            cursor: "zoom-out",
+            padding: 32,
+          }}
+        >
+          <img
+            src={lightbox.src}
+            alt={lightbox.label}
+            style={{ maxWidth: "90vw", maxHeight: "82vh", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+          />
+          <div style={{ marginTop: 16, color: palette.inkMuted, fontSize: 13 }}>{lightbox.label} · clic para cerrar</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1593,6 +2079,21 @@ body { margin: 0; }
 @keyframes pf-pulse-anim {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+.pf-indeterminate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #8BC34A, transparent);
+  animation: pf-indeterminate-slide 1.4s ease-in-out infinite;
+}
+@keyframes pf-indeterminate-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }
 
 .pf-intro-glow {
