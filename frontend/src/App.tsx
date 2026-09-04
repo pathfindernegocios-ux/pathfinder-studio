@@ -1,9 +1,29 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { ChangeEvent } from "react";
-import { Client } from "@gradio/client";
 import { supabase } from "./lib/supabaseClient";
-
-type Status = "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
+import type { Status, AspectOption } from "./types";
+import {
+  durationSeconds,
+  durationLabel,
+  durationFrames,
+  computeDims,
+  formatHMS,
+  formatMMSS,
+} from "./lib/helpers";
+import {
+  fontDisplay,
+  fontUI,
+  palette,
+  NAV_ITEMS,
+  glass,
+  inputBase,
+  labelStyle,
+  pillButton,
+} from "./styles/tokens";
+import { globalStyleSheet } from "./styles/globalStyles";
+import { useAuth } from "./hooks/useAuth";
+import { useGeneration } from "./hooks/useGeneration";
+import { useRuntime } from "./hooks/useRuntime";
 
 const DURATION_OPTIONS = [
   "2 Seconds (49 frames)",
@@ -17,41 +37,9 @@ const DURATION_OPTIONS = [
   "30 Seconds (721 frames)",
 ];
 
-// Motor que Pathfinder utiliza. Solo etiqueta de producto: no expone hardware.
 const ENGINE_LABEL = "LTX-2.3";
 
-// Los valores de DURATION_OPTIONS son los que espera el backend (no tocar).
-// Estas funciones solo cambian cómo se muestran al usuario.
-function durationSeconds(opt: string): string {
-  return opt.split(" ")[0];
-}
-
-function durationLabel(opt: string): string {
-  const s = durationSeconds(opt);
-  return `${s} ${s === "1" ? "segundo" : "segundos"}`;
-}
-
-function durationFrames(opt: string): string | null {
-  const m = opt.match(/\((\d+)\s*frames\)/i);
-  return m ? m[1] : null;
-}
-
 const RESOLUTION_OPTIONS = ["1080p", "720p", "540p", "480p"];
-
-// Misma lógica que get_resolution() en el backend (run_ltx_audio.py):
-// base_resolutions + ratio, luego snap a múltiplos de 32.
-const BASE_RESOLUTIONS: Record<string, number> = {
-  "1080p": 1088,
-  "720p": 704,
-  "540p": 544,
-  "480p": 480,
-};
-
-interface AspectOption {
-  label: string; // valor que espera el backend (no tocar)
-  short: string; // etiqueta visual
-  ratio: number; // width / height
-}
 
 const ASPECT_RATIO_OPTIONS: AspectOption[] = [
   { label: "16:9 Landscape", short: "16:9", ratio: 16 / 9 },
@@ -61,54 +49,11 @@ const ASPECT_RATIO_OPTIONS: AspectOption[] = [
   { label: "9:16 Portrait", short: "9:16", ratio: 9 / 16 },
 ];
 
-// ---- Cadencia de polling (ver getClient(): comparten UNA sola conexión) ----
-const STATUS_POLL_MS = 5000;
-const GENERATION_POLL_MS = 2000;
-const LOGS_POLL_MS = 2500;
-
-function snap32(v: number): number {
-  return Math.floor(v / 32) * 32;
-}
-
-function computeDims(resolution: string, ratio: number): { width: number; height: number } {
-  const base = BASE_RESOLUTIONS[resolution] ?? 704;
-  let width: number;
-  let height: number;
-  if (ratio >= 1) {
-    height = base;
-    width = base * ratio;
-  } else {
-    width = base;
-    height = base / ratio;
-  }
-  return { width: snap32(width), height: snap32(height) };
-}
-
-function formatHMS(totalSeconds: number): string {
-  const s = Math.max(0, Math.round(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
-
-// mm:ss para la duración del audio (mucho más corta que una generación)
-function formatMMSS(totalSeconds: number): string {
-  if (!Number.isFinite(totalSeconds)) return "0:00";
-  const s = Math.max(0, Math.round(totalSeconds));
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${String(sec).padStart(2, "0")}`;
-}
-
-// ---- Recorte de audio en el navegador (Web Audio API) ----
-// No agrega ningún parámetro nuevo al backend: el resultado sigue siendo
-// un simple File que viaja como "audioFile", igual que antes del recorte.
 function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
   const numFrames = buffer.length;
-  const bytesPerSample = 2; // 16-bit PCM
+  const bytesPerSample = 2;
   const blockAlign = numChannels * bytesPerSample;
   const dataSize = numFrames * blockAlign;
   const bufferOut = new ArrayBuffer(44 + dataSize);
@@ -123,7 +68,7 @@ function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
   writeString(8, "WAVE");
   writeString(12, "fmt ");
   view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
+  view.setUint16(20, 1, true);
   view.setUint16(22, numChannels, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, sampleRate * blockAlign, true);
@@ -171,105 +116,6 @@ async function trimAudioFile(file: File, startSec: number, endSec: number): Prom
   }
 }
 
-interface GenerationInfo {
-  id?: string;
-  status?: string;
-  progress?: number;
-  stage?: string;
-  started_at?: number;
-  finished_at?: number;
-  output_url?: string;
-  error?: string;
-  cancellable?: boolean;
-}
-
-interface LogEntry {
-  seq: number;
-  ts: number;
-  msg: string;
-}
-
-// ============================================================
-// Identidad visual — Pathfinder Studio
-// ============================================================
-
-const fontDisplay = "'Bricolage Grotesque', 'Inter', sans-serif";
-const fontUI = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-
-const palette = {
-  void: "#07080A",
-  voidGradient:
-    "radial-gradient(circle at 15% -10%, rgba(139,195,74,0.07), transparent 40%), radial-gradient(circle at 100% 0%, rgba(139,195,74,0.04), transparent 45%), radial-gradient(circle at 50% 120%, rgba(255,255,255,0.02), transparent 50%), #07080A",
-  surface: "rgba(24,26,23,0.55)",
-  surfaceStrong: "rgba(14,15,13,0.78)",
-  surfaceSoft: "rgba(255,255,255,0.035)",
-  border: "rgba(255,255,255,0.07)",
-  borderStrong: "rgba(255,255,255,0.14)",
-  ink: "#F3F5F1",
-  inkMuted: "#9BA39A",
-  inkFaint: "#5C645C",
-  accent: "#8BC34A",
-  accentStrong: "#A6DB6B",
-  accentDim: "rgba(139,195,74,0.14)",
-  danger: "#E5484D",
-  dangerDim: "rgba(229,72,77,0.14)",
-};
-
-const NAV_ITEMS: { key: string; label: string; glyph: string; enabled: boolean }[] = [
-  { key: "studio", label: "Studio", glyph: "◆", enabled: true },
-  { key: "projects", label: "Projects", glyph: "▤", enabled: false },
-  { key: "generations", label: "Generations", glyph: "▶", enabled: false },
-  { key: "assets", label: "Assets", glyph: "◫", enabled: false },
-  { key: "academy", label: "Academy", glyph: "◐", enabled: false },
-  { key: "station", label: "Station", glyph: "●", enabled: false },
-  { key: "settings", label: "Settings", glyph: "⚙", enabled: false },
-];
-
-const glass: React.CSSProperties = {
-  background: palette.surface,
-  border: `1px solid ${palette.border}`,
-  borderRadius: 20,
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-  boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
-};
-
-const inputBase: React.CSSProperties = {
-  width: "100%",
-  background: "rgba(255,255,255,0.04)",
-  border: `1px solid ${palette.border}`,
-  borderRadius: 12,
-  padding: "11px 14px",
-  color: palette.ink,
-  fontFamily: fontUI,
-  fontSize: 14,
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: 7,
-  fontSize: 13,
-  fontWeight: 500,
-  color: palette.inkMuted,
-};
-
-const pillButton = (active: boolean): React.CSSProperties => ({
-  padding: "8px 15px",
-  borderRadius: 999,
-  fontSize: 13,
-  fontWeight: 500,
-  fontFamily: fontUI,
-  cursor: "pointer",
-  border: `1px solid ${active ? palette.accent : palette.border}`,
-  background: active ? palette.accentDim : palette.surfaceSoft,
-  color: active ? palette.accentStrong : palette.inkMuted,
-  transition: "all 0.15s ease",
-});
-
-// Chip de imagen: Start Frame (protagonista) / End Frame (secundario, opcional).
-// Solo presentación: el File sigue viajando exactamente igual al backend.
 function FrameChip({
   inputId,
   inputRef,
@@ -378,11 +224,6 @@ function FrameChip({
   );
 }
 
-// ============================================================
-// Chip de audio — reproducción propia (sin <audio controls> nativo)
-// + recorte opcional. El File final sigue viajando como "audioFile",
-// no se agrega ningún parámetro nuevo al backend.
-// ============================================================
 function AudioChip({
   audioName,
   audioPreview,
@@ -408,7 +249,6 @@ function AudioChip({
   const [isTrimming, setIsTrimming] = useState(false);
   const [trimError, setTrimError] = useState<string | null>(null);
 
-  // Nueva fuente de audio -> reiniciar estado de reproducción/recorte
   useEffect(() => {
     setPlaying(false);
     setCurrent(0);
@@ -693,15 +533,25 @@ function AudioChip({
 }
 
 function App() {
-  const [session, setSession] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [authError, setAuthError] = useState<string | null>(null);
+  const {
+    session,
+    profile,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    authMode,
+    setAuthMode,
+    authError,
+    handleAuth,
+    handleLogout,
+    hasEnteredStudio,
+    setHasEnteredStudio,
+  } = useAuth();
 
-  const [gradioUrl, setGradioUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState<Status>("UNKNOWN");
+  const { gradioUrl, status, sessionUptime, getClient } = useRuntime({
+    stationId: profile?.station_id ?? null,
+  });
 
   const [imageStartFile, setImageStartFile] = useState<File | null>(null);
   const [imageStartPreview, setImageStartPreview] = useState<string | null>(null);
@@ -719,254 +569,53 @@ function App() {
   const [guideScale, setGuideScale] = useState<number>(4.0);
   const [matchAudioDur, setMatchAudioDur] = useState<boolean>(false);
 
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  // Solo presentación: relación de aspecto real del video (metadata) para
-  // dimensionar el espacio de "Tu creación". No afecta payload ni pipeline.
-  const [videoRatio, setVideoRatio] = useState<number | null>(null);
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
-
-  // Panel de parámetros (colapsable, en vez de todo apilado)
   const [paramsOpen, setParamsOpen] = useState<boolean>(false);
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
   const [logsOpen, setLogsOpen] = useState<boolean>(false);
   const [stationDetailsOpen, setStationDetailsOpen] = useState<boolean>(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState<boolean>(false);
   const [lightbox, setLightbox] = useState<{ src: string; label: string } | null>(null);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [isCancelling, setIsCancelling] = useState<boolean>(false);
-
-  const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(false);
-
-  const [nowTick, setNowTick] = useState<number>(Date.now());
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const endFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
-  const lastLogSeqRef = useRef<number>(0);
   const logsEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Marca de tiempo local del click en "Crear video". Se usa para descartar
-  // snapshots de /generation_status que pertenezcan a una generación anterior
-  // (ver pollGeneration más abajo).
-  const generationStartRef = useRef<number>(0);
-
-  const clientPromiseRef = useRef<{ url: string; promise: Promise<Client> } | null>(null);
-
-  const closeClientRef = (entry: { url: string; promise: Promise<Client> } | null) => {
-    if (!entry) return;
-    entry.promise
-      .then((c) => {
-        (c as any).close?.();
-      })
-      .catch(() => {
-        /* si nunca llegó a conectar, no hay nada que cerrar */
-      });
-  };
-
-  const getClient = useCallback(async (): Promise<Client | null> => {
-    if (!gradioUrl) return null;
-
-    if (clientPromiseRef.current?.url === gradioUrl) {
-      try {
-        return await clientPromiseRef.current.promise;
-      } catch {
-        if (clientPromiseRef.current?.url === gradioUrl) clientPromiseRef.current = null;
-      }
-    }
-
-    if (clientPromiseRef.current && clientPromiseRef.current.url !== gradioUrl) {
-      closeClientRef(clientPromiseRef.current);
-    }
-
-    const promise = Client.connect(gradioUrl).catch((err) => {
-      if (clientPromiseRef.current?.url === gradioUrl) clientPromiseRef.current = null;
-      throw err;
-    });
-    clientPromiseRef.current = { url: gradioUrl, promise };
-    return promise;
-  }, [gradioUrl]);
-
-  useEffect(() => {
-    return () => {
-      const entry = clientPromiseRef.current;
-      clientPromiseRef.current = null;
-      closeClientRef(entry);
-    };
-  }, [gradioUrl]);
-
-  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
-  const [sessionUptime, setSessionUptime] = useState<string>("00:00:00");
-
-  useEffect(() => {
-    if (gradioUrl && status === "READY") {
-      setSessionStartTime(Date.now());
-    }
-  }, [gradioUrl, status]);
-
-  useEffect(() => {
-    if (!sessionStartTime) return;
-    const update = () => {
-      const elapsed = Date.now() - sessionStartTime;
-      const h = String(Math.floor(elapsed / 3600000)).padStart(2, "0");
-      const m = String(Math.floor((elapsed % 3600000) / 60000)).padStart(2, "0");
-      const s = String(Math.floor((elapsed % 60000) / 1000)).padStart(2, "0");
-      setSessionUptime(`${h}:${m}:${s}`);
-    };
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [sessionStartTime]);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  async function fetchProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    if (!error) setProfile(data);
-  }
-
-  useEffect(() => {
-    if (!profile?.station_id) return;
-
-    const fetchRuntime = async () => {
-      const { data, error } = await supabase
-        .from("runtimes")
-        .select("gradio_url")
-        .eq("station_id", profile.station_id)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (!error && data && data.length > 0) {
-        setGradioUrl(data[0].gradio_url);
-      }
-    };
-
-    fetchRuntime();
-    const interval = setInterval(fetchRuntime, 5000);
-    return () => clearInterval(interval);
-  }, [profile?.station_id]);
-
-  useEffect(() => {
-    if (!gradioUrl) return;
-
-    let cancelled = false;
-    const pollStatus = async () => {
-      try {
-        const client = await getClient();
-        if (!client || cancelled) return;
-        const result = await client.predict("/status", []);
-        if (!cancelled) {
-          const value = Array.isArray(result.data) ? result.data[0] : result.data;
-          setStatus((value as Status) ?? "UNKNOWN");
-        }
-      } catch {
-        // mantener último estado conocido
-      }
-    };
-
-    pollStatus();
-    const intervalId = setInterval(pollStatus, STATUS_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [gradioUrl, getClient]);
-
-  // Polling de progreso de generación.
-  // IMPORTANTE: justo después de pulsar "Crear video", el backend puede
-  // tardar en reiniciar su estado global (la llamada a /generate puede
-  // quedar encolada detrás de otras peticiones). Si en ese instante llega
-  // una respuesta de /generation_status, puede traer todavía el snapshot de
-  // la generación ANTERIOR (p.ej. "complete" con un tiempo transcurrido que
-  // no corresponde a esta corrida). Para evitar ese salto falso a
-  // "completado", se descarta cualquier snapshot cuyo started_at sea
-  // anterior al momento en que se pulsó el botón.
-  useEffect(() => {
-    if (!isLoading || !gradioUrl) return;
-
-    let cancelled = false;
-    const pollGeneration = async () => {
-      try {
-        const client = await getClient();
-        if (!client || cancelled) return;
-        const result = await client.predict("/generation_status", []);
-        if (!cancelled) {
-          const data = Array.isArray(result.data) ? result.data[0] : result.data;
-          const info = data as GenerationInfo;
-          if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) {
-            return; // snapshot de una generación anterior: se ignora
-          }
-          setGenerationInfo(info);
-        }
-      } catch {
-        // silencioso
-      }
-    };
-
-    pollGeneration();
-    const interval = setInterval(pollGeneration, GENERATION_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isLoading, gradioUrl, getClient]);
-
-  useEffect(() => {
-    if (!isLoading || !gradioUrl) return;
-
-    let cancelled = false;
-    const pollLogs = async () => {
-      try {
-        const client = await getClient();
-        if (!client || cancelled) return;
-        const result = await client.predict("/logs", [lastLogSeqRef.current]);
-        if (!cancelled) {
-          const entries = (Array.isArray(result.data) ? result.data[0] : result.data) as
-            | LogEntry[]
-            | undefined;
-          if (entries && entries.length > 0) {
-            lastLogSeqRef.current = entries[entries.length - 1].seq;
-            setLogs((prev) => [...prev, ...entries].slice(-400));
-          }
-        }
-      } catch {
-        // silencioso
-      }
-    };
-
-    pollLogs();
-    const interval = setInterval(pollLogs, LOGS_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [isLoading, gradioUrl, getClient]);
-
-  useEffect(() => {
-    if (!isLoading) return;
-    const id = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [isLoading]);
+  const {
+    videoSrc,
+    setVideoSrc,
+    videoRatio,
+    setVideoRatio,
+    statusMsg,
+    errorMsg,
+    setErrorMsg,
+    isLoading,
+    generationInfo,
+    logs,
+    isCancelling,
+    handleGenerate,
+    handleCancel,
+    progressFrac,
+    liveElapsedSec,
+    remainingSec,
+    completedDurationSec,
+    backendError,
+    canCancel,
+  } = useGeneration({
+    getClient,
+    gradioUrl,
+    status,
+    imageStartFile,
+    imageEndFile,
+    audioFile,
+    prompt,
+    seed,
+    duration,
+    resolution,
+    aspectRatio,
+    guideScale,
+    matchAudioDur,
+  });
 
   useEffect(() => {
     if (logsOpen && diagnosticsOpen) {
@@ -977,29 +626,6 @@ function App() {
   useEffect(() => {
     if (isLoading) setParamsOpen(false);
   }, [isLoading]);
-
-  async function handleAuth() {
-    setAuthError(null);
-    if (authMode === "signup") {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) setAuthError(error.message);
-      else setAuthError("Revisa tu correo para confirmar la cuenta (si está activado).");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setAuthError(error.message);
-    }
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setSession(null);
-    setProfile(null);
-    setGradioUrl(null);
-    setStatus("UNKNOWN");
-    setSessionStartTime(null);
-    setSessionUptime("00:00:00");
-    setHasEnteredStudio(false);
-  }
 
   const handleDownloadNotebook = async () => {
     setErrorMsg(null);
@@ -1092,91 +718,6 @@ function App() {
     setAudioPreview(URL.createObjectURL(file));
   };
 
-  const handleGenerate = async () => {
-    if (!imageStartFile || !prompt || status !== "READY" || !gradioUrl) return;
-
-    const localStart = Date.now() / 1000;
-    generationStartRef.current = localStart;
-
-    setIsLoading(true);
-    setErrorMsg(null);
-    setVideoSrc(null);
-    setVideoRatio(null);
-    setStatusMsg(null);
-    setLogs([]);
-    lastLogSeqRef.current = 0;
-    setGenerationInfo({ status: "preparing", progress: 0, stage: "preparing", started_at: localStart });
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        setErrorMsg("No hay sesión activa. Inicia sesión.");
-        return;
-      }
-
-      const client = await getClient();
-      if (!client) {
-        setErrorMsg("No se pudo conectar con el runtime.");
-        return;
-      }
-
-      const result = await client.predict("/generate", [
-        prompt,
-        imageStartFile,
-        imageEndFile || undefined,
-        audioFile || undefined,
-        seed,
-        duration,
-        resolution,
-        aspectRatio,
-        guideScale,
-        matchAudioDur,
-        token,
-      ]);
-
-      const data = result.data as unknown[];
-      const videoData = data[0];
-      const statusText = data[1] as string;
-
-      let url: string | null = null;
-      if (typeof videoData === "string") {
-        url = videoData;
-      } else if (videoData && typeof videoData === "object") {
-        const maybe = videoData as { url?: string; video?: { url?: string } };
-        url = maybe.url ?? maybe.video?.url ?? null;
-      }
-
-      if (url) setVideoSrc(url);
-      else setErrorMsg("No se devolvió un video válido.");
-      if (statusText) setStatusMsg(statusText);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Error al generar video.");
-    } finally {
-      setIsLoading(false);
-      setGenerationInfo((prev) => (prev ? { ...prev } : prev));
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!gradioUrl || isCancelling) return;
-    setIsCancelling(true);
-    try {
-      const client = await getClient();
-      if (!client) {
-        setErrorMsg("No se pudo conectar con el runtime.");
-        return;
-      }
-      const result = await client.predict("/cancel", []);
-      const msg = Array.isArray(result.data) ? result.data[0] : result.data;
-      if (typeof msg === "string") setStatusMsg(msg);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "No se pudo enviar la cancelación.");
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
   const statusColor: Record<Status, string> = {
     STARTING: "#E0B84B",
     READY: palette.accent,
@@ -1196,34 +737,6 @@ function App() {
   const isButtonDisabled =
     status !== "READY" || isLoading || !imageStartFile || !prompt.trim() || !gradioUrl;
 
-  const nowSec = nowTick / 1000;
-  const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
-
-  const liveElapsedSec =
-    isLoading && generationInfo?.started_at ? Math.max(0, nowSec - generationInfo.started_at) : null;
-
-  const remainingSec =
-    isLoading && generationInfo?.started_at && progressFrac > 0.03 && progressFrac < 1
-      ? Math.max(0, liveElapsedSec! / progressFrac - liveElapsedSec!)
-      : null;
-
-  const completedDurationSec =
-    generationInfo?.status === "complete" && generationInfo.started_at && generationInfo.finished_at
-      ? generationInfo.finished_at - generationInfo.started_at
-      : null;
-
-  const backendError =
-    generationInfo?.status === "error" && generationInfo.error ? generationInfo.error : null;
-
-  const canCancel =
-    isLoading &&
-    (generationInfo?.cancellable ?? true) &&
-    generationInfo?.status !== "cancelled" &&
-    generationInfo?.status !== "complete";
-
-  // ============================================================
-  // Pantalla de autenticación
-  // ============================================================
   if (!session) {
     return (
       <div
@@ -1298,9 +811,6 @@ function App() {
     );
   }
 
-  // ============================================================
-  // Pantalla de bienvenida — puerta visual antes del Studio
-  // ============================================================
   if (!hasEnteredStudio) {
     return (
       <div
@@ -1370,9 +880,6 @@ function App() {
     );
   }
 
-  // ============================================================
-  // Studio
-  // ============================================================
   return (
     <div
       style={{
@@ -1385,7 +892,6 @@ function App() {
     >
       <style>{globalStyleSheet}</style>
 
-      {/* Sidebar */}
       <aside
         style={{
           width: 224,
@@ -1476,7 +982,6 @@ function App() {
         </div>
       </aside>
 
-      {/* Contenido principal — workspace de creación, no un formulario apilado */}
       <main style={{ flex: 1, minWidth: 0, padding: "40px 48px 60px", display: "flex", flexDirection: "column" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
           {!gradioUrl && (
@@ -1492,9 +997,6 @@ function App() {
             <p style={{ color: palette.inkMuted, fontSize: 13, marginBottom: 14 }}>{statusMsg}</p>
           )}
 
-          {/* ============================================================
-              MODO GENERANDO — reemplaza todo el workspace mientras trabaja
-             ============================================================ */}
           {isLoading ? (
             <div
               style={{
@@ -1570,17 +1072,10 @@ function App() {
               )}
             </div>
           ) : videoSrc ? (
-            /* ============================================================
-                MODO RESULTADO — el video domina la pantalla, acotado a la
-                ventana sin importar el aspect ratio (9:16 incluido)
-               ============================================================ */
             (() => {
               const selectedAspect = ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio);
-              // Ratio real del video si ya cargó metadata; si no, el formato elegido.
               const ratio = videoRatio ?? selectedAspect?.ratio ?? 16 / 9;
               const aspectShort = selectedAspect?.short ?? aspectRatio;
-              // El contenedor adopta exactamente el aspect ratio del video y se
-              // acota a la ventana: el video se ve completo sin dejar zona negra vacía.
               const maxH = "min(66vh, 720px)";
               return (
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -1668,11 +1163,6 @@ function App() {
               );
             })()
           ) : (
-            /* ============================================================
-                MODO CREACIÓN — un solo lienzo: prompt + imágenes + audio +
-                configuración + Generate, sin cards separadas.
-                Superficie apenas insinuada: se lee como canvas, no como card.
-               ============================================================ */
             <div
               style={{
                 flex: 1,
@@ -1707,7 +1197,6 @@ function App() {
                 Guía opcional · [VISUAL] [SPEECH] [SOUND]
               </div>
 
-              {/* Imágenes — Start Frame protagonista, End Frame secundario; chips compactos */}
               <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", marginBottom: 22 }}>
                 <FrameChip
                   inputId="start-frame-input"
@@ -1771,7 +1260,6 @@ function App() {
                 />
               </div>
 
-              {/* Barra inferior: resumen de configuración + Generate */}
               <div
                 style={{
                   display: "flex",
@@ -1815,7 +1303,6 @@ function App() {
                 </button>
               </div>
 
-              {/* Configuración — básica primero, avanzada plegada aparte */}
               {paramsOpen && (
                 <div style={{ paddingTop: 22, marginTop: 4 }}>
                   <div style={{ marginBottom: 18 }}>
@@ -1955,7 +1442,6 @@ function App() {
             </div>
           )}
 
-          {/* Detalles de generación — enlace discreto, sin card, con diagnóstico anidado */}
           <div style={{ marginTop: 22 }}>
             <button
               onClick={() => setLogsOpen((v) => !v)}
@@ -2053,7 +1539,6 @@ function App() {
         </div>
       </main>
 
-      {/* Lightbox — ver una referencia visual completa, se cierra al hacer clic de nuevo */}
       {lightbox && (
         <div
           onClick={() => setLightbox(null)}
@@ -2082,160 +1567,5 @@ function App() {
     </div>
   );
 }
-
-const globalStyleSheet = `
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600;700&display=swap');
-
-* { box-sizing: border-box; }
-body { margin: 0; }
-
-.pf-btn-primary {
-  background: linear-gradient(180deg, #A6DB6B, #8BC34A);
-  color: #0A0B08;
-  font-weight: 600;
-  font-size: 14px;
-  border: none;
-  border-radius: 14px;
-  padding: 12px 20px;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  transition: filter 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
-}
-.pf-btn-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
-.pf-btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
-
-.pf-btn-ghost {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: #D7DBD5;
-  font-size: 13px;
-  font-weight: 500;
-  border-radius: 10px;
-  padding: 9px 14px;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  transition: background 0.15s ease;
-}
-.pf-btn-ghost:hover { background: rgba(255,255,255,0.08); }
-
-.pf-btn-danger {
-  background: rgba(229,72,77,0.12);
-  border: 1px solid rgba(229,72,77,0.4);
-  color: #E5484D;
-  font-weight: 600;
-  border-radius: 14px;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  transition: background 0.15s ease;
-}
-.pf-btn-danger:hover:not(:disabled) { background: rgba(229,72,77,0.2); }
-.pf-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Cancelación discreta: acción secundaria con danger sutil, no alerta */
-.pf-btn-cancel {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.08);
-  color: #9BA39A;
-  font-size: 12.5px;
-  font-weight: 500;
-  border-radius: 999px;
-  padding: 7px 14px;
-  cursor: pointer;
-  font-family: 'Inter', sans-serif;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-.pf-btn-cancel:hover:not(:disabled) {
-  color: #E5484D;
-  border-color: rgba(229,72,77,0.35);
-  background: rgba(229,72,77,0.06);
-}
-.pf-btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.pf-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 9px 10px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #6B726A;
-  font-family: 'Inter', sans-serif;
-  font-size: 13.5px;
-  font-weight: 500;
-  cursor: not-allowed;
-  opacity: 0.55;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.pf-nav-item-active {
-  color: #F3F5F1;
-  cursor: pointer;
-  opacity: 1;
-  background: rgba(139,195,74,0.1);
-}
-.pf-nav-item-active:hover { background: rgba(139,195,74,0.16); }
-
-.pf-spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(10,11,8,0.25);
-  border-top-color: #0A0B08;
-  animation: pf-spin 0.7s linear infinite;
-  display: inline-block;
-}
-@keyframes pf-spin { to { transform: rotate(360deg); } }
-
-.pf-pulse { animation: pf-pulse-anim 1.4s ease-in-out infinite; }
-@keyframes pf-pulse-anim {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.pf-indeterminate {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 40%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, #8BC34A, transparent);
-  animation: pf-indeterminate-slide 1.4s ease-in-out infinite;
-}
-@keyframes pf-indeterminate-slide {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
-}
-
-.pf-intro-glow {
-  position: absolute;
-  top: -20%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 900px;
-  height: 900px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(139,195,74,0.10) 0%, rgba(139,195,74,0) 65%);
-  pointer-events: none;
-  animation: pf-glow-breathe 8s ease-in-out infinite;
-}
-@keyframes pf-glow-breathe {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
-}
-
-.pf-log-scroll::-webkit-scrollbar { width: 6px; }
-.pf-log-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-
-input[type="range"] { height: 4px; }
-input::placeholder, textarea::placeholder { color: #5C645C; }
-input:focus, textarea:focus, select:focus { border-color: #8BC34A !important; }
-
-@media (max-width: 860px) {
-  .pf-sidebar { display: none; }
-}
-`;
 
 export default App;
