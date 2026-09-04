@@ -20,6 +20,7 @@ import { globalStyleSheet } from "./styles/globalStyles";
 import { useAuth } from "./hooks/useAuth";
 import { useGeneration } from "./hooks/useGeneration";
 import { useRuntime } from "./hooks/useRuntime";
+import { useCreations } from "./hooks/useCreations";
 import { FrameChip } from "./components/FrameChip";
 import { AudioChip } from "./components/AudioChip";
 import { Sidebar } from "./components/Sidebar";
@@ -137,6 +138,12 @@ function App() {
     matchAudioDur,
   });
 
+  const {
+    isSaving,
+    saveError,
+    saveCreation,
+  } = useCreations();
+
   useEffect(() => {
     if (logsOpen && diagnosticsOpen) {
       logsEndRef.current?.scrollIntoView({ block: "end" });
@@ -238,6 +245,21 @@ function App() {
     setAudioPreview(URL.createObjectURL(file));
   };
 
+  const handleSaveCreation = async () => {
+    if (!videoSrc) return;
+
+    await saveCreation({
+      tempUrl: videoSrc,
+      prompt,
+      seed,
+      duration,
+      resolution,
+      aspectRatio,
+      guideScale,
+      matchAudioDur,
+    });
+  };
+
   const statusColor: Record<Status, string> = {
     STARTING: "#E0B84B",
     READY: palette.accent,
@@ -336,6 +358,10 @@ function App() {
               completedDurationSec={completedDurationSec}
               onCreateAnother={() => setVideoSrc(null)}
               engineLabel={ENGINE_LABEL}
+              onSave={handleSaveCreation}
+              isSaving={isSaving}
+              saveError={saveError}
+              onDiscard={() => setVideoSrc(null)}
             />
           ) : (
             <div

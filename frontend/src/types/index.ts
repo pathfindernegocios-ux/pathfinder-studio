@@ -23,3 +23,24 @@ export interface LogEntry {
   ts: number;
   msg: string;
 }
+export interface Creation {
+  id: string;
+  user_id: string;
+  prompt: string;
+  seed: number | null;
+  duration: string | null;
+  resolution: string | null;
+  aspect_ratio: string | null;
+  guide_scale: number | null;
+  match_audio_dur: boolean | null;
+  model: string | null;
+  engine: string | null;
+  input_start_image: string | null;
+  input_end_image: string | null;
+  input_audio: string | null;
+  storage_key: string;
+  status: "processing" | "ready" | "failed" | "expired" | "deleted";
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  expires_at: string;
+}

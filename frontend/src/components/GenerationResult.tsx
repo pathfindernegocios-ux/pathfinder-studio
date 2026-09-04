@@ -10,6 +10,10 @@ interface GenerationResultProps {
   completedDurationSec: number | null;
   onCreateAnother: () => void;
   engineLabel: string;
+  onSave: () => void;
+  isSaving: boolean;
+  saveError: string | null;
+  onDiscard: () => void;
 }
 
 export function GenerationResult({
@@ -19,8 +23,11 @@ export function GenerationResult({
   selectedAspect,
   duration,
   completedDurationSec,
-  onCreateAnother,
   engineLabel,
+  onSave,
+  isSaving,
+  saveError,
+  onDiscard,
 }: GenerationResultProps) {
   const ratio = videoRatio ?? selectedAspect?.ratio ?? 16 / 9;
   const aspectShort = selectedAspect?.short ?? "";
@@ -91,9 +98,6 @@ export function GenerationResult({
           flexWrap: "wrap",
         }}
       >
-        <button onClick={onCreateAnother} className="pf-btn-primary" style={{ padding: "12px 22px", fontSize: 14 }}>
-          Crear otra versión
-        </button>
         <a
           href={videoSrc}
           download
@@ -104,10 +108,36 @@ export function GenerationResult({
         >
           Descargar
         </a>
+
+        <button
+          onClick={onSave}
+          disabled={isSaving}
+          className="pf-btn-primary"
+          style={{ padding: "12px 22px", fontSize: 14 }}
+        >
+          {isSaving ? "Guardando..." : "Guardar"}
+        </button>
+
+        <button
+          onClick={onDiscard}
+          className="pf-btn-ghost"
+          style={{ padding: "12px 22px", fontSize: 14 }}
+        >
+          Descartar
+        </button>
       </div>
-      <span style={{ fontSize: 12.5, color: palette.inkFaint, marginTop: 14, textAlign: "center" }}>
-        Tu prompt, imágenes, audio y configuración siguen listos para crear otra versión.
-      </span>
+
+      {saveError && (
+        <p style={{ color: palette.danger, fontSize: 13, marginTop: 10 }}>
+          {saveError}
+        </p>
+      )}
+
+      {isSaving && (
+        <p style={{ color: palette.inkFaint, fontSize: 13, marginTop: 10 }}>
+          Guardando en Mis creaciones...
+        </p>
+      )}
     </div>
   );
 }
