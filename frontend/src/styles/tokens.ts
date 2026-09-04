@@ -23,7 +23,7 @@ export const palette = {
 export const NAV_ITEMS: { key: string; label: string; glyph: string; enabled: boolean }[] = [
   { key: "studio", label: "Studio", glyph: "◆", enabled: true },
   { key: "projects", label: "Projects", glyph: "▤", enabled: false },
-  { key: "generations", label: "Generations", glyph: "▶", enabled: false },
+  { key: "creations", label: "Mis creaciones", glyph: "▶", enabled: true },
   { key: "assets", label: "Assets", glyph: "◫", enabled: false },
   { key: "academy", label: "Academy", glyph: "◐", enabled: false },
   { key: "station", label: "Station", glyph: "●", enabled: false },

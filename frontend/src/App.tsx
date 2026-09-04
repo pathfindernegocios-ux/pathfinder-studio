@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { supabase } from "./lib/supabaseClient";
 import type { Status } from "./types";
 import { palette, fontUI } from "./styles/tokens";
@@ -124,6 +124,7 @@ function App() {
 
         {/* Layout protegido con Sidebar */}
         <Route
+          path="/"
           element={
             !session ? (
               <Navigate to="/auth" replace />
@@ -158,26 +159,27 @@ function App() {
                     flexDirection: "column",
                   }}
                 >
-                  <Routes>
-                    <Route
-                      path="/studio"
-                      element={
-                        <StudioPage
-                          profile={profile}
-                          gradioUrl={gradioUrl}
-                          status={status}
-                          getClient={getClient}
-                        />
-                      }
-                    />
-                    <Route path="/creations" element={<CreationsPage />} />
-                    <Route path="/" element={<Navigate to="/studio" replace />} />
-                  </Routes>
+                  <Outlet />
                 </main>
               </div>
             )
           }
-        />
+        >
+          {/* Rutas hijas del layout */}
+          <Route index element={<Navigate to="/studio" replace />} />
+          <Route
+            path="studio"
+            element={
+              <StudioPage
+                profile={profile}
+                gradioUrl={gradioUrl}
+                status={status}
+                getClient={getClient}
+              />
+            }
+          />
+          <Route path="creations" element={<CreationsPage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
