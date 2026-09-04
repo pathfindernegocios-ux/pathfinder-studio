@@ -10,7 +10,6 @@ import {
   formatHMS,
 } from "./lib/helpers";
 import {
-  fontDisplay,
   fontUI,
   palette,
   inputBase,
@@ -26,6 +25,8 @@ import { AudioChip } from "./components/AudioChip";
 import { Sidebar } from "./components/Sidebar";
 import { AuthScreen } from "./components/AuthScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { GenerationProgress } from "./components/GenerationProgress";
+import { GenerationResult } from "./components/GenerationResult";
 
 const DURATION_OPTIONS = [
   "2 Seconds (49 frames)",
@@ -314,170 +315,28 @@ function App() {
           )}
 
           {isLoading ? (
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                minHeight: 360,
-              }}
-            >
-              <span style={{ fontSize: 13, color: palette.accentStrong, letterSpacing: 0.3, marginBottom: 10 }}>
-                <span className="pf-pulse">●</span> Pathfinder está creando
-                <span style={{ color: palette.inkFaint, fontWeight: 400 }}> · {ENGINE_LABEL}</span>
-              </span>
-              <div style={{ fontFamily: fontDisplay, fontSize: 26, fontWeight: 600, color: palette.ink, marginBottom: 22 }}>
-                {generationInfo?.stage || "Dando forma a tu video"}
-              </div>
-
-              <div style={{ width: "100%", maxWidth: 360, marginBottom: 16 }}>
-                {generationInfo?.progress != null ? (
-                  <>
-                    <div
-                      style={{
-                        width: "100%",
-                        height: 6,
-                        borderRadius: 999,
-                        background: "rgba(255,255,255,0.06)",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${Math.round(progressFrac * 100)}%`,
-                          height: "100%",
-                          background: `linear-gradient(90deg, ${palette.accent}, ${palette.accentStrong})`,
-                          borderRadius: 999,
-                          transition: "width 0.4s ease",
-                          boxShadow: `0 0 10px ${palette.accentDim}`,
-                        }}
-                      />
-                    </div>
-                    <div style={{ marginTop: 8, fontSize: 13, color: palette.accentStrong, fontWeight: 600 }}>
-                      {Math.round(progressFrac * 100)}%
-                    </div>
-                  </>
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: 6,
-                      borderRadius: 999,
-                      background: "rgba(255,255,255,0.06)",
-                      overflow: "hidden",
-                      position: "relative",
-                    }}
-                  >
-                    <div className="pf-indeterminate" />
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: 22, fontSize: 12, color: palette.inkFaint, marginBottom: 26 }}>
-                <span>Tiempo transcurrido · {liveElapsedSec !== null ? formatHMS(liveElapsedSec) : "--:--:--"}</span>
-                {remainingSec !== null && <span>Tiempo estimado · {formatHMS(remainingSec)}</span>}
-              </div>
-
-              {canCancel && (
-                <button onClick={handleCancel} disabled={isCancelling} className="pf-btn-cancel">
-                  {isCancelling ? "Cancelando..." : "Cancelar generación"}
-                </button>
-              )}
-            </div>
+            <GenerationProgress
+              stage={generationInfo?.stage}
+              progress={generationInfo?.progress ?? null}
+              progressFrac={progressFrac}
+              liveElapsedSec={liveElapsedSec}
+              remainingSec={remainingSec}
+              canCancel={canCancel}
+              isCancelling={isCancelling}
+              onCancel={handleCancel}
+              engineLabel={ENGINE_LABEL}
+            />
           ) : videoSrc ? (
-            (() => {
-              const selectedAspect = ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio);
-              const ratio = videoRatio ?? selectedAspect?.ratio ?? 16 / 9;
-              const aspectShort = selectedAspect?.short ?? aspectRatio;
-              const maxH = "min(66vh, 720px)";
-              return (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ width: "100%", maxWidth: 720, marginBottom: 22 }}>
-                    <div
-                      style={{
-                        fontFamily: fontDisplay,
-                        fontSize: 22,
-                        fontWeight: 600,
-                        color: palette.ink,
-                        letterSpacing: -0.3,
-                      }}
-                    >
-                      Tu creación
-                    </div>
-                    <div style={{ marginTop: 4, fontSize: 12.5, color: palette.inkFaint, letterSpacing: 0.2 }}>
-                      {ENGINE_LABEL} · {aspectShort} · {durationSeconds(duration)} s
-                      {completedDurationSec !== null && (
-                        <span style={{ opacity: 0.8 }}> · Completado en {formatHMS(completedDurationSec)}</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      aspectRatio: String(ratio),
-                      width: `min(100%, calc(${maxH} * ${ratio}))`,
-                      maxHeight: maxH,
-                      borderRadius: 18,
-                      overflow: "hidden",
-                      background: "#000",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                      boxShadow:
-                        "0 30px 90px rgba(0,0,0,0.6), 0 0 120px rgba(139,195,74,0.05), 0 0 0 1px rgba(255,255,255,0.02) inset",
-                    }}
-                  >
-                    <video
-                      src={videoSrc}
-                      controls
-                      playsInline
-                      onLoadedMetadata={(e) => {
-                        const { videoWidth, videoHeight } = e.currentTarget;
-                        if (videoWidth > 0 && videoHeight > 0) setVideoRatio(videoWidth / videoHeight);
-                      }}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        background: "#000",
-                      }}
-                    />
-                  </div>
-
-                  <div
-                    style={{
-                      width: "100%",
-                      maxWidth: 720,
-                      display: "flex",
-                      gap: 14,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginTop: 26,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button onClick={() => setVideoSrc(null)} className="pf-btn-primary" style={{ padding: "12px 22px", fontSize: 14 }}>
-                      Crear otra versión
-                    </button>
-                    <a
-                      href={videoSrc}
-                      download
-                      target="_blank"
-                      rel="noreferrer"
-                      className="pf-btn-ghost"
-                      style={{ padding: "12px 22px", fontSize: 14, textDecoration: "none", display: "inline-block" }}
-                    >
-                      Descargar
-                    </a>
-                  </div>
-                  <span style={{ fontSize: 12.5, color: palette.inkFaint, marginTop: 14, textAlign: "center" }}>
-                    Tu prompt, imágenes, audio y configuración siguen listos para crear otra versión.
-                  </span>
-                </div>
-              );
-            })()
+            <GenerationResult
+              videoSrc={videoSrc}
+              videoRatio={videoRatio}
+              onVideoRatioChange={setVideoRatio}
+              selectedAspect={ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)}
+              duration={duration}
+              completedDurationSec={completedDurationSec}
+              onCreateAnother={() => setVideoSrc(null)}
+              engineLabel={ENGINE_LABEL}
+            />
           ) : (
             <div
               style={{
