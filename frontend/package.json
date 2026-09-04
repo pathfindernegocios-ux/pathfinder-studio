@@ -13,7 +13,8 @@
     "@gradio/client": "^2.5.1",
     "@supabase/supabase-js": "^2.112.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
