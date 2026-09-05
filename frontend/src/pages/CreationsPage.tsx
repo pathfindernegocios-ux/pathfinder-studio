@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useCreations } from "../hooks/useCreations";
 import type { Creation } from "../types";
 import { palette, fontUI, fontDisplay } from "../styles/tokens";
@@ -12,6 +12,14 @@ function getMediaType(creation: Creation): "video" | "image" | "audio" {
   return "video";
 }
 
+/** Convierte el aspect_ratio guardado en Studio (ej. "16:9 Landscape") a un valor CSS "16 / 9". */
+function aspectRatioCss(creation: Creation): string {
+  const raw = creation.aspect_ratio || "";
+  const match = raw.match(/(\d+)\s*:\s*(\d+)/);
+  if (match) return `${match[1]} / ${match[2]}`;
+  return getMediaType(creation) === "image" ? "1 / 1" : "16 / 9";
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-MX", {
     day: "numeric",
@@ -20,26 +28,56 @@ function formatDate(iso: string) {
   });
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("es-MX", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+function formatShortDateTime(iso: string) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+  return `${date} · ${time}`;
 }
 
 function groupByDate(creations: Creation[]) {
-  const groups: { date: string; items: Creation[] }[] = [];
+  const sorted = [...creations].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
   const map = new Map<string, Creation[]>();
-  for (const c of creations) {
+  for (const c of sorted) {
     const d = c.created_at.slice(0, 10);
     if (!map.has(d)) map.set(d, []);
     map.get(d)!.push(c);
   }
-  for (const [date, items] of map.entries()) {
-    groups.push({ date, items });
-  }
-  return groups;
+  return [...map.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([date, items]) => ({ date, items }));
 }
+
+const galleryStyles = `
+.pf-creations-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1080px) {
+  .pf-creations-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 680px) {
+  .pf-creations-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.pf-creation-card { outline: none; }
+.pf-card-overlay { opacity: 0; transition: opacity 0.2s ease; }
+.pf-creation-card:hover .pf-card-overlay,
+.pf-creation-card:focus-visible .pf-card-overlay {
+  opacity: 1;
+}
+.pf-creation-card:focus-visible {
+  box-shadow: 0 0 0 2px ${palette.accent};
+  border-radius: 14px;
+}
+.pf-card-delete { opacity: 0; transition: opacity 0.2s ease; }
+.pf-creation-card:hover .pf-card-delete,
+.pf-creation-card:focus-visible .pf-card-delete {
+  opacity: 1;
+}
+`;
 
 export function CreationsPage() {
   const { creations, getCreations, deleteCreation, getDownloadUrl } = useCreations();
@@ -101,6 +139,8 @@ export function CreationsPage() {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px", width: "100%" }}>
+      <style>{galleryStyles}</style>
+
       <div style={{ marginBottom: 32 }}>
         <h1
           style={{
@@ -159,13 +199,7 @@ export function CreationsPage() {
           >
             {formatDate(group.date)}
           </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-              gap: 12,
-            }}
-          >
+          <div className="pf-creations-grid">
             {group.items.map((creation) => (
               <CreationCard
                 key={creation.id}
@@ -271,121 +305,155 @@ function CreationCard({
   onDelete: () => void;
   getDownloadUrl: (id: string) => Promise<string | null>;
 }) {
+  const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const mediaType = getMediaType(creation);
+  const playLabel = mediaType === "image" ? "Ver" : "Reproducir";
+
+  const openDetail = (autoplay: boolean) => {
+    navigate(autoplay ? `/creations/${creation.id}?autoplay=1` : `/creations/${creation.id}`);
+  };
 
   return (
-    <Link
-      to={`/creations/${creation.id}`}
-      style={{ textDecoration: "none", color: "inherit" }}
+    <div
+      className="pf-creation-card"
+      role="button"
+      tabIndex={0}
+      onClick={() => openDetail(false)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openDetail(false);
+        }
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      style={{
+        position: "relative",
+        borderRadius: 14,
+        overflow: "hidden",
+        background: palette.surfaceSoft,
+        border: `1px solid ${palette.border}`,
+        cursor: "pointer",
+        aspectRatio: aspectRatioCss(creation),
+        boxShadow: isHovered ? "0 12px 40px rgba(0,0,0,0.5)" : "none",
+        transition: "box-shadow 0.25s ease, border-color 0.25s ease",
+      }}
     >
-      <div
+      <CreationThumbnail creation={creation} getDownloadUrl={getDownloadUrl} isHovered={isHovered} />
+
+      <button
+        className="pf-card-delete"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        aria-label="Eliminar creación"
         style={{
-          position: "relative",
-          borderRadius: 14,
-          overflow: "hidden",
-          background: palette.surfaceSoft,
-          border: `1px solid ${palette.border}`,
+          position: "absolute",
+          top: 8,
+          right: 8,
+          width: 26,
+          height: 26,
+          borderRadius: "50%",
+          border: "none",
+          background: "rgba(10,12,10,0.6)",
+          color: palette.danger,
+          fontSize: 13,
           cursor: "pointer",
-          aspectRatio: mediaType === "video" ? "16 / 9" : mediaType === "image" ? "1 / 1" : "4 / 3",
-          boxShadow: isHovered ? "0 12px 40px rgba(0,0,0,0.5)" : "none",
-          transition: "box-shadow 0.25s ease, border-color 0.25s ease",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 2,
         }}
       >
-        <CreationThumbnail creation={creation} getDownloadUrl={getDownloadUrl} />
+        ✕
+      </button>
 
+      <div
+        className="pf-card-overlay"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(10,12,10,0.55)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          padding: 12,
+          pointerEvents: isHovered ? "auto" : "none",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openDetail(true);
+            }}
+            style={actionButtonStyle(palette.ink)}
+          >
+            {playLabel}
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openDetail(false);
+            }}
+            style={actionButtonStyle(palette.ink)}
+          >
+            Abrir
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onReuse();
+            }}
+            style={actionButtonStyle(palette.ink)}
+          >
+            Reutilizar
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDownload();
+            }}
+            style={actionButtonStyle(palette.ink)}
+          >
+            Descargar
+          </button>
+        </div>
         <div
           style={{
             position: "absolute",
-            inset: 0,
-            background: "rgba(10,12,10,0.55)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "flex-end",
-            padding: 12,
-            opacity: isHovered ? 1 : 0,
-            transition: "opacity 0.25s ease",
-            pointerEvents: isHovered ? "auto" : "none",
+            bottom: 8,
+            right: 10,
+            fontSize: 11,
+            color: palette.inkFaint,
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onReuse();
-              }}
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                border: "none",
-                color: palette.ink,
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: fontUI,
-                textAlign: "left",
-              }}
-            >
-              Reutilizar
-            </button>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onDownload();
-              }}
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                border: "none",
-                color: palette.ink,
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: fontUI,
-                textAlign: "left",
-              }}
-            >
-              Descargar
-            </button>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onDelete();
-              }}
-              style={{
-                background: "rgba(255,255,255,0.1)",
-                border: "none",
-                color: palette.danger,
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: fontUI,
-                textAlign: "left",
-              }}
-            >
-              Eliminar
-            </button>
-          </div>
-          <div
-            style={{
-              position: "absolute",
-              bottom: 8,
-              right: 10,
-              fontSize: 11,
-              color: palette.inkFaint,
-            }}
-          >
-            {creation.model || creation.engine} · {formatTime(creation.created_at)}
-          </div>
+          {creation.model || creation.engine} · {formatShortDateTime(creation.created_at)}
         </div>
       </div>
-    </Link>
+    </div>
   );
+}
+
+function actionButtonStyle(color: string): React.CSSProperties {
+  return {
+    background: "rgba(255,255,255,0.1)",
+    border: "none",
+    color,
+    borderRadius: 6,
+    padding: "6px 10px",
+    fontSize: 12,
+    cursor: "pointer",
+    fontFamily: fontUI,
+    textAlign: "left",
+  };
 }

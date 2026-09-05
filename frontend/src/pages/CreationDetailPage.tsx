@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useCreations } from "../hooks/useCreations";
 import type { Creation } from "../types";
 import { palette, fontUI, fontDisplay } from "../styles/tokens";
@@ -13,6 +13,8 @@ function getMediaType(creation: Creation) {
 
 export function CreationDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const autoplay = searchParams.get("autoplay") === "1";
   const { getCreations, deleteCreation, getDownloadUrl } = useCreations();
   const [creation, setCreation] = useState<Creation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,14 +27,14 @@ export function CreationDetailPage() {
   useEffect(() => {
     const load = async () => {
       const list = await getCreations();
-      const found = list.find(c => c.id === id) || null;
+      const found = list.find((c) => c.id === id) || null;
       setCreation(found);
       setIsLoading(false);
     };
     load();
   }, [id]);
 
-  // Función para cargar la URL firmada (se llama al hacer clic en Reproducir o al montar si es imagen)
+  // Función para cargar la URL firmada (se llama al hacer clic en Reproducir o al montar si aplica)
   const loadMediaUrl = async () => {
     if (!creation) return;
     setMediaError(false);
@@ -48,11 +50,15 @@ export function CreationDetailPage() {
     }
   };
 
-  // Cargar automáticamente solo si es imagen (para que se muestre de inmediato)
+  // Cargar automáticamente si es imagen (se muestra de inmediato) o si se llegó
+  // desde el botón "Reproducir" de la galería (?autoplay=1), para video o audio.
   useEffect(() => {
-    if (creation && getMediaType(creation) === "image") {
+    if (!creation) return;
+    const type = getMediaType(creation);
+    if (type === "image" || autoplay) {
       loadMediaUrl();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [creation]);
 
   if (isLoading) return <div style={{ padding: 40, color: palette.inkFaint }}>Cargando...</div>;
@@ -130,7 +136,7 @@ export function CreationDetailPage() {
           {mediaType === "audio" && (
             <div style={{ padding: 20, textAlign: "center", width: "100%" }}>
               {mediaUrl ? (
-                <audio src={mediaUrl} controls style={{ width: "100%" }} />
+                <audio src={mediaUrl} controls autoPlay={autoplay} style={{ width: "100%" }} />
               ) : (
                 <button
                   onClick={loadMediaUrl}
@@ -176,44 +182,106 @@ export function CreationDetailPage() {
             Configuración
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div><span style={{ color: palette.inkFaint }}>Prompt</span><br /><span style={{ color: palette.ink }}>{creation.prompt || "-"}</span></div>
-            <div><span style={{ color: palette.inkFaint }}>Resolución</span><br /><span style={{ color: palette.ink }}>{creation.resolution || "-"}</span></div>
-            <div><span style={{ color: palette.inkFaint }}>Duración</span><br /><span style={{ color: palette.ink }}>{creation.duration || "-"}</span></div>
-            <div><span style={{ color: palette.inkFaint }}>Seed</span><br /><span style={{ color: palette.ink }}>{creation.seed ?? "-"}</span></div>
-            <div><span style={{ color: palette.inkFaint }}>Aspect ratio</span><br /><span style={{ color: palette.ink }}>{creation.aspect_ratio || "-"}</span></div>
-            <div><span style={{ color: palette.inkFaint }}>Guide scale</span><br /><span style={{ color: palette.ink }}>{creation.guide_scale ?? "-"}</span></div>
-            <div><span style={{ color: palette.inkFaint }}>Match audio duration</span><br /><span style={{ color: palette.ink }}>{creation.match_audio_dur ? "Sí" : "No"}</span></div>
-            <div><span style={{ color: palette.inkFaint }}>Modelo</span><br /><span style={{ color: palette.ink }}>{creation.model || creation.engine || "-"}</span></div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Prompt</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.prompt || "-"}</span>
+            </div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Resolución</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.resolution || "-"}</span>
+            </div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Duración</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.duration || "-"}</span>
+            </div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Seed</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.seed ?? "-"}</span>
+            </div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Aspect ratio</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.aspect_ratio || "-"}</span>
+            </div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Guide scale</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.guide_scale ?? "-"}</span>
+            </div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Match audio duration</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.match_audio_dur ? "Sí" : "No"}</span>
+            </div>
+            <div>
+              <span style={{ color: palette.inkFaint }}>Modelo</span>
+              <br />
+              <span style={{ color: palette.ink }}>{creation.model || creation.engine || "-"}</span>
+            </div>
           </div>
         </div>
 
         <div style={{ marginTop: 32, display: "flex", gap: 12 }}>
           <button
-            onClick={() => getDownloadUrl(creation.id).then(url => url && window.open(url, "_blank"))}
-            style={{ padding: "12px 24px", borderRadius: 12, background: palette.accentDim, color: palette.accentStrong, border: "none", fontFamily: fontUI, fontSize: 14, cursor: "pointer" }}
+            onClick={() => getDownloadUrl(creation.id).then((url) => url && window.open(url, "_blank"))}
+            style={{
+              padding: "12px 24px",
+              borderRadius: 12,
+              background: palette.accentDim,
+              color: palette.accentStrong,
+              border: "none",
+              fontFamily: fontUI,
+              fontSize: 14,
+              cursor: "pointer",
+            }}
           >
             Descargar
           </button>
           <button
             onClick={() => {
-              sessionStorage.setItem("pf_reuse_data", JSON.stringify({
-                prompt: creation.prompt || "",
-                resolution: creation.resolution || "720p",
-                aspect_ratio: creation.aspect_ratio || "16:9 Landscape",
-                duration: creation.duration || "5 Seconds (121 frames)",
-                seed: creation.seed ?? -1,
-                guide_scale: creation.guide_scale ?? 4.0,
-                match_audio_dur: creation.match_audio_dur ?? false,
-              }));
+              sessionStorage.setItem(
+                "pf_reuse_data",
+                JSON.stringify({
+                  prompt: creation.prompt || "",
+                  resolution: creation.resolution || "720p",
+                  aspect_ratio: creation.aspect_ratio || "16:9 Landscape",
+                  duration: creation.duration || "5 Seconds (121 frames)",
+                  seed: creation.seed ?? -1,
+                  guide_scale: creation.guide_scale ?? 4.0,
+                  match_audio_dur: creation.match_audio_dur ?? false,
+                })
+              );
               window.location.href = "/studio";
             }}
-            style={{ padding: "12px 24px", borderRadius: 12, background: palette.accent, color: "#0A0B0A", border: "none", fontFamily: fontUI, fontSize: 14, cursor: "pointer" }}
+            style={{
+              padding: "12px 24px",
+              borderRadius: 12,
+              background: palette.accent,
+              color: "#0A0B0A",
+              border: "none",
+              fontFamily: fontUI,
+              fontSize: 14,
+              cursor: "pointer",
+            }}
           >
             Reutilizar
           </button>
           <button
             onClick={() => setShowDeleteModal(true)}
-            style={{ padding: "12px 24px", borderRadius: 12, background: "transparent", color: palette.danger, border: `1px solid ${palette.dangerDim}`, fontFamily: fontUI, fontSize: 14, cursor: "pointer" }}
+            style={{
+              padding: "12px 24px",
+              borderRadius: 12,
+              background: "transparent",
+              color: palette.danger,
+              border: `1px solid ${palette.dangerDim}`,
+              fontFamily: fontUI,
+              fontSize: 14,
+              cursor: "pointer",
+            }}
           >
             Eliminar
           </button>
@@ -255,14 +323,32 @@ export function CreationDetailPage() {
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
               <button
                 onClick={() => setShowDeleteModal(false)}
-                style={{ padding: "10px 18px", borderRadius: 10, fontSize: 14, fontFamily: fontUI, border: `1px solid ${palette.border}`, background: "transparent", color: palette.inkMuted, cursor: "pointer" }}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontFamily: fontUI,
+                  border: `1px solid ${palette.border}`,
+                  background: "transparent",
+                  color: palette.inkMuted,
+                  cursor: "pointer",
+                }}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                style={{ padding: "10px 18px", borderRadius: 10, fontSize: 14, fontFamily: fontUI, border: "none", background: palette.dangerDim, color: palette.danger, cursor: "pointer" }}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontFamily: fontUI,
+                  border: "none",
+                  background: palette.dangerDim,
+                  color: palette.danger,
+                  cursor: "pointer",
+                }}
               >
                 {isDeleting ? "Eliminando..." : "Eliminar"}
               </button>
