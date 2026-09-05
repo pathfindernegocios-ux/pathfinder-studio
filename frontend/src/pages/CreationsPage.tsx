@@ -311,7 +311,8 @@ function CreationCard({
   const playLabel = mediaType === "image" ? "Ver" : "Reproducir";
 
   const openDetail = (autoplay: boolean) => {
-    navigate(autoplay ? `/creations/${creation.id}?autoplay=1` : `/creations/${creation.id}`);
+    const shouldAutoplay = autoplay || mediaType === "video";
+    navigate(shouldAutoplay ? `/creations/${creation.id}?autoplay=1` : `/creations/${creation.id}`);
   };
 
   return (
@@ -319,11 +320,11 @@ function CreationCard({
       className="pf-creation-card"
       role="button"
       tabIndex={0}
-      onClick={() => openDetail(false)}
+      onClick={() => openDetail(mediaType === "video")}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          openDetail(false);
+          openDetail(mediaType === "video");
         }
       }}
       onMouseEnter={() => setIsHovered(true)}
