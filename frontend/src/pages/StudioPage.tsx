@@ -117,6 +117,24 @@ export function StudioPage({ profile, status }: StudioPageProps) {
 
   const { isSaving, saveError, saveCreation } = useCreations();
 
+  // ============ REUTILIZAR: precargar datos desde sesión ============
+  useEffect(() => {
+    const reuseRaw = sessionStorage.getItem("pf_reuse_data");
+    if (reuseRaw) {
+      try {
+        const reuse = JSON.parse(reuseRaw);
+        if (reuse.prompt !== undefined) setPrompt(reuse.prompt);
+        if (reuse.resolution !== undefined) setResolution(reuse.resolution);
+        if (reuse.aspect_ratio !== undefined) setAspectRatio(reuse.aspect_ratio);
+        if (reuse.duration !== undefined) setDuration(reuse.duration);
+        if (reuse.seed !== undefined && reuse.seed !== null) setSeed(reuse.seed);
+        if (reuse.guide_scale !== undefined) setGuideScale(reuse.guide_scale);
+        if (reuse.match_audio_dur !== undefined) setMatchAudioDur(reuse.match_audio_dur);
+      } catch {}
+      sessionStorage.removeItem("pf_reuse_data");
+    }
+  }, []);
+
   useEffect(() => {
     if (logsOpen && diagnosticsOpen) {
       logsEndRef.current?.scrollIntoView({ block: "end" });
