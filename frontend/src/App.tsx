@@ -11,6 +11,7 @@ import { AuthScreen } from "./components/AuthScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StudioPage } from "./pages/StudioPage";
 import { CreationsPage } from "./pages/CreationsPage";
+import { CreationDetailPage } from "./pages/CreationDetailPage";
 import { GenerationProvider } from "./context/GenerationContext";
 
 function App() {
@@ -179,6 +180,7 @@ function App() {
               }
             />
             <Route path="creations" element={<CreationsPage />} />
+            <Route path="creations/:id" element={<CreationDetailPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
