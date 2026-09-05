@@ -1,5 +1,24 @@
 import { NavLink } from "react-router-dom";
 import { palette, fontDisplay, fontUI, NAV_ITEMS } from "../styles/tokens";
+import {
+  StudioIcon,
+  ProjectsIcon,
+  CreationsIcon,
+  AssetsIcon,
+  AcademyIcon,
+  StationIcon,
+  SettingsIcon,
+} from "./NavIcons";
+
+const ICONS: Record<string, React.ReactNode> = {
+  studio: <StudioIcon />,
+  projects: <ProjectsIcon />,
+  creations: <CreationsIcon />,
+  assets: <AssetsIcon />,
+  academy: <AcademyIcon />,
+  station: <StationIcon />,
+  settings: <SettingsIcon />,
+};
 
 interface SidebarProps {
   statusColor: string;
@@ -55,8 +74,10 @@ export function Sidebar({
 
       <nav style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
         {NAV_ITEMS.map((item) => {
+          const icon = ICONS[item.key] ?? null;
+          const path = item.key === "studio" ? "/studio" : `/${item.key}`;
+
           if (item.enabled) {
-            const path = item.key === "studio" ? "/studio" : `/${item.key}`;
             return (
               <NavLink
                 key={item.key}
@@ -66,11 +87,16 @@ export function Sidebar({
                 }
                 style={{ textDecoration: "none" }}
               >
-                <span style={{ fontSize: 13, opacity: 0.8 }}>{item.glyph}</span>
-                {item.label}
+                {icon && (
+                  <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>
+                    {icon}
+                  </span>
+                )}
+                <span style={{ marginLeft: 8 }}>{item.label}</span>
               </NavLink>
             );
           }
+
           return (
             <button
               key={item.key}
@@ -79,15 +105,18 @@ export function Sidebar({
               title="Próximamente"
               className="pf-nav-item"
             >
-              <span style={{ fontSize: 13, opacity: 0.8 }}>{item.glyph}</span>
-              {item.label}
+              {icon && (
+                <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>
+                  {icon}
+                </span>
+              )}
+              <span style={{ marginLeft: 8 }}>{item.label}</span>
             </button>
           );
         })}
       </nav>
 
       <div style={{ borderTop: `1px solid ${palette.border}`, paddingTop: 14, marginTop: 14 }}>
-        {/* Resto idéntico al Sidebar anterior */}
         <button
           type="button"
           onClick={onToggleStationDetails}

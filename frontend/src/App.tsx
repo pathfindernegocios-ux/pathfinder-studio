@@ -13,6 +13,11 @@ import { StudioPage } from "./pages/StudioPage";
 import { CreationsPage } from "./pages/CreationsPage";
 import { CreationDetailPage } from "./pages/CreationDetailPage";
 import { GenerationProvider } from "./context/GenerationContext";
+import { ProjectsPage } from "./pages/placeholders/ProjectsPage";
+import { AssetsPage } from "./pages/placeholders/AssetsPage";
+import { AcademyPage } from "./pages/placeholders/AcademyPage";
+import { StationPage } from "./pages/placeholders/StationPage";
+import { SettingsPage } from "./pages/placeholders/SettingsPage";
 
 function App() {
   const {
@@ -181,6 +186,11 @@ function App() {
             />
             <Route path="creations" element={<CreationsPage />} />
             <Route path="creations/:id" element={<CreationDetailPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="assets" element={<AssetsPage />} />
+            <Route path="academy" element={<AcademyPage />} />
+            <Route path="station" element={<StationPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
