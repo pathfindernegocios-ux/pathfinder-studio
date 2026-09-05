@@ -35,19 +35,55 @@ export function useCreations() {
         engine: "LTX-2.3",
       };
 
-      const { data, error } = await supabase.functions.invoke("save-creation", {
-        body: {
-          tempUrl: params.tempUrl,
-          metadata,
-        },
-      });
+      // 1. Obtener URL de subida presignada, creationId y storage key
+      const { data: presignData, error: presignError } = await supabase.functions.invoke(
+        "save-creation",
+        { body: { metadata } }
+      );
 
-      if (error) {
-        setSaveError(error.message);
+      if (presignError) {
+        setSaveError(presignError.message);
         return null;
       }
 
-      const creation = data.creation as Creation;
+      const { creationId, uploadUrl, storageKey } = presignData;
+
+      // 2. Descargar el video temporal
+      const fileRes = await fetch(params.tempUrl);
+      if (!fileRes.ok) {
+        setSaveError("No se pudo descargar el video temporal.");
+        return null;
+      }
+      const blob = await fileRes.blob();
+
+      // 3. Subir directamente a R2
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: blob,
+        headers: {
+          "Content-Type": "video/mp4",
+        },
+      });
+
+      if (!putRes.ok) {
+        setSaveError("No se pudo subir el video a R2.");
+        return null;
+      }
+
+      // 4. Completar la creación en Supabase
+      const { data: completeData, error: completeError } = await supabase.functions.invoke(
+        "complete-creation",
+        {
+          body: { creationId, storageKey, metadata },
+        }
+      );
+
+      if (completeError) {
+        setSaveError(completeError.message);
+        return null;
+      }
+
+      const creation = completeData.creation as Creation;
       setCreations((prev) => [creation, ...prev]);
       return creation;
     } catch (err) {
