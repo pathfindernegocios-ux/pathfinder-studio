@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useCreations } from "../hooks/useCreations";
 import type { Creation } from "../types";
 import { palette, fontUI, fontDisplay } from "../styles/tokens";
+import { CreationThumbnail } from "../components/CreationThumbnail";
 
 function getMediaType(creation: Creation): "video" | "image" | "audio" {
   const model = (creation.model || creation.engine || "").toLowerCase();
@@ -100,7 +102,16 @@ export function CreationsPage() {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px", width: "100%" }}>
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontFamily: fontDisplay, fontSize: 34, fontWeight: 600, color: palette.ink, letterSpacing: -0.5, margin: 0 }}>
+        <h1
+          style={{
+            fontFamily: fontDisplay,
+            fontSize: 34,
+            fontWeight: 600,
+            color: palette.ink,
+            letterSpacing: -0.5,
+            margin: 0,
+          }}
+        >
           Mis creaciones
         </h1>
         <p style={{ fontSize: 15, color: palette.inkMuted, marginTop: 8 }}>
@@ -137,93 +148,33 @@ export function CreationsPage() {
 
       {grouped.map((group) => (
         <div key={group.date} style={{ marginBottom: 40 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: palette.inkFaint, marginBottom: 12, textTransform: "capitalize" }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: palette.inkFaint,
+              marginBottom: 12,
+              textTransform: "capitalize",
+            }}
+          >
             {formatDate(group.date)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: 12,
+            }}
+          >
             {group.items.map((creation) => (
-              <div
+              <CreationCard
                 key={creation.id}
-                style={{
-                  position: "relative",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  background: palette.surfaceSoft,
-                  border: `1px solid ${palette.border}`,
-                  cursor: "pointer",
-                  aspectRatio: getMediaType(creation) === "video" ? "16 / 9" : getMediaType(creation) === "image" ? "1 / 1" : "4 / 3",
-                }}
-                onClick={() => (window.location.href = `/creations/${creation.id}`)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = "0 12px 40px rgba(0,0,0,0.5)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background:
-                      getMediaType(creation) === "video"
-                        ? "linear-gradient(135deg, #1a1d21 0%, #111315 100%)"
-                        : getMediaType(creation) === "image"
-                        ? "linear-gradient(135deg, #20241f 0%, #141714 100%)"
-                        : "linear-gradient(135deg, #1d2126 0%, #101316 100%)",
-                    color: palette.inkFaint,
-                    fontSize: 24,
-                  }}
-                >
-                  {getMediaType(creation) === "video" ? "▶" : getMediaType(creation) === "image" ? "🖼" : "🎵"}
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(0,0,0,0.6)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "flex-end",
-                    padding: 12,
-                    opacity: 0,
-                    transition: "opacity 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "0";
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleReuse(creation); }}
-                      style={{ background: "rgba(255,255,255,0.1)", border: "none", color: palette.ink, borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer", fontFamily: fontUI, textAlign: "left" }}
-                    >
-                      Reutilizar
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDownload(creation); }}
-                      style={{ background: "rgba(255,255,255,0.1)", border: "none", color: palette.ink, borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer", fontFamily: fontUI, textAlign: "left" }}
-                    >
-                      Descargar
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setShowDeleteModal(creation); }}
-                      style={{ background: "rgba(255,255,255,0.1)", border: "none", color: palette.danger, borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer", fontFamily: fontUI, textAlign: "left" }}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                  <div style={{ position: "absolute", bottom: 8, right: 10, fontSize: 11, color: palette.inkFaint }}>
-                    {creation.model || creation.engine} · {formatTime(creation.created_at)}
-                  </div>
-                </div>
-              </div>
+                creation={creation}
+                onDownload={() => handleDownload(creation)}
+                onReuse={() => handleReuse(creation)}
+                onDelete={() => setShowDeleteModal(creation)}
+                getDownloadUrl={getDownloadUrl}
+              />
             ))}
           </div>
         </div>
@@ -270,14 +221,32 @@ export function CreationsPage() {
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
               <button
                 onClick={() => setShowDeleteModal(null)}
-                style={{ padding: "10px 18px", borderRadius: 10, fontSize: 14, fontFamily: fontUI, border: `1px solid ${palette.border}`, background: "transparent", color: palette.inkMuted, cursor: "pointer" }}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontFamily: fontUI,
+                  border: `1px solid ${palette.border}`,
+                  background: "transparent",
+                  color: palette.inkMuted,
+                  cursor: "pointer",
+                }}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                style={{ padding: "10px 18px", borderRadius: 10, fontSize: 14, fontFamily: fontUI, border: "none", background: palette.dangerDim, color: palette.danger, cursor: "pointer" }}
+                style={{
+                  padding: "10px 18px",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontFamily: fontUI,
+                  border: "none",
+                  background: palette.dangerDim,
+                  color: palette.danger,
+                  cursor: "pointer",
+                }}
               >
                 {isDeleting ? "Eliminando..." : "Eliminar"}
               </button>
@@ -286,5 +255,137 @@ export function CreationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function CreationCard({
+  creation,
+  onDownload,
+  onReuse,
+  onDelete,
+  getDownloadUrl,
+}: {
+  creation: Creation;
+  onDownload: () => void;
+  onReuse: () => void;
+  onDelete: () => void;
+  getDownloadUrl: (id: string) => Promise<string | null>;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const mediaType = getMediaType(creation);
+
+  return (
+    <Link
+      to={`/creations/${creation.id}`}
+      style={{ textDecoration: "none", color: "inherit" }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div
+        style={{
+          position: "relative",
+          borderRadius: 14,
+          overflow: "hidden",
+          background: palette.surfaceSoft,
+          border: `1px solid ${palette.border}`,
+          cursor: "pointer",
+          aspectRatio: mediaType === "video" ? "16 / 9" : mediaType === "image" ? "1 / 1" : "4 / 3",
+          boxShadow: isHovered ? "0 12px 40px rgba(0,0,0,0.5)" : "none",
+          transition: "box-shadow 0.25s ease, border-color 0.25s ease",
+        }}
+      >
+        <CreationThumbnail creation={creation} getDownloadUrl={getDownloadUrl} />
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(10,12,10,0.55)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "flex-end",
+            padding: 12,
+            opacity: isHovered ? 1 : 0,
+            transition: "opacity 0.25s ease",
+            pointerEvents: isHovered ? "auto" : "none",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onReuse();
+              }}
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                border: "none",
+                color: palette.ink,
+                borderRadius: 6,
+                padding: "6px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+                fontFamily: fontUI,
+                textAlign: "left",
+              }}
+            >
+              Reutilizar
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDownload();
+              }}
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                border: "none",
+                color: palette.ink,
+                borderRadius: 6,
+                padding: "6px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+                fontFamily: fontUI,
+                textAlign: "left",
+              }}
+            >
+              Descargar
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete();
+              }}
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                border: "none",
+                color: palette.danger,
+                borderRadius: 6,
+                padding: "6px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+                fontFamily: fontUI,
+                textAlign: "left",
+              }}
+            >
+              Eliminar
+            </button>
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              bottom: 8,
+              right: 10,
+              fontSize: 11,
+              color: palette.inkFaint,
+            }}
+          >
+            {creation.model || creation.engine} · {formatTime(creation.created_at)}
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }
