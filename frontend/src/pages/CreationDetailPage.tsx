@@ -16,6 +16,9 @@ export function CreationDetailPage() {
   const { getCreations, deleteCreation, getDownloadUrl } = useCreations();
   const [creation, setCreation] = useState<Creation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [isMediaLoading, setIsMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -29,8 +32,33 @@ export function CreationDetailPage() {
     load();
   }, [id]);
 
+  // Función para cargar la URL firmada (se llama al hacer clic en Reproducir o al montar si es imagen)
+  const loadMediaUrl = async () => {
+    if (!creation) return;
+    setMediaError(false);
+    setIsMediaLoading(true);
+    try {
+      const url = await getDownloadUrl(creation.id);
+      if (url) setMediaUrl(url);
+      else setMediaError(true);
+    } catch {
+      setMediaError(true);
+    } finally {
+      setIsMediaLoading(false);
+    }
+  };
+
+  // Cargar automáticamente solo si es imagen (para que se muestre de inmediato)
+  useEffect(() => {
+    if (creation && getMediaType(creation) === "image") {
+      loadMediaUrl();
+    }
+  }, [creation]);
+
   if (isLoading) return <div style={{ padding: 40, color: palette.inkFaint }}>Cargando...</div>;
   if (!creation) return <div style={{ padding: 40, color: palette.inkFaint }}>Creación no encontrada.</div>;
+
+  const mediaType = getMediaType(creation);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -46,6 +74,7 @@ export function CreationDetailPage() {
         ← Volver a Mis creaciones
       </Link>
       <div style={{ marginTop: 24 }}>
+        {/* Contenedor visual */}
         <div
           style={{
             width: "100%",
@@ -56,12 +85,78 @@ export function CreationDetailPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            aspectRatio: getMediaType(creation) === "video" ? "16/9" : "1/1",
-            fontSize: 40,
-            color: palette.inkFaint,
+            aspectRatio: mediaType === "video" ? "16/9" : mediaType === "image" ? "1/1" : "4/3",
+            position: "relative",
           }}
         >
-          {getMediaType(creation) === "video" ? "▶ Video" : getMediaType(creation) === "image" ? "🖼 Imagen" : "🎵 Audio"}
+          {mediaType === "video" && !mediaUrl && (
+            <button
+              onClick={loadMediaUrl}
+              disabled={isMediaLoading}
+              style={{
+                padding: "16px 32px",
+                borderRadius: 999,
+                background: palette.accent,
+                color: "#0A0B0A",
+                border: "none",
+                fontFamily: fontUI,
+                fontSize: 16,
+                cursor: "pointer",
+              }}
+            >
+              {isMediaLoading ? "Cargando..." : "▶ Reproducir"}
+            </button>
+          )}
+
+          {mediaType === "video" && mediaUrl && (
+            <video
+              src={mediaUrl}
+              controls
+              autoPlay
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              onError={() => setMediaError(true)}
+            />
+          )}
+
+          {mediaType === "image" && mediaUrl && (
+            <img
+              src={mediaUrl}
+              alt={creation.prompt || "Creación"}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              onError={() => setMediaError(true)}
+            />
+          )}
+
+          {mediaType === "audio" && (
+            <div style={{ padding: 20, textAlign: "center", width: "100%" }}>
+              {mediaUrl ? (
+                <audio src={mediaUrl} controls style={{ width: "100%" }} />
+              ) : (
+                <button
+                  onClick={loadMediaUrl}
+                  disabled={isMediaLoading}
+                  style={{
+                    padding: "12px 24px",
+                    borderRadius: 999,
+                    background: palette.accentDim,
+                    color: palette.accentStrong,
+                    border: "none",
+                    fontFamily: fontUI,
+                    fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  {isMediaLoading ? "Cargando..." : "▶ Cargar audio"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {mediaError && (
+            <div style={{ position: "absolute", bottom: 12, right: 12, fontSize: 13, color: palette.danger }}>
+              No se pudo cargar el medio. Reintenta.
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: 24 }}>
