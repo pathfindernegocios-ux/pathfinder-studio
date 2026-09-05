@@ -15,7 +15,7 @@ import {
   labelStyle,
   pillButton,
 } from "../styles/tokens";
-import { useGeneration } from "../hooks/useGeneration";
+import { useGenerationContext } from "../context/GenerationContext";
 import { useCreations } from "../hooks/useCreations";
 import { FrameChip } from "../components/FrameChip";
 import { AudioChip } from "../components/AudioChip";
@@ -45,15 +45,27 @@ const ASPECT_RATIO_OPTIONS: AspectOption[] = [
   { label: "9:16 Portrait", short: "9:16", ratio: 9 / 16 },
 ];
 
-interface StudioPageProps {
-  profile: { station_id: string | null } | null;
-  gradioUrl: string | null;
-  status: Status;
-  getClient: () => Promise<any>;
+function usePersistentState<T>(key: string, initialValue: T) {
+  const [state, setState] = useState<T>(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as T) : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(state));
+  }, [key, state]);
+
+  return [state, setState] as const;
 }
 
-export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPageProps) {
+interface StudioPageProps {
+  profile: { station_id: string | null } | null;
+  status: Status;
+}
+
+export function StudioPage({ profile, status }: StudioPageProps) {
   void profile;
+
   const [imageStartFile, setImageStartFile] = useState<File | null>(null);
   const [imageStartPreview, setImageStartPreview] = useState<string | null>(null);
   const [imageEndFile, setImageEndFile] = useState<File | null>(null);
@@ -62,13 +74,13 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
   const [audioName, setAudioName] = useState<string>("");
   const [audioPreview, setAudioPreview] = useState<string | null>(null);
 
-  const [prompt, setPrompt] = useState<string>("");
-  const [seed, setSeed] = useState<number>(-1);
-  const [duration, setDuration] = useState<string>("5 Seconds (121 frames)");
-  const [resolution, setResolution] = useState<string>("720p");
-  const [aspectRatio, setAspectRatio] = useState<string>("16:9 Landscape");
-  const [guideScale, setGuideScale] = useState<number>(4.0);
-  const [matchAudioDur, setMatchAudioDur] = useState<boolean>(false);
+  const [prompt, setPrompt] = usePersistentState<string>("pf_prompt", "");
+  const [seed, setSeed] = usePersistentState<number>("pf_seed", -1);
+  const [duration, setDuration] = usePersistentState<string>("pf_duration", "5 Seconds (121 frames)");
+  const [resolution, setResolution] = usePersistentState<string>("pf_resolution", "720p");
+  const [aspectRatio, setAspectRatio] = usePersistentState<string>("pf_aspect_ratio", "16:9 Landscape");
+  const [guideScale, setGuideScale] = usePersistentState<number>("pf_guide_scale", 4.0);
+  const [matchAudioDur, setMatchAudioDur] = usePersistentState<boolean>("pf_match_audio_dur", false);
 
   const [paramsOpen, setParamsOpen] = useState<boolean>(false);
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
@@ -81,6 +93,7 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
   const logsEndRef = useRef<HTMLDivElement | null>(null);
 
   const {
+    gradioUrl,
     videoSrc,
     setVideoSrc,
     videoRatio,
@@ -100,21 +113,7 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
     completedDurationSec,
     backendError,
     canCancel,
-  } = useGeneration({
-    getClient,
-    gradioUrl,
-    status,
-    imageStartFile,
-    imageEndFile,
-    audioFile,
-    prompt,
-    seed,
-    duration,
-    resolution,
-    aspectRatio,
-    guideScale,
-    matchAudioDur,
-  });
+  } = useGenerationContext();
 
   const { isSaving, saveError, saveCreation } = useCreations();
 
@@ -190,7 +189,11 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
   };
 
   const isButtonDisabled =
-    status !== "READY" || isLoading || !imageStartFile || !prompt.trim() || !gradioUrl;
+    status !== "READY" ||
+    isLoading ||
+    !imageStartFile ||
+    !prompt.trim() ||
+    !gradioUrl;
 
   const statusLabel: Record<Status, string> = {
     STARTING: "Preparando Pathfinder",
@@ -198,6 +201,22 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
     BUSY: "Creando",
     ERROR: "No se pudo completar la creación",
     UNKNOWN: "Conexión no disponible",
+  };
+
+  const handleGenerateClick = () => {
+    if (!imageStartFile) return;
+    handleGenerate({
+      imageStartFile,
+      imageEndFile,
+      audioFile,
+      prompt,
+      seed,
+      duration,
+      resolution,
+      aspectRatio,
+      guideScale,
+      matchAudioDur,
+    });
   };
 
   return (
@@ -374,7 +393,7 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
             </button>
 
             <button
-              onClick={handleGenerate}
+              onClick={handleGenerateClick}
               disabled={isButtonDisabled}
               className="pf-btn-primary"
               style={{ padding: "13px 26px", fontSize: 14.5, letterSpacing: 0.1 }}
