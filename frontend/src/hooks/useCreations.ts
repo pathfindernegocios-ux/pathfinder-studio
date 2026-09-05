@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import type { Creation } from "../types";
 
@@ -18,7 +18,13 @@ export function useCreations() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const saveCreation = async (params: SaveCreationParams) => {
+  // Todas las funciones de abajo se memoizan con useCallback y dependencias
+  // vacías: solo usan `supabase` (import estable a nivel de módulo) y setters
+  // de estado (siempre estables). Esto asegura que quien las reciba como prop
+  // (p. ej. CreationThumbnail) tenga la MISMA referencia entre renders, y no
+  // dispare de nuevo un efecto que dependa de ellas.
+
+  const saveCreation = useCallback(async (params: SaveCreationParams) => {
     setIsSaving(true);
     setSaveError(null);
 
@@ -92,9 +98,9 @@ export function useCreations() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, []);
 
-  const getCreations = async () => {
+  const getCreations = useCallback(async () => {
     const { data, error } = await supabase
       .from("creations")
       .select("*")
@@ -108,9 +114,9 @@ export function useCreations() {
     const list = data as Creation[];
     setCreations(list);
     return list;
-  };
+  }, []);
 
-  const deleteCreation = async (creationId: string) => {
+  const deleteCreation = useCallback(async (creationId: string) => {
     const { error } = await supabase.functions.invoke("delete-creation", {
       body: { creationId },
     });
@@ -122,9 +128,9 @@ export function useCreations() {
 
     setCreations((prev) => prev.filter((c) => c.id !== creationId));
     return true;
-  };
+  }, []);
 
-  const getDownloadUrl = async (creationId: string) => {
+  const getDownloadUrl = useCallback(async (creationId: string) => {
     const { data, error } = await supabase.functions.invoke("get-creation-download-url", {
       body: { creationId },
     });
@@ -135,7 +141,7 @@ export function useCreations() {
     }
 
     return data.url as string;
-  };
+  }, []);
 
   return {
     creations,
