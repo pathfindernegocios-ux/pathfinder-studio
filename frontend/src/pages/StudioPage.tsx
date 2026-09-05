@@ -15,7 +15,7 @@ import {
   labelStyle,
   pillButton,
 } from "../styles/tokens";
-import { useGeneration } from "../hooks/useGeneration";
+import { useGenerationContext } from "../context/GenerationContext";
 import { useCreations } from "../hooks/useCreations";
 import { FrameChip } from "../components/FrameChip";
 import { AudioChip } from "../components/AudioChip";
@@ -47,13 +47,12 @@ const ASPECT_RATIO_OPTIONS: AspectOption[] = [
 
 interface StudioPageProps {
   profile: { station_id: string | null } | null;
-  gradioUrl: string | null;
   status: Status;
-  getClient: () => Promise<any>;
 }
 
-export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPageProps) {
+export function StudioPage({ profile, status }: StudioPageProps) {
   void profile;
+
   const [imageStartFile, setImageStartFile] = useState<File | null>(null);
   const [imageStartPreview, setImageStartPreview] = useState<string | null>(null);
   const [imageEndFile, setImageEndFile] = useState<File | null>(null);
@@ -81,6 +80,7 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
   const logsEndRef = useRef<HTMLDivElement | null>(null);
 
   const {
+    gradioUrl,
     videoSrc,
     setVideoSrc,
     videoRatio,
@@ -100,21 +100,7 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
     completedDurationSec,
     backendError,
     canCancel,
-  } = useGeneration({
-    getClient,
-    gradioUrl,
-    status,
-    imageStartFile,
-    imageEndFile,
-    audioFile,
-    prompt,
-    seed,
-    duration,
-    resolution,
-    aspectRatio,
-    guideScale,
-    matchAudioDur,
-  });
+  } = useGenerationContext();
 
   const { isSaving, saveError, saveCreation } = useCreations();
 
@@ -190,7 +176,11 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
   };
 
   const isButtonDisabled =
-    status !== "READY" || isLoading || !imageStartFile || !prompt.trim() || !gradioUrl;
+    status !== "READY" ||
+    isLoading ||
+    !imageStartFile ||
+    !prompt.trim() ||
+    !gradioUrl;
 
   const statusLabel: Record<Status, string> = {
     STARTING: "Preparando Pathfinder",
@@ -198,6 +188,22 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
     BUSY: "Creando",
     ERROR: "No se pudo completar la creación",
     UNKNOWN: "Conexión no disponible",
+  };
+
+  const handleGenerateClick = () => {
+    if (!imageStartFile) return;
+    handleGenerate({
+      imageStartFile,
+      imageEndFile,
+      audioFile,
+      prompt,
+      seed,
+      duration,
+      resolution,
+      aspectRatio,
+      guideScale,
+      matchAudioDur,
+    });
   };
 
   return (
@@ -374,7 +380,7 @@ export function StudioPage({ profile, gradioUrl, status, getClient }: StudioPage
             </button>
 
             <button
-              onClick={handleGenerate}
+              onClick={handleGenerateClick}
               disabled={isButtonDisabled}
               className="pf-btn-primary"
               style={{ padding: "13px 26px", fontSize: 14.5, letterSpacing: 0.1 }}

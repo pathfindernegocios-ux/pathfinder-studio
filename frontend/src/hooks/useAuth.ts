@@ -8,7 +8,20 @@ export function useAuth() {
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authError, setAuthError] = useState<string | null>(null);
-  const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(false);
+
+  // Inicializar hasEnteredStudio desde localStorage
+  const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(
+    () => localStorage.getItem("pathfinder_has_entered_studio") === "true"
+  );
+
+  // Persistir cambios en localStorage
+  useEffect(() => {
+    if (hasEnteredStudio) {
+      localStorage.setItem("pathfinder_has_entered_studio", "true");
+    } else {
+      localStorage.removeItem("pathfinder_has_entered_studio");
+    }
+  }, [hasEnteredStudio]);
 
   async function fetchProfile(userId: string) {
     const { data, error } = await supabase
@@ -52,6 +65,7 @@ export function useAuth() {
     setSession(null);
     setProfile(null);
     setHasEnteredStudio(false);
+    localStorage.removeItem("pathfinder_has_entered_studio");
   }
 
   return {

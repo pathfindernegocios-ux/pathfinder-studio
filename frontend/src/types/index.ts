@@ -1,5 +1,15 @@
 export type Status = "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
 
+export type GenerationJobStatus =
+  | "idle"
+  | "preparing"
+  | "running"
+  | "complete"
+  | "error"
+  | "cancelled";
+
+export type RecoveryState = "checking" | "idle" | "active";
+
 export interface AspectOption {
   label: string;
   short: string;
@@ -8,7 +18,7 @@ export interface AspectOption {
 
 export interface GenerationInfo {
   id?: string;
-  status?: string;
+  status?: GenerationJobStatus;
   progress?: number;
   stage?: string;
   started_at?: number;
@@ -23,6 +33,7 @@ export interface LogEntry {
   ts: number;
   msg: string;
 }
+
 export interface Creation {
   id: string;
   user_id: string;

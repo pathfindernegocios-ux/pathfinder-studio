@@ -11,6 +11,7 @@ import { AuthScreen } from "./components/AuthScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StudioPage } from "./pages/StudioPage";
 import { CreationsPage } from "./pages/CreationsPage";
+import { GenerationProvider } from "./context/GenerationContext";
 
 function App() {
   const {
@@ -84,104 +85,104 @@ function App() {
   };
 
   return (
-    <BrowserRouter>
-      <style>{globalStyleSheet}</style>
-      <Routes>
-        {/* Ruta pública de autenticación */}
-        <Route
-          path="/auth"
-          element={
-            session ? (
-              <Navigate to={hasEnteredStudio ? "/studio" : "/welcome"} replace />
-            ) : (
-              <AuthScreen
-                authMode={authMode}
-                email={email}
-                password={password}
-                authError={authError}
-                onEmailChange={setEmail}
-                onPasswordChange={setPassword}
-                onAuth={handleAuth}
-                onToggleMode={() => setAuthMode(authMode === "login" ? "signup" : "login")}
-              />
-            )
-          }
-        />
-
-        {/* Ruta de bienvenida */}
-        <Route
-          path="/welcome"
-          element={
-            !session ? (
-              <Navigate to="/auth" replace />
-            ) : !hasEnteredStudio ? (
-              <WelcomeScreen onEnterStudio={() => setHasEnteredStudio(true)} />
-            ) : (
-              <Navigate to="/studio" replace />
-            )
-          }
-        />
-
-        {/* Layout protegido con Sidebar */}
-        <Route
-          path="/"
-          element={
-            !session ? (
-              <Navigate to="/auth" replace />
-            ) : !hasEnteredStudio ? (
-              <Navigate to="/welcome" replace />
-            ) : (
-              <div
-                style={{
-                  minHeight: "100vh",
-                  background: palette.voidGradient,
-                  fontFamily: fontUI,
-                  color: palette.ink,
-                  display: "flex",
-                }}
-              >
-                <Sidebar
-                  status={status}
-                  statusColor={statusColor[status]}
-                  statusLabel={statusLabel[status]}
-                  sessionUptime={sessionUptime}
-                  stationDetailsOpen={stationDetailsOpen}
-                  onToggleStationDetails={() => setStationDetailsOpen((v) => !v)}
-                  onDownloadNotebook={handleDownloadNotebook}
-                  onLogout={handleLogout}
-                />
-                <main
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    padding: "40px 48px 60px",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                >
-                  <Outlet />
-                </main>
-              </div>
-            )
-          }
-        >
-          {/* Rutas hijas del layout */}
-          <Route index element={<Navigate to="/studio" replace />} />
+    <GenerationProvider gradioUrl={gradioUrl} getClient={getClient}>
+      <BrowserRouter>
+        <style>{globalStyleSheet}</style>
+        <Routes>
+          {/* Ruta pública de autenticación */}
           <Route
-            path="studio"
+            path="/auth"
             element={
-              <StudioPage
-                profile={profile}
-                gradioUrl={gradioUrl}
-                status={status}
-                getClient={getClient}
-              />
+              session ? (
+                <Navigate to={hasEnteredStudio ? "/studio" : "/welcome"} replace />
+              ) : (
+                <AuthScreen
+                  authMode={authMode}
+                  email={email}
+                  password={password}
+                  authError={authError}
+                  onEmailChange={setEmail}
+                  onPasswordChange={setPassword}
+                  onAuth={handleAuth}
+                  onToggleMode={() => setAuthMode(authMode === "login" ? "signup" : "login")}
+                />
+              )
             }
           />
-          <Route path="creations" element={<CreationsPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+
+          {/* Ruta de bienvenida */}
+          <Route
+            path="/welcome"
+            element={
+              !session ? (
+                <Navigate to="/auth" replace />
+              ) : !hasEnteredStudio ? (
+                <WelcomeScreen onEnterStudio={() => setHasEnteredStudio(true)} />
+              ) : (
+                <Navigate to="/studio" replace />
+              )
+            }
+          />
+
+          {/* Layout protegido con Sidebar */}
+          <Route
+            path="/"
+            element={
+              !session ? (
+                <Navigate to="/auth" replace />
+              ) : !hasEnteredStudio ? (
+                <Navigate to="/welcome" replace />
+              ) : (
+                <div
+                  style={{
+                    minHeight: "100vh",
+                    background: palette.voidGradient,
+                    fontFamily: fontUI,
+                    color: palette.ink,
+                    display: "flex",
+                  }}
+                >
+                  <Sidebar
+                    status={status}
+                    statusColor={statusColor[status]}
+                    statusLabel={statusLabel[status]}
+                    sessionUptime={sessionUptime}
+                    stationDetailsOpen={stationDetailsOpen}
+                    onToggleStationDetails={() => setStationDetailsOpen((v) => !v)}
+                    onDownloadNotebook={handleDownloadNotebook}
+                    onLogout={handleLogout}
+                  />
+                  <main
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: "40px 48px 60px",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <Outlet />
+                  </main>
+                </div>
+              )
+            }
+          >
+            {/* Rutas hijas del layout */}
+            <Route index element={<Navigate to="/studio" replace />} />
+            <Route
+              path="studio"
+              element={
+                <StudioPage
+                  profile={profile}
+                  status={status}
+                />
+              }
+            />
+            <Route path="creations" element={<CreationsPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </GenerationProvider>
   );
 }
 
