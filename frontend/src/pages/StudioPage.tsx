@@ -45,6 +45,19 @@ const ASPECT_RATIO_OPTIONS: AspectOption[] = [
   { label: "9:16 Portrait", short: "9:16", ratio: 9 / 16 },
 ];
 
+function usePersistentState<T>(key: string, initialValue: T) {
+  const [state, setState] = useState<T>(() => {
+    const stored = localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as T) : initialValue;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(state));
+  }, [key, state]);
+
+  return [state, setState] as const;
+}
+
 interface StudioPageProps {
   profile: { station_id: string | null } | null;
   status: Status;
@@ -61,13 +74,13 @@ export function StudioPage({ profile, status }: StudioPageProps) {
   const [audioName, setAudioName] = useState<string>("");
   const [audioPreview, setAudioPreview] = useState<string | null>(null);
 
-  const [prompt, setPrompt] = useState<string>("");
-  const [seed, setSeed] = useState<number>(-1);
-  const [duration, setDuration] = useState<string>("5 Seconds (121 frames)");
-  const [resolution, setResolution] = useState<string>("720p");
-  const [aspectRatio, setAspectRatio] = useState<string>("16:9 Landscape");
-  const [guideScale, setGuideScale] = useState<number>(4.0);
-  const [matchAudioDur, setMatchAudioDur] = useState<boolean>(false);
+  const [prompt, setPrompt] = usePersistentState<string>("pf_prompt", "");
+  const [seed, setSeed] = usePersistentState<number>("pf_seed", -1);
+  const [duration, setDuration] = usePersistentState<string>("pf_duration", "5 Seconds (121 frames)");
+  const [resolution, setResolution] = usePersistentState<string>("pf_resolution", "720p");
+  const [aspectRatio, setAspectRatio] = usePersistentState<string>("pf_aspect_ratio", "16:9 Landscape");
+  const [guideScale, setGuideScale] = usePersistentState<number>("pf_guide_scale", 4.0);
+  const [matchAudioDur, setMatchAudioDur] = usePersistentState<boolean>("pf_match_audio_dur", false);
 
   const [paramsOpen, setParamsOpen] = useState<boolean>(false);
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);

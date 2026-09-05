@@ -71,14 +71,12 @@ export function GenerationProvider({
   const generationStartRef = useRef<number>(0);
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
-  // Timer para elapsed time
   useEffect(() => {
     if (!isLoading) return;
     const interval = window.setInterval(() => setNowTick(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, [isLoading]);
 
-  // Polling de generation_status
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
 
@@ -129,7 +127,6 @@ export function GenerationProvider({
     };
   }, [isLoading, gradioUrl, getClient]);
 
-  // Polling de logs
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
 
@@ -161,7 +158,6 @@ export function GenerationProvider({
     };
   }, [isLoading, gradioUrl, getClient]);
 
-  // Recovery al montar
   useEffect(() => {
     let cancelled = false;
 
@@ -289,7 +285,6 @@ export function GenerationProvider({
 
         if (url) {
           setVideoSrc(url);
-          // Guardar en sessionStorage para recuperación
           const gid = generationInfo?.id || "";
           sessionStorage.setItem(`gen_video_${gid}`, url);
         } else {
