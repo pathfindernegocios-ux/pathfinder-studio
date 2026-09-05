@@ -17,12 +17,14 @@ function getMediaType(creation: Creation): "video" | "image" | "audio" {
 export function CreationThumbnail({ creation, getDownloadUrl }: CreationThumbnailProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(false);
 
   const mediaType = getMediaType(creation);
 
+  // Lazy loading: observe visibility
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -36,16 +38,14 @@ export function CreationThumbnail({ creation, getDownloadUrl }: CreationThumbnai
           }
         });
       },
-      {
-        rootMargin: "200px",
-        threshold: 0.1,
-      }
+      { rootMargin: "200px", threshold: 0.1 }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
+  // Obtener URL firmada
   useEffect(() => {
     if (!isVisible || mediaUrl || isLoading || error) return;
 
@@ -67,26 +67,59 @@ export function CreationThumbnail({ creation, getDownloadUrl }: CreationThumbnai
     };
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isVisible, creation.id, getDownloadUrl, mediaUrl, isLoading, error]);
 
-  const renderMedia = () => {
+  // Capturar frame para video
+  useEffect(() => {
+    if (!mediaUrl || mediaType !== "video" || thumbnail) return;
+
+    let cancelled = false;
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.src = mediaUrl;
+
+    const cleanup = () => {
+      video.removeAttribute("src");
+      video.load();
+    };
+
+    video.addEventListener("loadeddata", () => {
+      if (cancelled) return;
+      // Buscar un frame ligeramente después del inicio
+      video.currentTime = 0.1;
+    });
+
+    video.addEventListener("seeked", () => {
+      if (cancelled) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        setThumbnail(canvas.toDataURL("image/jpeg", 0.7));
+      }
+      cleanup();
+    });
+
+    video.addEventListener("error", () => {
+      if (!cancelled) setError(true);
+      cleanup();
+    });
+
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, [mediaUrl, mediaType, thumbnail]);
+
+  const renderContent = () => {
     if (error) {
       return (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg, #1a1d21 0%, #111315 100%)",
-            color: palette.inkFaint,
-            fontSize: 24,
-          }}
-        >
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #1a1d21 0%, #111315 100%)", color: palette.inkFaint, fontSize: 24 }}>
           {mediaType === "video" ? "▶" : mediaType === "image" ? "🖼" : "🎵"}
         </div>
       );
@@ -94,84 +127,42 @@ export function CreationThumbnail({ creation, getDownloadUrl }: CreationThumbnai
 
     if (isLoading || !mediaUrl) {
       return (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            background: "linear-gradient(110deg, #1a1d21 0%, #2a2d31 50%, #1a1d21 100%)",
-            backgroundSize: "200% 100%",
-            animation: "pfShimmer 1.5s ease-in-out infinite",
-          }}
-        />
+        <div style={{ width: "100%", height: "100%", background: "linear-gradient(110deg, #1a1d21 0%, #2a2d31 50%, #1a1d21 100%)", backgroundSize: "200% 100%", animation: "pfShimmer 1.5s ease-in-out infinite" }} />
       );
     }
 
     switch (mediaType) {
       case "video":
+        if (thumbnail) {
+          return (
+            <img
+              src={thumbnail}
+              alt={creation.prompt || "Video"}
+              loading="lazy"
+              style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }}
+            />
+          );
+        }
+        // Mientras se captura, mostrar un video oculto pero con controles? No, solo shimmer
         return (
-          <video
-            src={mediaUrl}
-            muted
-            playsInline
-            preload="metadata"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              pointerEvents: "none",
-            }}
-            onError={() => setError(true)}
-          />
+          <div style={{ width: "100%", height: "100%", background: "linear-gradient(110deg, #1a1d21 0%, #2a2d31 50%, #1a1d21 100%)", backgroundSize: "200% 100%", animation: "pfShimmer 1.5s ease-in-out infinite" }} />
         );
       case "image":
         return (
           <img
             src={mediaUrl}
-            alt={creation.prompt || "Creación"}
+            alt={creation.prompt || "Imagen"}
             loading="lazy"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              pointerEvents: "none",
-            }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }}
             onError={() => setError(true)}
           />
         );
       case "audio":
         return (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg, #1d2126 0%, #101316 100%)",
-              position: "relative",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 4,
-                opacity: 0.5,
-              }}
-            >
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #1d2126 0%, #101316 100%)", position: "relative" }}>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 4, opacity: 0.5 }}>
               {[4, 12, 8, 16, 10, 6, 14, 8, 12, 4, 10, 6].map((h, i) => (
-                <span
-                  key={i}
-                  style={{
-                    width: 3,
-                    height: `${h * 2}px`,
-                    borderRadius: 2,
-                    background: palette.accentDim,
-                  }}
-                />
+                <span key={i} style={{ width: 3, height: `${h * 2}px`, borderRadius: 2, background: palette.accentDim }} />
               ))}
             </div>
             <span style={{ fontSize: 32, color: palette.inkFaint, zIndex: 1 }}>🎵</span>
@@ -185,14 +176,9 @@ export function CreationThumbnail({ creation, getDownloadUrl }: CreationThumbnai
   return (
     <div
       ref={containerRef}
-      style={{
-        position: "absolute",
-        inset: 0,
-        overflow: "hidden",
-        background: palette.surfaceSoft,
-      }}
+      style={{ position: "absolute", inset: 0, overflow: "hidden", background: palette.surfaceSoft }}
     >
-      {renderMedia()}
+      {renderContent()}
     </div>
   );
 }
