@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 export const fontDisplay = "'Bricolage Grotesque', 'Inter', sans-serif";
 export const fontUI = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
@@ -20,17 +22,17 @@ export const palette = {
   dangerDim: "rgba(229,72,77,0.14)",
 };
 
-export const NAV_ITEMS: { key: string; label: string; glyph: string; enabled: boolean }[] = [
-  { key: "studio", label: "Studio", glyph: "◆", enabled: true },
-  { key: "projects", label: "Projects", glyph: "▤", enabled: false },
-  { key: "creations", label: "Mis creaciones", glyph: "▶", enabled: true },
-  { key: "assets", label: "Assets", glyph: "◫", enabled: false },
-  { key: "academy", label: "Academy", glyph: "◐", enabled: false },
-  { key: "station", label: "Station", glyph: "●", enabled: false },
-  { key: "settings", label: "Settings", glyph: "⚙", enabled: false },
+export const NAV_ITEMS: { key: string; label: string; enabled: boolean }[] = [
+  { key: "studio", label: "Studio", enabled: true },
+  { key: "projects", label: "Projects", enabled: true },
+  { key: "creations", label: "Mis creaciones", enabled: true },
+  { key: "assets", label: "Assets", enabled: true },
+  { key: "academy", label: "Academy", enabled: true },
+  { key: "station", label: "Station", enabled: true },
+  { key: "settings", label: "Settings", enabled: true },
 ];
 
-export const glass: React.CSSProperties = {
+export const glass: CSSProperties = {
   background: palette.surface,
   border: `1px solid ${palette.border}`,
   borderRadius: 20,
@@ -39,7 +41,7 @@ export const glass: React.CSSProperties = {
   boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
 };
 
-export const inputBase: React.CSSProperties = {
+export const inputBase: CSSProperties = {
   width: "100%",
   background: "rgba(255,255,255,0.04)",
   border: `1px solid ${palette.border}`,
@@ -52,7 +54,7 @@ export const inputBase: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-export const labelStyle: React.CSSProperties = {
+export const labelStyle: CSSProperties = {
   display: "block",
   marginBottom: 7,
   fontSize: 13,
@@ -60,7 +62,7 @@ export const labelStyle: React.CSSProperties = {
   color: palette.inkMuted,
 };
 
-export const pillButton = (active: boolean): React.CSSProperties => ({
+export const pillButton = (active: boolean): CSSProperties => ({
   padding: "8px 15px",
   borderRadius: 999,
   fontSize: 13,
