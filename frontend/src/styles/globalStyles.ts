@@ -146,7 +146,10 @@ body { margin: 0; }
 input[type="range"] { height: 4px; }
 input::placeholder, textarea::placeholder { color: #5C645C; }
 input:focus, textarea:focus, select:focus { border-color: #8BC34A !important; }
-
+@keyframes pfShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 @media (max-width: 860px) {
   .pf-sidebar { display: none; }
 }

@@ -88,7 +88,6 @@ export function CreationsPage() {
       match_audio_dur: creation.match_audio_dur ?? false,
     };
     sessionStorage.setItem("pf_reuse_data", JSON.stringify(reuseData));
-    // Se navega a /studio; usamos window.location para simplicidad
     window.location.href = "/studio";
   };
 
@@ -102,7 +101,6 @@ export function CreationsPage() {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 24px", width: "100%" }}>
-      {/* Cabecera */}
       <div style={{ marginBottom: 32 }}>
         <h1
           style={{
@@ -121,7 +119,6 @@ export function CreationsPage() {
         </p>
       </div>
 
-      {/* Filtros */}
       <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
         {[
           { key: "all", label: "Todo" },
@@ -149,7 +146,6 @@ export function CreationsPage() {
         ))}
       </div>
 
-      {/* Grupos por fecha */}
       {grouped.map((group) => (
         <div key={group.date} style={{ marginBottom: 40 }}>
           <div
@@ -167,7 +163,7 @@ export function CreationsPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-              gap: 16,
+              gap: 12,
             }}
           >
             {group.items.map((creation) => (
@@ -190,7 +186,6 @@ export function CreationsPage() {
         </div>
       )}
 
-      {/* Modal de confirmación de eliminación */}
       {showDeleteModal && (
         <div
           style={{
@@ -263,7 +258,6 @@ export function CreationsPage() {
   );
 }
 
-// Componente de tarjeta con hover overlay
 function CreationCard({
   creation,
   onDownload,
@@ -290,31 +284,30 @@ function CreationCard({
       <div
         style={{
           position: "relative",
-          borderRadius: 12,
+          borderRadius: 14,
           overflow: "hidden",
           background: palette.surfaceSoft,
           border: `1px solid ${palette.border}`,
           cursor: "pointer",
           aspectRatio: mediaType === "video" ? "16 / 9" : mediaType === "image" ? "1 / 1" : "4 / 3",
           boxShadow: isHovered ? "0 12px 40px rgba(0,0,0,0.5)" : "none",
-          transition: "box-shadow 0.2s ease",
+          transition: "box-shadow 0.25s ease, border-color 0.25s ease",
         }}
       >
-        {/* Miniatura real con lazy loading */}
         <CreationThumbnail creation={creation} getDownloadUrl={getDownloadUrl} />
 
-        {/* Overlay de hover */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(0,0,0,0.6)",
+            background: "rgba(10,12,10,0.55)",
+            backdropFilter: "blur(4px)",
             display: "flex",
             flexDirection: "column",
             justifyContent: "flex-end",
             padding: 12,
             opacity: isHovered ? 1 : 0,
-            transition: "opacity 0.2s ease",
+            transition: "opacity 0.25s ease",
             pointerEvents: isHovered ? "auto" : "none",
           }}
         >

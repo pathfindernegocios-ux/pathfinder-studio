@@ -98,8 +98,9 @@ export function CreationThumbnail({ creation, getDownloadUrl }: CreationThumbnai
           style={{
             width: "100%",
             height: "100%",
-            background: "linear-gradient(135deg, #1a1d21 0%, #111315 100%)",
-            animation: "pulse 1.5s ease-in-out infinite",
+            background: "linear-gradient(110deg, #1a1d21 0%, #2a2d31 50%, #1a1d21 100%)",
+            backgroundSize: "200% 100%",
+            animation: "pfShimmer 1.5s ease-in-out infinite",
           }}
         />
       );
@@ -109,10 +110,10 @@ export function CreationThumbnail({ creation, getDownloadUrl }: CreationThumbnai
       case "video":
         return (
           <video
-            src={mediaUrl}
+            src={`${mediaUrl}#t=0.1`}
             muted
             playsInline
-            preload="metadata"
+            preload="auto"
             style={{
               width: "100%",
               height: "100%",
