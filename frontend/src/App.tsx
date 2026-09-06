@@ -18,6 +18,12 @@ import { AcademyPage } from "./pages/placeholders/AcademyPage";
 import { StationPage } from "./pages/placeholders/StationPage";
 import { SettingsPage } from "./pages/placeholders/SettingsPage";
 
+const modelCapabilityMap: Record<string, "video" | "image"> = {
+  "ltx-2.3": "video",
+  "krea-2-turbo": "image",
+  "flux-2-klein-4b": "image",
+};
+
 function App() {
   const {
     session,
@@ -38,7 +44,7 @@ function App() {
   const stationId = profile?.station_id ?? null;
   const [stationDetailsOpen, setStationDetailsOpen] = useState(false);
 
-  const handleDownloadNotebook = async () => {
+  const handleDownloadNotebook = async (modelId: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -47,12 +53,15 @@ function App() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) return;
 
+      const capability = modelCapabilityMap[modelId] || "image";
+
       const res = await fetch(`${supabaseUrl}/functions/v1/generate-notebook`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ capability, modelId }),
       });
 
       if (!res.ok) return;
@@ -61,7 +70,7 @@ function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `notebook_${profile?.station_id || "personal"}.ipynb`;
+      a.download = `notebook_${modelId}_${profile?.station_id?.slice(0, 8) || "personal"}.ipynb`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -174,7 +183,7 @@ function ProtectedLayout({
   statusLabel: Record<Status, string>;
   stationDetailsOpen: boolean;
   setStationDetailsOpen: (v: boolean) => void;
-  handleDownloadNotebook: () => void;
+  handleDownloadNotebook: (modelId: string) => void;
   handleLogout: () => void;
 }) {
   const { status, sessionUptime } = useGenerationContext();
