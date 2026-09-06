@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import type { Creation } from "../types";
 
@@ -11,6 +11,7 @@ interface SaveCreationParams {
   aspectRatio: string;
   guideScale: number;
   matchAudioDur: boolean;
+  mediaType: "image" | "video" | "audio";
 }
 
 export function useCreations() {
@@ -18,7 +19,7 @@ export function useCreations() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const saveCreation = async (params: SaveCreationParams) => {
+  const saveCreation = useCallback(async (params: SaveCreationParams) => {
     setIsSaving(true);
     setSaveError(null);
 
@@ -31,11 +32,12 @@ export function useCreations() {
         aspect_ratio: params.aspectRatio,
         guide_scale: params.guideScale,
         match_audio_dur: params.matchAudioDur,
-        model: "ltx-2.3",
-        engine: "LTX-2.3",
+        media_type: params.mediaType,
+        model: params.mediaType === "image" ? "krea-2-turbo" : "ltx-2.3",
+        engine: params.mediaType === "image" ? "Wan2GP" : "Wan2GP",
       };
 
-      // 1. Obtener URL de subida presignada, creationId y storage key
+      // 1. Obtener URL de subida presignada
       const { data: presignData, error: presignError } = await supabase.functions.invoke(
         "save-creation",
         { body: { metadata } }
@@ -48,25 +50,25 @@ export function useCreations() {
 
       const { creationId, uploadUrl, storageKey } = presignData;
 
-      // 2. Descargar el video temporal
+      // 2. Descargar el archivo temporal
       const fileRes = await fetch(params.tempUrl);
       if (!fileRes.ok) {
-        setSaveError("No se pudo descargar el video temporal.");
+        setSaveError("No se pudo descargar el archivo temporal.");
         return null;
       }
       const blob = await fileRes.blob();
 
-      // 3. Subir directamente a R2
+      // 3. Subir directo a R2
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
         body: blob,
         headers: {
-          "Content-Type": "video/mp4",
+          "Content-Type": params.mediaType === "image" ? "image/png" : "video/mp4",
         },
       });
 
       if (!putRes.ok) {
-        setSaveError("No se pudo subir el video a R2.");
+        setSaveError("No se pudo subir el archivo a R2.");
         return null;
       }
 
@@ -92,9 +94,9 @@ export function useCreations() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, []);
 
-  const getCreations = async () => {
+  const getCreations = useCallback(async () => {
     const { data, error } = await supabase
       .from("creations")
       .select("*")
@@ -108,9 +110,9 @@ export function useCreations() {
     const list = data as Creation[];
     setCreations(list);
     return list;
-  };
+  }, []);
 
-  const deleteCreation = async (creationId: string) => {
+  const deleteCreation = useCallback(async (creationId: string) => {
     const { error } = await supabase.functions.invoke("delete-creation", {
       body: { creationId },
     });
@@ -122,9 +124,9 @@ export function useCreations() {
 
     setCreations((prev) => prev.filter((c) => c.id !== creationId));
     return true;
-  };
+  }, []);
 
-  const getDownloadUrl = async (creationId: string) => {
+  const getDownloadUrl = useCallback(async (creationId: string) => {
     const { data, error } = await supabase.functions.invoke("get-creation-download-url", {
       body: { creationId },
     });
@@ -135,7 +137,7 @@ export function useCreations() {
     }
 
     return data.url as string;
-  };
+  }, []);
 
   return {
     creations,

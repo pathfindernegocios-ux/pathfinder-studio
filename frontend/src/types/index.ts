@@ -1,5 +1,7 @@
 export type Status = "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
 
+export type CapabilityId = "image" | "video" | "audio";
+
 export type GenerationJobStatus =
   | "idle"
   | "preparing"
@@ -10,14 +12,11 @@ export type GenerationJobStatus =
 
 export type RecoveryState = "checking" | "idle" | "active";
 
-export interface AspectOption {
-  label: string;
-  short: string;
-  ratio: number;
-}
-
 export interface GenerationInfo {
   id?: string;
+  capability?: CapabilityId;
+  model?: string;
+  runtime?: string;
   status?: GenerationJobStatus;
   progress?: number;
   stage?: string;
@@ -26,6 +25,12 @@ export interface GenerationInfo {
   output_url?: string;
   error?: string;
   cancellable?: boolean;
+}
+
+export interface AspectOption {
+  label: string;
+  short: string;
+  ratio: number;
 }
 
 export interface LogEntry {
@@ -51,6 +56,7 @@ export interface Creation {
   input_audio: string | null;
   storage_key: string;
   status: "processing" | "ready" | "failed" | "expired" | "deleted";
+  media_type?: "image" | "video" | "audio";
   metadata: Record<string, unknown> | null;
   created_at: string;
   expires_at: string;

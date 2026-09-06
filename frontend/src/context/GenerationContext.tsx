@@ -1,34 +1,45 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
-import type { Client } from "@gradio/client";
-import type { GenerationInfo, LogEntry } from "../types";
+import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
+import { useRuntime } from "../hooks/useRuntime";
 
 type RecoveryState = "checking" | "idle" | "active";
 
 interface GenerateParams {
-  imageStartFile: File;
-  imageEndFile?: File | null;
-  audioFile?: File | null;
   prompt: string;
   seed: number;
-  duration: string;
-  resolution: string;
-  aspectRatio: string;
-  guideScale: number;
-  matchAudioDur: boolean;
+  // Video params
+  imageStartFile?: File | null;
+  imageEndFile?: File | null;
+  audioFile?: File | null;
+  duration?: string;
+  resolution?: string;
+  aspectRatio?: string;
+  guideScale?: number;
+  matchAudioDur?: boolean;
+  // Image params
+  negativePrompt?: string;
+  steps?: number;
+  numImages?: number;
+  stylePreset?: string;
 }
 
 interface GenerationContextValue {
   gradioUrl: string | null;
+  capability: CapabilityId;
+  setCapability: (c: CapabilityId) => void;
   isLoading: boolean;
   generationInfo: GenerationInfo | null;
   logs: LogEntry[];
   videoSrc: string | null;
+  imageSrcs: string[] | null;
   videoRatio: number | null;
   setVideoRatio: (r: number) => void;
   setVideoSrc: (src: string | null) => void;
+  setImageSrcs: (srcs: string[] | null) => void;
   statusMsg: string | null;
+  setStatusMsg: (msg: string | null) => void;
   errorMsg: string | null;
   setErrorMsg: (msg: string | null) => void;
   isCancelling: boolean;
@@ -41,6 +52,8 @@ interface GenerationContextValue {
   backendError: string | null;
   canCancel: boolean;
   recoveryState: RecoveryState;
+  status: Status;
+  sessionUptime: string;
 }
 
 const GenerationContext = createContext<GenerationContextValue | null>(null);
@@ -49,18 +62,23 @@ const GENERATION_POLL_MS = 2000;
 const LOGS_POLL_MS = 2500;
 
 export function GenerationProvider({
-  gradioUrl,
-  getClient,
+  stationId,
   children,
 }: {
-  gradioUrl: string | null;
-  getClient: () => Promise<Client | null>;
+  stationId: string | null;
   children: ReactNode;
 }) {
+  const [capability, setCapability] = useState<CapabilityId>("video");
+  const { gradioUrl, status, sessionUptime, getClient } = useRuntime({
+    stationId,
+    capability,
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [imageSrcs, setImageSrcs] = useState<string[] | null>(null);
   const [videoRatio, setVideoRatio] = useState<number | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -79,38 +97,31 @@ export function GenerationProvider({
 
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
-
     let cancelled = false;
 
     const poll = async () => {
       try {
         const client = await getClient();
         if (!client || cancelled) return;
-
         const result = await client.predict("/generation_status", []);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
         const info = raw as GenerationInfo | undefined;
 
-        if (
-          info?.started_at != null &&
-          info.started_at + 1 < generationStartRef.current
-        ) {
-          return;
-        }
+        if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) return;
 
         if (!cancelled) {
           setGenerationInfo(info ?? null);
-
           if (
             info?.status === "complete" ||
             info?.status === "error" ||
             info?.status === "cancelled"
           ) {
             setIsLoading(false);
-
             if (info.status === "complete") {
-              const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
-              if (storedUrl) setVideoSrc(storedUrl);
+              if (capability === "video") {
+                const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
+                if (storedUrl) setVideoSrc(storedUrl);
+              }
             }
           }
         }
@@ -125,24 +136,21 @@ export function GenerationProvider({
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [isLoading, gradioUrl, getClient]);
+  }, [isLoading, gradioUrl, getClient, capability]);
 
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
-
     let cancelled = false;
 
     const poll = async () => {
       try {
         const client = await getClient();
         if (!client || cancelled) return;
-
         const result = await client.predict("/logs", [lastLogSeqRef.current]);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
         const entries = raw as LogEntry[] | undefined;
 
         if (!entries?.length || cancelled) return;
-
         lastLogSeqRef.current = entries[entries.length - 1].seq;
         setLogs((prev) => [...prev, ...entries].slice(-400));
       } catch {
@@ -160,17 +168,14 @@ export function GenerationProvider({
 
   useEffect(() => {
     let cancelled = false;
-
     const recover = async () => {
       if (!gradioUrl) {
         setRecoveryState("idle");
         return;
       }
-
       try {
         const client = await getClient();
         if (!client || cancelled) return;
-
         const result = await client.predict("/generation_status", []);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
         const info = raw as GenerationInfo | undefined;
@@ -185,7 +190,7 @@ export function GenerationProvider({
             } else {
               setRecoveryState("idle");
               setIsLoading(false);
-              if (info.status === "complete") {
+              if (info.status === "complete" && capability === "video") {
                 const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
                 if (storedUrl) setVideoSrc(storedUrl);
               }
@@ -203,22 +208,11 @@ export function GenerationProvider({
     return () => {
       cancelled = true;
     };
-  }, [gradioUrl, getClient]);
+  }, [gradioUrl, getClient, capability]);
 
   const handleGenerate = useCallback(
-    async ({
-      imageStartFile,
-      imageEndFile,
-      audioFile,
-      prompt,
-      seed,
-      duration,
-      resolution,
-      aspectRatio,
-      guideScale,
-      matchAudioDur,
-    }: GenerateParams) => {
-      if (!gradioUrl || !imageStartFile || !prompt.trim()) return;
+    async (params: GenerateParams) => {
+      if (!gradioUrl || !params.prompt.trim()) return;
 
       const localStart = Date.now() / 1000;
       generationStartRef.current = localStart;
@@ -226,6 +220,7 @@ export function GenerationProvider({
       setIsLoading(true);
       setErrorMsg(null);
       setVideoSrc(null);
+      setImageSrcs(null);
       setVideoRatio(null);
       setStatusMsg(null);
       setLogs([]);
@@ -237,6 +232,7 @@ export function GenerationProvider({
         progress: 0,
         stage: "preparing",
         started_at: localStart,
+        capability,
       });
 
       try {
@@ -244,7 +240,6 @@ export function GenerationProvider({
           data: { session },
         } = await supabase.auth.getSession();
         const token = session?.access_token;
-
         if (!token) {
           setErrorMsg("No hay sesión activa. Inicia sesión.");
           return;
@@ -256,54 +251,74 @@ export function GenerationProvider({
           return;
         }
 
-        const result = await client.predict("/generate", [
-          prompt,
-          imageStartFile,
-          imageEndFile || undefined,
-          audioFile || undefined,
-          seed,
-          duration,
-          resolution,
-          aspectRatio,
-          guideScale,
-          matchAudioDur,
-          token,
-        ]);
+        if (capability === "video") {
+          const result = await client.predict("/generate", [
+            params.prompt,
+            params.imageStartFile,
+            params.imageEndFile || undefined,
+            params.audioFile || undefined,
+            params.seed,
+            params.duration,
+            params.resolution,
+            params.aspectRatio,
+            params.guideScale,
+            params.matchAudioDur,
+            token,
+          ]);
 
-        const data = result.data as unknown[];
-        const videoData = data[0];
-        const statusText = data[1] as string;
+          const data = result.data as unknown[];
+          const videoData = data[0];
+          const statusText = data[1] as string;
 
-        let url: string | null = null;
+          let url: string | null = null;
+          if (typeof videoData === "string") url = videoData;
+          else if (videoData && typeof videoData === "object") {
+            const maybe = videoData as { url?: string; video?: { url?: string } };
+            url = maybe.url ?? maybe.video?.url ?? null;
+          }
 
-        if (typeof videoData === "string") {
-          url = videoData;
-        } else if (videoData && typeof videoData === "object") {
-          const maybe = videoData as { url?: string; video?: { url?: string } };
-          url = maybe.url ?? maybe.video?.url ?? null;
+          if (url) {
+            setVideoSrc(url);
+            const gid = generationInfo?.id || "";
+            sessionStorage.setItem(`gen_video_${gid}`, url);
+          } else {
+            setErrorMsg("No se devolvió un video válido.");
+          }
+          if (statusText) setStatusMsg(statusText);
+        } else if (capability === "image") {
+          const result = await client.predict("/generate", [
+            params.prompt,
+            params.negativePrompt || "",
+            params.steps || 8,
+            params.aspectRatio || "1:1 Square",
+            params.resolution || "1024px (Standard)",
+            params.seed,
+            params.numImages || 1,
+            token,
+          ]);
+
+          const data = result.data as unknown[];
+          const images = data[0] as string[];
+          const statusText = data[1] as string;
+
+          if (images && images.length > 0) {
+            setImageSrcs(images);
+          } else {
+            setErrorMsg("No se devolvieron imágenes.");
+          }
+          if (statusText) setStatusMsg(statusText);
         }
-
-        if (url) {
-          setVideoSrc(url);
-          const gid = generationInfo?.id || "";
-          sessionStorage.setItem(`gen_video_${gid}`, url);
-        } else {
-          setErrorMsg("No se devolvió un video válido.");
-        }
-
-        if (statusText) setStatusMsg(statusText);
       } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : "Error al generar video.");
+        setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
       } finally {
         setIsLoading(false);
       }
     },
-    [gradioUrl, getClient, generationInfo?.id]
+    [gradioUrl, getClient, capability, generationInfo?.id]
   );
 
   const handleCancel = useCallback(async () => {
     if (!gradioUrl || isCancelling) return;
-
     setIsCancelling(true);
     try {
       const client = await getClient();
@@ -311,12 +326,11 @@ export function GenerationProvider({
         setErrorMsg("No se pudo conectar con el runtime.");
         return;
       }
-
       const result = await client.predict("/cancel", []);
       const msg = Array.isArray(result.data) ? result.data[0] : result.data;
       if (typeof msg === "string") setStatusMsg(msg);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "No se pudo enviar la cancelación.");
+      setErrorMsg(err instanceof Error ? err.message : "No se pudo cancelar.");
     } finally {
       setIsCancelling(false);
     }
@@ -355,14 +369,19 @@ export function GenerationProvider({
 
   const value: GenerationContextValue = {
     gradioUrl,
+    capability,
+    setCapability,
     isLoading,
     generationInfo,
     logs,
     videoSrc,
+    imageSrcs,
     videoRatio,
     setVideoRatio,
     setVideoSrc,
+    setImageSrcs,
     statusMsg,
+    setStatusMsg,
     errorMsg,
     setErrorMsg,
     isCancelling,
@@ -375,6 +394,8 @@ export function GenerationProvider({
     backendError,
     canCancel,
     recoveryState,
+    status,
+    sessionUptime: sessionUptime,
   };
 
   return (

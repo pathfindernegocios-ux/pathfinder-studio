@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import type { Status } from "../types";
+import type { CapabilityId, Status } from "../types";
 import { useGradioClient } from "./useGradioClient";
 
 interface UseRuntimeParams {
   stationId: string | null;
+  capability?: CapabilityId;
 }
 
-export function useRuntime({ stationId }: UseRuntimeParams) {
+export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams) {
   const [gradioUrl, setGradioUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("UNKNOWN");
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
@@ -22,23 +23,31 @@ export function useRuntime({ stationId }: UseRuntimeParams) {
       return;
     }
 
+    const modelType = capability === "image" ? "image" : "video";
+
     const fetchRuntime = async () => {
       const { data, error } = await supabase
         .from("runtimes")
-        .select("gradio_url")
+        .select("gradio_url, state, model_type")
         .eq("station_id", stationId)
+        .eq("model_type", modelType)
         .order("created_at", { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
 
-      if (!error && data && data.length > 0) {
-        setGradioUrl(data[0].gradio_url);
+      if (!error && data) {
+        setGradioUrl(data.gradio_url);
+        setStatus((data.state as Status) ?? "UNKNOWN");
+      } else {
+        setGradioUrl(null);
+        setStatus("UNKNOWN");
       }
     };
 
     fetchRuntime();
     const interval = setInterval(fetchRuntime, 5000);
     return () => clearInterval(interval);
-  }, [stationId]);
+  }, [stationId, capability]);
 
   const { getClient } = useGradioClient(gradioUrl);
 

@@ -5,14 +5,13 @@ import type { Status } from "./types";
 import { palette, fontUI } from "./styles/tokens";
 import { globalStyleSheet } from "./styles/globalStyles";
 import { useAuth } from "./hooks/useAuth";
-import { useRuntime } from "./hooks/useRuntime";
 import { Sidebar } from "./components/Sidebar";
 import { AuthScreen } from "./components/AuthScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StudioPage } from "./pages/StudioPage";
 import { CreationsPage } from "./pages/CreationsPage";
 import { CreationDetailPage } from "./pages/CreationDetailPage";
-import { GenerationProvider } from "./context/GenerationContext";
+import { GenerationProvider, useGenerationContext } from "./context/GenerationContext";
 import { ProjectsPage } from "./pages/placeholders/ProjectsPage";
 import { AssetsPage } from "./pages/placeholders/AssetsPage";
 import { AcademyPage } from "./pages/placeholders/AcademyPage";
@@ -36,10 +35,7 @@ function App() {
     setHasEnteredStudio,
   } = useAuth();
 
-  const { gradioUrl, status, sessionUptime, getClient } = useRuntime({
-    stationId: profile?.station_id ?? null,
-  });
-
+  const stationId = profile?.station_id ?? null;
   const [stationDetailsOpen, setStationDetailsOpen] = useState(false);
 
   const handleDownloadNotebook = async () => {
@@ -91,7 +87,7 @@ function App() {
   };
 
   return (
-    <GenerationProvider gradioUrl={gradioUrl} getClient={getClient}>
+    <GenerationProvider stationId={stationId}>
       <BrowserRouter>
         <style>{globalStyleSheet}</style>
         <Routes>
@@ -139,51 +135,19 @@ function App() {
               ) : !hasEnteredStudio ? (
                 <Navigate to="/welcome" replace />
               ) : (
-                <div
-                  style={{
-                    minHeight: "100vh",
-                    background: palette.voidGradient,
-                    fontFamily: fontUI,
-                    color: palette.ink,
-                    display: "flex",
-                  }}
-                >
-                  <Sidebar
-                    status={status}
-                    statusColor={statusColor[status]}
-                    statusLabel={statusLabel[status]}
-                    sessionUptime={sessionUptime}
-                    stationDetailsOpen={stationDetailsOpen}
-                    onToggleStationDetails={() => setStationDetailsOpen((v) => !v)}
-                    onDownloadNotebook={handleDownloadNotebook}
-                    onLogout={handleLogout}
-                  />
-                  <main
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      padding: "40px 48px 60px",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  >
-                    <Outlet />
-                  </main>
-                </div>
+                <ProtectedLayout
+                  statusColor={statusColor}
+                  statusLabel={statusLabel}
+                  stationDetailsOpen={stationDetailsOpen}
+                  setStationDetailsOpen={setStationDetailsOpen}
+                  handleDownloadNotebook={handleDownloadNotebook}
+                  handleLogout={handleLogout}
+                />
               )
             }
           >
-            {/* Rutas hijas del layout */}
             <Route index element={<Navigate to="/studio" replace />} />
-            <Route
-              path="studio"
-              element={
-                <StudioPage
-                  profile={profile}
-                  status={status}
-                />
-              }
-            />
+            <Route path="studio" element={<StudioPage profile={profile} />} />
             <Route path="creations" element={<CreationsPage />} />
             <Route path="creations/:id" element={<CreationDetailPage />} />
             <Route path="projects" element={<ProjectsPage />} />
@@ -195,6 +159,58 @@ function App() {
         </Routes>
       </BrowserRouter>
     </GenerationProvider>
+  );
+}
+
+function ProtectedLayout({
+  statusColor,
+  statusLabel,
+  stationDetailsOpen,
+  setStationDetailsOpen,
+  handleDownloadNotebook,
+  handleLogout,
+}: {
+  statusColor: Record<Status, string>;
+  statusLabel: Record<Status, string>;
+  stationDetailsOpen: boolean;
+  setStationDetailsOpen: (v: boolean) => void;
+  handleDownloadNotebook: () => void;
+  handleLogout: () => void;
+}) {
+  const { status, sessionUptime } = useGenerationContext();
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: palette.voidGradient,
+        fontFamily: fontUI,
+        color: palette.ink,
+        display: "flex",
+      }}
+    >
+      <Sidebar
+        status={status}
+        statusColor={statusColor[status]}
+        statusLabel={statusLabel[status]}
+        sessionUptime={sessionUptime}
+        stationDetailsOpen={stationDetailsOpen}
+        onToggleStationDetails={() => setStationDetailsOpen(!stationDetailsOpen)}
+        onDownloadNotebook={handleDownloadNotebook}
+        onLogout={handleLogout}
+      />
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          padding: "40px 48px 60px",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Outlet />
+      </main>
+    </div>
   );
 }
 

@@ -1,16 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
-import type { Client } from "@gradio/client";
-import type { GenerationInfo, LogEntry, Status } from "../types";
+import type { Creation } from "../types";
 
-interface UseGenerationParams {
-  getClient: () => Promise<Client | null>;
-  gradioUrl: string | null;
-
-  imageStartFile: File | null;
-  imageEndFile: File | null;
-  audioFile: File | null;
-
+interface SaveCreationParams {
+  tempUrl: string;
   prompt: string;
   seed: number;
   duration: string;
@@ -18,324 +11,141 @@ interface UseGenerationParams {
   aspectRatio: string;
   guideScale: number;
   matchAudioDur: boolean;
-  status: Status;
+  mediaType: "image" | "video" | "audio";
 }
 
-const GENERATION_POLL_MS = 2000;
-const LOGS_POLL_MS = 2500;
+export function useCreations() {
+  const [creations, setCreations] = useState<Creation[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-export function useGeneration({
-  getClient,
-  gradioUrl,
-  imageStartFile,
-  imageEndFile,
-  audioFile,
-  prompt,
-  seed,
-  duration,
-  resolution,
-  aspectRatio,
-  guideScale,
-  matchAudioDur,
-  status,
-}: UseGenerationParams) {
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  const [videoRatio, setVideoRatio] = useState<number | null>(null);
-  const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
+  const saveCreation = useCallback(async (params: SaveCreationParams) => {
+    setIsSaving(true);
+    setSaveError(null);
 
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [isCancelling, setIsCancelling] = useState(false);
+    try {
+      const metadata = {
+        prompt: params.prompt,
+        seed: params.seed,
+        duration: params.duration,
+        resolution: params.resolution,
+        aspect_ratio: params.aspectRatio,
+        guide_scale: params.guideScale,
+        match_audio_dur: params.matchAudioDur,
+        media_type: params.mediaType,
+        model: params.mediaType === "image" ? "krea-2-turbo" : "ltx-2.3",
+        engine: params.mediaType === "image" ? "Wan2GP" : "Wan2GP",
+      };
 
-  const lastLogSeqRef = useRef<number>(0);
-  const generationStartRef = useRef<number>(0);
+      // 1. Obtener URL de subida presignada
+      const { data: presignData, error: presignError } = await supabase.functions.invoke(
+        "save-creation",
+        { body: { metadata } }
+      );
 
-  const [nowTick, setNowTick] = useState<number>(Date.now());
-
-  useEffect(() => {
-    if (!isLoading) return;
-
-    const interval = window.setInterval(() => {
-      setNowTick(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [isLoading]);
-
-  useEffect(() => {
-    if (!isLoading || !gradioUrl) return;
-
-    let cancelled = false;
-
-    const poll = async () => {
-      try {
-        const client = await getClient();
-        if (!client || cancelled) return;
-
-        const result = await client.predict("/generation_status", []);
-
-        const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-        const info = raw as GenerationInfo | undefined;
-
-        if (
-          info?.started_at != null &&
-          info.started_at + 1 < generationStartRef.current
-        ) {
-          return;
-        }
-
-        if (!cancelled) {
-          setGenerationInfo(info ?? null);
-        }
-      } catch {
-        // Mantener comportamiento actual.
+      if (presignError) {
+        setSaveError(presignError.message);
+        return null;
       }
-    };
 
-    poll();
+      const { creationId, uploadUrl, storageKey } = presignData;
 
-    const interval = window.setInterval(poll, GENERATION_POLL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [isLoading, gradioUrl, getClient]);
-
-  useEffect(() => {
-    if (!isLoading || !gradioUrl) return;
-
-    let cancelled = false;
-
-    const poll = async () => {
-      try {
-        const client = await getClient();
-        if (!client || cancelled) return;
-
-        const result = await client.predict("/logs", [lastLogSeqRef.current]);
-
-        const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-        const entries = raw as LogEntry[] | undefined;
-
-        if (!entries?.length || cancelled) return;
-
-        lastLogSeqRef.current = entries[entries.length - 1].seq;
-
-        setLogs((prev) => [...prev, ...entries].slice(-400));
-      } catch {
-        // Mantener comportamiento actual.
+      // 2. Descargar el archivo temporal
+      const fileRes = await fetch(params.tempUrl);
+      if (!fileRes.ok) {
+        setSaveError("No se pudo descargar el archivo temporal.");
+        return null;
       }
-    };
+      const blob = await fileRes.blob();
 
-    poll();
+      // 3. Subir directo a R2
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: blob,
+        headers: {
+          "Content-Type": params.mediaType === "image" ? "image/png" : "video/mp4",
+        },
+      });
 
-    const interval = window.setInterval(poll, LOGS_POLL_MS);
+      if (!putRes.ok) {
+        setSaveError("No se pudo subir el archivo a R2.");
+        return null;
+      }
 
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [isLoading, gradioUrl, getClient]);
+      // 4. Completar la creación en Supabase
+      const { data: completeData, error: completeError } = await supabase.functions.invoke(
+        "complete-creation",
+        {
+          body: { creationId, storageKey, metadata },
+        }
+      );
 
-  const handleGenerate = async () => {
-    if (
-      !imageStartFile ||
-      !prompt ||
-      !gradioUrl ||
-      status !== "READY"
-    ) {
-      return;
+      if (completeError) {
+        setSaveError(completeError.message);
+        return null;
+      }
+
+      const creation = completeData.creation as Creation;
+      setCreations((prev) => [creation, ...prev]);
+      return creation;
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Error al guardar la creación");
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
+  const getCreations = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("creations")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error al obtener creaciones:", error.message);
+      return [];
     }
 
-    const localStart = Date.now() / 1000;
-    generationStartRef.current = localStart;
+    const list = data as Creation[];
+    setCreations(list);
+    return list;
+  }, []);
 
-    setIsLoading(true);
-    setErrorMsg(null);
-    setVideoSrc(null);
-    setVideoRatio(null);
-    setStatusMsg(null);
-    setLogs([]);
-    lastLogSeqRef.current = 0;
-
-    setGenerationInfo({
-      status: "preparing",
-      progress: 0,
-      stage: "preparing",
-      started_at: localStart,
+  const deleteCreation = useCallback(async (creationId: string) => {
+    const { error } = await supabase.functions.invoke("delete-creation", {
+      body: { creationId },
     });
 
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const token = session?.access_token;
-
-      if (!token) {
-        setErrorMsg("No hay sesión activa. Inicia sesión.");
-        return;
-      }
-
-      const client = await getClient();
-
-      if (!client) {
-        setErrorMsg("No se pudo conectar con el runtime.");
-        return;
-      }
-
-      const result = await client.predict("/generate", [
-        prompt,
-        imageStartFile,
-        imageEndFile || undefined,
-        audioFile || undefined,
-        seed,
-        duration,
-        resolution,
-        aspectRatio,
-        guideScale,
-        matchAudioDur,
-        token,
-      ]);
-
-      const data = result.data as unknown[];
-
-      const videoData = data[0];
-      const statusText = data[1] as string;
-
-      let url: string | null = null;
-
-      if (typeof videoData === "string") {
-        url = videoData;
-      } else if (
-        videoData &&
-        typeof videoData === "object"
-      ) {
-        const maybe = videoData as {
-          url?: string;
-          video?: { url?: string };
-        };
-
-        url = maybe.url ?? maybe.video?.url ?? null;
-      }
-
-      if (url) {
-        setVideoSrc(url);
-      } else {
-        setErrorMsg("No se devolvió un video válido.");
-      }
-
-      if (statusText) {
-        setStatusMsg(statusText);
-      }
-    } catch (err) {
-      setErrorMsg(
-        err instanceof Error
-          ? err.message
-          : "Error al generar video."
-      );
-    } finally {
-      setIsLoading(false);
-
-      setGenerationInfo((prev) => (prev ? { ...prev } : prev));
+    if (error) {
+      console.error("Error al eliminar creación:", error.message);
+      return false;
     }
-  };
 
-  const handleCancel = async () => {
-    if (!gradioUrl || isCancelling) return;
+    setCreations((prev) => prev.filter((c) => c.id !== creationId));
+    return true;
+  }, []);
 
-    setIsCancelling(true);
+  const getDownloadUrl = useCallback(async (creationId: string) => {
+    const { data, error } = await supabase.functions.invoke("get-creation-download-url", {
+      body: { creationId },
+    });
 
-    try {
-      const client = await getClient();
-
-      if (!client) {
-        setErrorMsg("No se pudo conectar con el runtime.");
-        return;
-      }
-
-      const result = await client.predict("/cancel", []);
-
-      const msg = Array.isArray(result.data)
-        ? result.data[0]
-        : result.data;
-
-      if (typeof msg === "string") {
-        setStatusMsg(msg);
-      }
-    } catch (err) {
-      setErrorMsg(
-        err instanceof Error
-          ? err.message
-          : "No se pudo enviar la cancelación."
-      );
-    } finally {
-      setIsCancelling(false);
+    if (error) {
+      console.error("Error al obtener URL de descarga:", error.message);
+      return null;
     }
-  };
 
-  const nowSec = nowTick / 1000;
-
-  const progressFrac = Math.min(
-    1,
-    Math.max(0, generationInfo?.progress ?? 0)
-  );
-
-  const liveElapsedSec =
-    isLoading && generationInfo?.started_at
-      ? Math.max(0, nowSec - generationInfo.started_at)
-      : null;
-
-  const remainingSec =
-    isLoading &&
-    generationInfo?.started_at &&
-    progressFrac > 0.03 &&
-    progressFrac < 1
-      ? Math.max(
-          0,
-          liveElapsedSec! / progressFrac - liveElapsedSec!
-        )
-      : null;
-
-  const completedDurationSec =
-    generationInfo?.status === "complete" &&
-    generationInfo.started_at &&
-    generationInfo.finished_at
-      ? generationInfo.finished_at - generationInfo.started_at
-      : null;
-
-  const backendError =
-    generationInfo?.status === "error" && generationInfo.error
-      ? generationInfo.error
-      : null;
-
-  const canCancel =
-    isLoading &&
-    (generationInfo?.cancellable ?? true) &&
-    generationInfo?.status !== "cancelled" &&
-    generationInfo?.status !== "complete";
+    return data.url as string;
+  }, []);
 
   return {
-    videoSrc,
-    setVideoSrc,
-    videoRatio,
-    setVideoRatio,
-    statusMsg,
-    errorMsg,
-    setErrorMsg,
-    isLoading,
-    generationInfo,
-    logs,
-    isCancelling,
-    handleGenerate,
-    handleCancel,
-    progressFrac,
-    liveElapsedSec,
-    remainingSec,
-    completedDurationSec,
-    backendError,
-    canCancel,
+    creations,
+    isSaving,
+    saveError,
+    saveCreation,
+    getCreations,
+    deleteCreation,
+    getDownloadUrl,
   };
 }
