@@ -6,8 +6,9 @@ import { palette, fontUI, fontDisplay } from "../styles/tokens";
 import { CreationThumbnail } from "../components/CreationThumbnail";
 
 function getMediaType(creation: Creation): "video" | "image" | "audio" {
+  if (creation.media_type) return creation.media_type;
   const model = (creation.model || creation.engine || "").toLowerCase();
-  if (model.includes("flux") || model.includes("image")) return "image";
+  if (model.includes("flux") || model.includes("krea") || model.includes("image")) return "image";
   if (model.includes("voice") || model.includes("audio")) return "audio";
   return "video";
 }
@@ -343,7 +344,11 @@ function CreationCard({
         transition: "box-shadow 0.25s ease, border-color 0.25s ease",
       }}
     >
-      <CreationThumbnail creation={creation} getDownloadUrl={getDownloadUrl} isHovered={isHovered} />
+      <CreationThumbnail
+        creation={creation}
+        getDownloadUrl={getDownloadUrl}
+        isHovered={isHovered}
+      />
 
       <button
         className="pf-card-delete"

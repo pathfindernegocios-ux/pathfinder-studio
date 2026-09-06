@@ -297,15 +297,47 @@ export function GenerationProvider({
             token,
           ]);
 
+          // ─── PARSEO ROBUSTO DE IMÁGENES ───────────────────────────────
           const data = result.data as unknown[];
-          const images = data[0] as string[];
+          const rawImages = data[0];
           const statusText = data[1] as string;
 
-          if (images && images.length > 0) {
-            setImageSrcs(images);
+          const images: string[] = [];
+
+          if (Array.isArray(rawImages)) {
+            for (const item of rawImages) {
+              if (typeof item === "string") {
+                images.push(item);
+              } else if (item && typeof item === "object") {
+                // Posibles formatos de Gradio Gallery:
+                // { image: { url: "..." } }
+                // { url: "..." }
+                // { path: "..." }
+                const maybe =
+                  (item as any).url ||
+                  (item as any).image?.url ||
+                  (item as any).path ||
+                  (item as any).image?.path;
+
+                if (typeof maybe === "string") images.push(maybe);
+              }
+            }
+          }
+
+          // Temporal: ver el formato real en consola
+
+          if (images.length > 0) {
+            // Convertir rutas relativas a absolutas usando la base de Gradio
+            const base = gradioUrl ? new URL(gradioUrl).origin : "";
+            const absoluteImages = images.map((url) => {
+              if (url.startsWith("http")) return url;
+              return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+            });
+            setImageSrcs(absoluteImages);
           } else {
             setErrorMsg("No se devolvieron imágenes.");
           }
+
           if (statusText) setStatusMsg(statusText);
         }
       } catch (err) {

@@ -6,7 +6,7 @@ import { palette, fontUI, fontDisplay } from "../styles/tokens";
 
 function getMediaType(creation: Creation) {
   const model = (creation.model || creation.engine || "").toLowerCase();
-  if (model.includes("flux") || model.includes("image")) return "image";
+  if (model.includes("flux") || model.includes("krea") || model.includes("image")) return "image";
   if (model.includes("voice") || model.includes("audio")) return "audio";
   return "video";
 }
