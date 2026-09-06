@@ -11,18 +11,13 @@ interface SaveCreationParams {
   aspectRatio: string;
   guideScale: number;
   matchAudioDur: boolean;
+  mediaType: "image" | "video" | "audio";
 }
 
 export function useCreations() {
   const [creations, setCreations] = useState<Creation[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  // Todas las funciones de abajo se memoizan con useCallback y dependencias
-  // vacías: solo usan `supabase` (import estable a nivel de módulo) y setters
-  // de estado (siempre estables). Esto asegura que quien las reciba como prop
-  // (p. ej. CreationThumbnail) tenga la MISMA referencia entre renders, y no
-  // dispare de nuevo un efecto que dependa de ellas.
 
   const saveCreation = useCallback(async (params: SaveCreationParams) => {
     setIsSaving(true);
@@ -37,11 +32,12 @@ export function useCreations() {
         aspect_ratio: params.aspectRatio,
         guide_scale: params.guideScale,
         match_audio_dur: params.matchAudioDur,
-        model: "ltx-2.3",
-        engine: "LTX-2.3",
+        media_type: params.mediaType,
+        model: params.mediaType === "image" ? "krea-2-turbo" : "ltx-2.3",
+        engine: params.mediaType === "image" ? "Wan2GP" : "Wan2GP",
       };
 
-      // 1. Obtener URL de subida presignada, creationId y storage key
+      // 1. Obtener URL de subida presignada
       const { data: presignData, error: presignError } = await supabase.functions.invoke(
         "save-creation",
         { body: { metadata } }
@@ -54,25 +50,25 @@ export function useCreations() {
 
       const { creationId, uploadUrl, storageKey } = presignData;
 
-      // 2. Descargar el video temporal
+      // 2. Descargar el archivo temporal
       const fileRes = await fetch(params.tempUrl);
       if (!fileRes.ok) {
-        setSaveError("No se pudo descargar el video temporal.");
+        setSaveError("No se pudo descargar el archivo temporal.");
         return null;
       }
       const blob = await fileRes.blob();
 
-      // 3. Subir directamente a R2
+      // 3. Subir directo a R2
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
         body: blob,
         headers: {
-          "Content-Type": "video/mp4",
+          "Content-Type": params.mediaType === "image" ? "image/png" : "video/mp4",
         },
       });
 
       if (!putRes.ok) {
-        setSaveError("No se pudo subir el video a R2.");
+        setSaveError("No se pudo subir el archivo a R2.");
         return null;
       }
 

@@ -21,6 +21,7 @@ import { FrameChip } from "../components/FrameChip";
 import { AudioChip } from "../components/AudioChip";
 import { GenerationProgress } from "../components/GenerationProgress";
 import { GenerationResult } from "../components/GenerationResult";
+import { ImageGenerationForm } from "../components/ImageGenerationForm";
 
 const DURATION_OPTIONS = [
   "2 Seconds (49 frames)",
@@ -60,12 +61,40 @@ function usePersistentState<T>(key: string, initialValue: T) {
 
 interface StudioPageProps {
   profile: { station_id: string | null } | null;
-  status: Status;
 }
 
-export function StudioPage({ profile, status }: StudioPageProps) {
+export function StudioPage({ profile }: StudioPageProps) {
   void profile;
 
+  const {
+    gradioUrl,
+    capability,
+    setCapability,
+    status,
+    videoSrc,
+    setVideoSrc,
+    videoRatio,
+    setVideoRatio,
+    imageSrcs,
+    statusMsg,
+    setStatusMsg,
+    errorMsg,
+    setErrorMsg,
+    isLoading,
+    generationInfo,
+    logs,
+    isCancelling,
+    handleGenerate,
+    handleCancel,
+    progressFrac,
+    liveElapsedSec,
+    remainingSec,
+    completedDurationSec,
+    backendError,
+    canCancel,
+  } = useGenerationContext();
+
+  // Video form state
   const [imageStartFile, setImageStartFile] = useState<File | null>(null);
   const [imageStartPreview, setImageStartPreview] = useState<string | null>(null);
   const [imageEndFile, setImageEndFile] = useState<File | null>(null);
@@ -92,37 +121,15 @@ export function StudioPage({ profile, status }: StudioPageProps) {
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const logsEndRef = useRef<HTMLDivElement | null>(null);
 
-  const {
-    gradioUrl,
-    videoSrc,
-    setVideoSrc,
-    videoRatio,
-    setVideoRatio,
-    statusMsg,
-    errorMsg,
-    setErrorMsg,
-    isLoading,
-    generationInfo,
-    logs,
-    isCancelling,
-    handleGenerate,
-    handleCancel,
-    progressFrac,
-    liveElapsedSec,
-    remainingSec,
-    completedDurationSec,
-    backendError,
-    canCancel,
-  } = useGenerationContext();
-
   const { isSaving, saveError, saveCreation } = useCreations();
 
-  // ============ REUTILIZAR: precargar datos desde sesión ============
+  // Reuse effect
   useEffect(() => {
     const reuseRaw = sessionStorage.getItem("pf_reuse_data");
     if (reuseRaw) {
       try {
         const reuse = JSON.parse(reuseRaw);
+        if (reuse.capability) setCapability(reuse.capability);
         if (reuse.prompt !== undefined) setPrompt(reuse.prompt);
         if (reuse.resolution !== undefined) setResolution(reuse.resolution);
         if (reuse.aspect_ratio !== undefined) setAspectRatio(reuse.aspect_ratio);
@@ -203,6 +210,21 @@ export function StudioPage({ profile, status }: StudioPageProps) {
       aspectRatio,
       guideScale,
       matchAudioDur,
+      mediaType: "video",
+    });
+  };
+
+  const handleSaveImage = async (src: string) => {
+    await saveCreation({
+      tempUrl: src,
+      prompt: prompt || "Imagen generada",
+      seed,
+      duration: "",
+      resolution: "",
+      aspectRatio: "",
+      guideScale: 0,
+      matchAudioDur: false,
+      mediaType: "image",
     });
   };
 
@@ -222,23 +244,59 @@ export function StudioPage({ profile, status }: StudioPageProps) {
   };
 
   const handleGenerateClick = () => {
-    if (!imageStartFile) return;
-    handleGenerate({
-      imageStartFile,
-      imageEndFile,
-      audioFile,
-      prompt,
-      seed,
-      duration,
-      resolution,
-      aspectRatio,
-      guideScale,
-      matchAudioDur,
-    });
+    if (capability === "video") {
+      if (!imageStartFile) return;
+      handleGenerate({
+        imageStartFile,
+        imageEndFile,
+        audioFile,
+        prompt,
+        seed,
+        duration,
+        resolution,
+        aspectRatio,
+        guideScale,
+        matchAudioDur,
+      });
+    }
+    // Para image, ImageGenerationForm llama directamente a handleGenerate
+  };
+
+  const handleCapabilityChange = (newCapability: "image" | "video" | "audio") => {
+    if (newCapability === "audio") return;
+    setCapability(newCapability);
+    setVideoSrc(null);
+    setErrorMsg(null);
+    setStatusMsg(null);
   };
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
+      {/* Selector de capability */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+        {["image", "video", "audio"].map((c) => (
+          <button
+            key={c}
+            onClick={() => handleCapabilityChange(c as any)}
+            disabled={c === "audio"}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 999,
+              fontSize: 13,
+              fontFamily: fontUI,
+              cursor: c === "audio" ? "not-allowed" : "pointer",
+              border: `1px solid ${capability === c ? palette.accent : palette.border}`,
+              background: capability === c ? palette.accentDim : "transparent",
+              color: capability === c ? palette.accentStrong : palette.inkMuted,
+              opacity: c === "audio" ? 0.5 : 1,
+              transition: "all 0.15s ease",
+            }}
+          >
+            {c === "image" ? "Imagen" : c === "video" ? "Video" : "Audio"}
+          </button>
+        ))}
+      </div>
+
       {!gradioUrl && (
         <div style={{ marginBottom: 20, color: palette.inkFaint, fontSize: 13 }}>
           Buscando tu estación Pathfinder...
@@ -248,7 +306,7 @@ export function StudioPage({ profile, status }: StudioPageProps) {
       {(errorMsg || backendError) && (
         <p style={{ color: palette.danger, fontSize: 13, marginBottom: 14 }}>{errorMsg || backendError}</p>
       )}
-      {statusMsg && !errorMsg && !backendError && !isLoading && !videoSrc && (
+      {statusMsg && !errorMsg && !backendError && !isLoading && !videoSrc && !imageSrcs && (
         <p style={{ color: palette.inkMuted, fontSize: 13, marginBottom: 14 }}>{statusMsg}</p>
       )}
 
@@ -262,7 +320,7 @@ export function StudioPage({ profile, status }: StudioPageProps) {
           canCancel={canCancel}
           isCancelling={isCancelling}
           onCancel={handleCancel}
-          engineLabel={ENGINE_LABEL}
+          engineLabel={capability === "image" ? "Krea 2 Turbo" : ENGINE_LABEL}
         />
       ) : videoSrc ? (
         <GenerationResult
@@ -279,284 +337,308 @@ export function StudioPage({ profile, status }: StudioPageProps) {
           saveError={saveError}
           onDiscard={() => setVideoSrc(null)}
         />
+      ) : imageSrcs && imageSrcs.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <h3 style={{ fontFamily: fontUI, color: palette.ink, fontSize: 20 }}>Imágenes generadas</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
+            {imageSrcs.map((src, idx) => (
+              <div key={idx} style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${palette.border}` }}>
+                <img src={src} alt={`Resultado ${idx + 1}`} style={{ width: "100%", height: "auto", display: "block" }} />
+                <button
+                  onClick={() => handleSaveImage(src)}
+                  disabled={isSaving}
+                  style={{ width: "100%", padding: "8px", background: palette.accentDim, color: palette.accentStrong, border: "none", cursor: "pointer" }}
+                >
+                  {isSaving ? "Guardando..." : "Guardar"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.014) 0%, rgba(255,255,255,0.004) 100%)",
-            border: `1px solid rgba(255,255,255,0.03)`,
-            borderRadius: 28,
-            padding: "38px 40px 26px",
-          }}
-        >
-          <textarea
-            placeholder="Una mujer entra a un estudio y dice “hola”. Se escucha el ambiente del estudio."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={5}
-            style={{
-              ...inputBase,
-              background: "transparent",
-              border: "none",
-              padding: 0,
-              fontSize: 21,
-              lineHeight: 1.55,
-              resize: "none",
-              minHeight: 140,
-              flex: 1,
-            }}
-          />
-
-          <div style={{ fontSize: 11, color: palette.inkFaint, opacity: 0.75, marginBottom: 18 }}>
-            Guía opcional · [VISUAL] [SPEECH] [SOUND]
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", marginBottom: 22 }}>
-            <FrameChip
-              inputId="start-frame-input"
-              inputRef={fileInputRef}
-              onChange={handleStartFileChange}
-              preview={imageStartPreview}
-              label="Imagen de inicio"
-              sublabel="Start Frame"
-              emphasized
-              onOpen={() => imageStartPreview && window.open(imageStartPreview, "_blank")}
-              onClear={clearStartFile}
-            />
-            <FrameChip
-              inputId="end-frame-input"
-              inputRef={endFileInputRef}
-              onChange={handleEndFileChange}
-              preview={imageEndPreview}
-              label="Imagen final"
-              sublabel="End Frame · opcional"
-              onOpen={() => imageEndPreview && window.open(imageEndPreview, "_blank")}
-              onClear={clearEndFile}
-            />
-
-            <div style={{ width: 1, height: 40, background: palette.border, margin: "0 2px" }} />
-
-            {audioName && audioPreview ? (
-              <AudioChip
-                audioName={audioName}
-                audioPreview={audioPreview}
-                matchAudioDur={matchAudioDur}
-                onToggleMatchDur={setMatchAudioDur}
-                onClear={clearAudioFile}
-                onTrimmed={handleAudioTrimmed}
-              />
-            ) : (
-              <label
-                htmlFor="audio-input"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 14px",
-                  borderRadius: 999,
-                  border: `1px dashed ${palette.border}`,
-                  color: palette.inkFaint,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  marginTop: 4,
-                }}
-              >
-                <span>＋</span> Audio
-              </label>
-            )}
-            <input
-              id="audio-input"
-              type="file"
-              accept="audio/*"
-              ref={audioInputRef}
-              onChange={handleAudioChange}
-              style={{ display: "none" }}
-            />
-          </div>
-
+        capability === "video" ? (
           <div
             style={{
+              flex: 1,
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 16,
-              paddingTop: 18,
-              borderTop: `1px solid ${palette.border}`,
+              flexDirection: "column",
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.014) 0%, rgba(255,255,255,0.004) 100%)",
+              border: `1px solid rgba(255,255,255,0.03)`,
+              borderRadius: 28,
+              padding: "38px 40px 26px",
             }}
           >
-            <button
-              onClick={() => setParamsOpen((v) => !v)}
+            <textarea
+              placeholder="Una mujer entra a un estudio y dice “hola”. Se escucha el ambiente del estudio."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={5}
               style={{
+                ...inputBase,
                 background: "transparent",
                 border: "none",
-                cursor: "pointer",
-                fontFamily: fontUI,
-                color: palette.inkMuted,
-                fontSize: 13,
                 padding: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
+                fontSize: 21,
+                lineHeight: 1.55,
+                resize: "none",
+                minHeight: 140,
+                flex: 1,
               }}
-            >
-              <span>
-                {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {durationSeconds(duration)} s
-              </span>
-              <span style={{ color: palette.accentStrong, textDecoration: "underline", textUnderlineOffset: 3 }}>
-                {paramsOpen ? "Cerrar" : "Configuración"}
-              </span>
-            </button>
+            />
 
-            <button
-              onClick={handleGenerateClick}
-              disabled={isButtonDisabled}
-              className="pf-btn-primary"
-              style={{ padding: "13px 26px", fontSize: 14.5, letterSpacing: 0.1 }}
-            >
-              Crear video
-            </button>
-          </div>
+            <div style={{ fontSize: 11, color: palette.inkFaint, opacity: 0.75, marginBottom: 18 }}>
+              Guía opcional · [VISUAL] [SPEECH] [SOUND]
+            </div>
 
-          {paramsOpen && (
-            <div style={{ paddingTop: 22, marginTop: 4 }}>
-              <div style={{ marginBottom: 18 }}>
-                <label style={labelStyle}>Formato</label>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {ASPECT_RATIO_OPTIONS.map((opt) => {
-                    const dims = computeDims(resolution, opt.ratio);
-                    const active = aspectRatio === opt.label;
-                    const maxBox = 28;
-                    const boxW = opt.ratio >= 1 ? maxBox : maxBox * opt.ratio;
-                    const boxH = opt.ratio >= 1 ? maxBox / opt.ratio : maxBox;
-                    return (
-                      <button
-                        key={opt.label}
-                        type="button"
-                        onClick={() => setAspectRatio(opt.label)}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "12px 14px",
-                          borderRadius: 14,
-                          cursor: "pointer",
-                          fontFamily: fontUI,
-                          border: `1px solid ${active ? palette.accent : palette.border}`,
-                          background: active ? palette.accentDim : palette.surfaceSoft,
-                          minWidth: 84,
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        <div style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <div
-                            style={{
-                              width: boxW,
-                              height: boxH,
-                              border: `1.5px solid ${active ? palette.accentStrong : palette.inkFaint}`,
-                              borderRadius: 3,
-                            }}
-                          />
-                        </div>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: active ? palette.accentStrong : palette.ink }}>
-                          {opt.short}
-                        </span>
-                        <span style={{ fontSize: 10, color: palette.inkFaint }}>
-                          {dims.width}×{dims.height}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", marginBottom: 22 }}>
+              <FrameChip
+                inputId="start-frame-input"
+                inputRef={fileInputRef}
+                onChange={handleStartFileChange}
+                preview={imageStartPreview}
+                label="Imagen de inicio"
+                sublabel="Start Frame"
+                emphasized
+                onOpen={() => imageStartPreview && window.open(imageStartPreview, "_blank")}
+                onClear={clearStartFile}
+              />
+              <FrameChip
+                inputId="end-frame-input"
+                inputRef={endFileInputRef}
+                onChange={handleEndFileChange}
+                preview={imageEndPreview}
+                label="Imagen final"
+                sublabel="End Frame · opcional"
+                onOpen={() => imageEndPreview && window.open(imageEndPreview, "_blank")}
+                onClear={clearEndFile}
+              />
 
-              <div style={{ marginBottom: 18 }}>
-                <label style={labelStyle}>Resolución</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {RESOLUTION_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setResolution(opt)}
-                      style={pillButton(resolution === opt)}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <div style={{ width: 1, height: 40, background: palette.border, margin: "0 2px" }} />
 
-              <div style={{ marginBottom: 6 }}>
-                <label style={labelStyle}>Duración</label>
-                <select
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  style={{ ...inputBase, cursor: "pointer", maxWidth: 260 }}
-                >
-                  {DURATION_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt} style={{ background: "#14150F" }}>
-                      {durationLabel(opt)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${palette.border}` }}>
-                <button
-                  type="button"
-                  onClick={() => setAdvancedOpen((v) => !v)}
+              {audioName && audioPreview ? (
+                <AudioChip
+                  audioName={audioName}
+                  audioPreview={audioPreview}
+                  matchAudioDur={matchAudioDur}
+                  onToggleMatchDur={setMatchAudioDur}
+                  onClear={clearAudioFile}
+                  onTrimmed={handleAudioTrimmed}
+                />
+              ) : (
+                <label
+                  htmlFor="audio-input"
                   style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "8px 14px",
+                    borderRadius: 999,
+                    border: `1px dashed ${palette.border}`,
                     color: palette.inkFaint,
-                    fontSize: 12.5,
-                    fontFamily: fontUI,
-                    padding: 0,
-                    textDecoration: "underline",
-                    textUnderlineOffset: 3,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    marginTop: 4,
                   }}
                 >
-                  {advancedOpen ? "Ocultar avanzado" : "Avanzado"}
-                </button>
+                  <span>＋</span> Audio
+                </label>
+              )}
+              <input
+                id="audio-input"
+                type="file"
+                accept="audio/*"
+                ref={audioInputRef}
+                onChange={handleAudioChange}
+                style={{ display: "none" }}
+              />
+            </div>
 
-                {advancedOpen && (
-                  <div style={{ marginTop: 16 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 16,
+                paddingTop: 18,
+                borderTop: `1px solid ${palette.border}`,
+              }}
+            >
+              <button
+                onClick={() => setParamsOpen((v) => !v)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: fontUI,
+                  color: palette.inkMuted,
+                  fontSize: 13,
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span>
+                  {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {durationSeconds(duration)} s
+                </span>
+                <span style={{ color: palette.accentStrong, textDecoration: "underline", textUnderlineOffset: 3 }}>
+                  {paramsOpen ? "Cerrar" : "Configuración"}
+                </span>
+              </button>
+
+              <button
+                onClick={handleGenerateClick}
+                disabled={isButtonDisabled}
+                className="pf-btn-primary"
+                style={{ padding: "13px 26px", fontSize: 14.5, letterSpacing: 0.1 }}
+              >
+                Crear video
+              </button>
+            </div>
+
+            {paramsOpen && (
+              <div style={{ paddingTop: 22, marginTop: 4 }}>
+                <div style={{ marginBottom: 18 }}>
+                  <label style={labelStyle}>Formato</label>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {ASPECT_RATIO_OPTIONS.map((opt) => {
+                      const dims = computeDims(resolution, opt.ratio);
+                      const active = aspectRatio === opt.label;
+                      const maxBox = 28;
+                      const boxW = opt.ratio >= 1 ? maxBox : maxBox * opt.ratio;
+                      const boxH = opt.ratio >= 1 ? maxBox / opt.ratio : maxBox;
+                      return (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => setAspectRatio(opt.label)}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "12px 14px",
+                            borderRadius: 14,
+                            cursor: "pointer",
+                            fontFamily: fontUI,
+                            border: `1px solid ${active ? palette.accent : palette.border}`,
+                            background: active ? palette.accentDim : palette.surfaceSoft,
+                            minWidth: 84,
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <div style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <div
+                              style={{
+                                width: boxW,
+                                height: boxH,
+                                border: `1.5px solid ${active ? palette.accentStrong : palette.inkFaint}`,
+                                borderRadius: 3,
+                              }}
+                            />
+                          </div>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: active ? palette.accentStrong : palette.ink }}>
+                            {opt.short}
+                          </span>
+                          <span style={{ fontSize: 10, color: palette.inkFaint }}>
+                            {dims.width}×{dims.height}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 18 }}>
+                  <label style={labelStyle}>Resolución</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {RESOLUTION_OPTIONS.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setResolution(opt)}
+                        style={pillButton(resolution === opt)}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 6 }}>
+                  <label style={labelStyle}>Duración</label>
+                  <select
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    style={{ ...inputBase, cursor: "pointer", maxWidth: 260 }}
+                  >
+                    {DURATION_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} style={{ background: "#14150F" }}>
+                        {durationLabel(opt)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${palette.border}` }}>
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedOpen((v) => !v)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: palette.inkFaint,
+                      fontSize: 12.5,
+                      fontFamily: fontUI,
+                      padding: 0,
+                      textDecoration: "underline",
+                      textUnderlineOffset: 3,
+                    }}
+                  >
+                    {advancedOpen ? "Ocultar avanzado" : "Avanzado"}
+                  </button>
+
+                  {advancedOpen && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
+                        <div>
+                          <label style={labelStyle}>Seed</label>
+                          <input
+                            type="number"
+                            value={seed}
+                            onChange={(e) => setSeed(parseInt(e.target.value, 10))}
+                            style={inputBase}
+                          />
+                        </div>
+                      </div>
+
                       <div>
-                        <label style={labelStyle}>Seed</label>
+                        <label style={labelStyle}>
+                          Prompt influence · <span style={{ color: palette.ink }}>{guideScale.toFixed(1)}</span>
+                        </label>
                         <input
-                          type="number"
-                          value={seed}
-                          onChange={(e) => setSeed(parseInt(e.target.value, 10))}
-                          style={inputBase}
+                          type="range"
+                          min={1}
+                          max={8}
+                          step={0.5}
+                          value={guideScale}
+                          onChange={(e) => setGuideScale(parseFloat(e.target.value))}
+                          style={{ width: "100%", accentColor: palette.accent }}
                         />
                       </div>
                     </div>
-
-                    <div>
-                      <label style={labelStyle}>
-                        Prompt influence · <span style={{ color: palette.ink }}>{guideScale.toFixed(1)}</span>
-                      </label>
-                      <input
-                        type="range"
-                        min={1}
-                        max={8}
-                        step={0.5}
-                        value={guideScale}
-                        onChange={(e) => setGuideScale(parseFloat(e.target.value))}
-                        style={{ width: "100%", accentColor: palette.accent }}
-                      />
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ flex: 1 }}>
+            <ImageGenerationForm />
+          </div>
+        )
       )}
 
       <div style={{ marginTop: 22 }}>
