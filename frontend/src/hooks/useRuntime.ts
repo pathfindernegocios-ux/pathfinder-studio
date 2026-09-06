@@ -3,6 +3,11 @@ import { supabase } from "../lib/supabaseClient";
 import type { CapabilityId, Status } from "../types";
 import { useGradioClient } from "./useGradioClient";
 
+interface ImageRuntime {
+  model_id: string;
+  gradio_url: string;
+}
+
 interface UseRuntimeParams {
   stationId: string | null;
   capability?: CapabilityId;
@@ -13,6 +18,8 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
   const [status, setStatus] = useState<Status>("UNKNOWN");
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [sessionUptime, setSessionUptime] = useState<string>("00:00:00");
+  const [activeImageModelId, setActiveImageModelId] = useState<string | null>(null);
+  const [imageModels, setImageModels] = useState<ImageRuntime[]>([]);
 
   useEffect(() => {
     if (!stationId) {
@@ -20,27 +27,57 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
       setStatus("UNKNOWN");
       setSessionStartTime(null);
       setSessionUptime("00:00:00");
+      setActiveImageModelId(null);
+      setImageModels([]);
       return;
     }
 
     const modelType = capability === "image" ? "image" : "video";
 
     const fetchRuntime = async () => {
-      const { data, error } = await supabase
-        .from("runtimes")
-        .select("gradio_url, state, model_type")
-        .eq("station_id", stationId)
-        .eq("model_type", modelType)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      if (modelType === "image") {
+        // Obtener todos los runtimes de imagen
+        const { data, error } = await supabase
+          .from("runtimes")
+          .select("gradio_url, state, model_id")
+          .eq("station_id", stationId)
+          .eq("model_type", "image")
+          .order("created_at", { ascending: false });
 
-      if (!error && data) {
-        setGradioUrl(data.gradio_url);
-        setStatus((data.state as Status) ?? "UNKNOWN");
+        if (!error && data && data.length > 0) {
+          const runtimes = data as { gradio_url: string; state: Status; model_id: string }[];
+          setImageModels(runtimes.map((r) => ({ model_id: r.model_id, gradio_url: r.gradio_url })));
+
+          setActiveImageModelId((prev) => {
+            if (prev && runtimes.some((r) => r.model_id === prev)) return prev;
+            return runtimes[0].model_id;
+          });
+        } else {
+          setImageModels([]);
+          setActiveImageModelId(null);
+          setGradioUrl(null);
+          setStatus("UNKNOWN");
+        }
       } else {
-        setGradioUrl(null);
-        setStatus("UNKNOWN");
+        // Video: comportamiento original
+        const { data, error } = await supabase
+          .from("runtimes")
+          .select("gradio_url, state")
+          .eq("station_id", stationId)
+          .eq("model_type", "video")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data) {
+          setGradioUrl(data.gradio_url);
+          setStatus((data.state as Status) ?? "UNKNOWN");
+        } else {
+          setGradioUrl(null);
+          setStatus("UNKNOWN");
+        }
+        setImageModels([]);
+        setActiveImageModelId(null);
       }
     };
 
@@ -48,6 +85,19 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
     const interval = setInterval(fetchRuntime, 5000);
     return () => clearInterval(interval);
   }, [stationId, capability]);
+
+  // Efecto para actualizar gradioUrl según el modelo activo de imagen
+  useEffect(() => {
+    if (capability !== "image" || !activeImageModelId || imageModels.length === 0) return;
+    const selected = imageModels.find((m) => m.model_id === activeImageModelId);
+    if (selected) {
+      setGradioUrl(selected.gradio_url);
+      setStatus("UNKNOWN"); // se actualizará con el polling de /status
+    } else {
+      setGradioUrl(null);
+      setStatus("UNKNOWN");
+    }
+  }, [activeImageModelId, imageModels, capability]);
 
   const { getClient } = useGradioClient(gradioUrl);
 
@@ -103,7 +153,10 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
   return {
     gradioUrl,
     status,
-    sessionUptime,
+    sessionUptime: sessionUptime,
     getClient,
+    activeImageModelId,
+    setActiveImageModelId,
+    imageModels,
   };
 }

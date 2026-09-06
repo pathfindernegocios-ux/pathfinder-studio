@@ -6,10 +6,15 @@ import { useRuntime } from "../hooks/useRuntime";
 
 type RecoveryState = "checking" | "idle" | "active";
 
+interface ImageRuntime {
+  model_id: string;
+  gradio_url: string;
+}
+
 interface GenerateParams {
   prompt: string;
   seed: number;
-  // Video params
+  // Video
   imageStartFile?: File | null;
   imageEndFile?: File | null;
   audioFile?: File | null;
@@ -18,11 +23,18 @@ interface GenerateParams {
   aspectRatio?: string;
   guideScale?: number;
   matchAudioDur?: boolean;
-  // Image params
+  // Image Krea
   negativePrompt?: string;
   steps?: number;
   numImages?: number;
   stylePreset?: string;
+  // Image Flux
+  refFiles?: File[];
+  refModeLabel?: string;
+  maskFile?: File | null;
+  modelModeLabel?: string;
+  fluxGuideScale?: number;
+  embeddedGuidance?: number;
 }
 
 interface GenerationContextValue {
@@ -54,6 +66,9 @@ interface GenerationContextValue {
   recoveryState: RecoveryState;
   status: Status;
   sessionUptime: string;
+  activeImageModelId: string | null;
+  setActiveImageModelId: (id: string | null) => void;
+  imageModels: ImageRuntime[];
 }
 
 const GenerationContext = createContext<GenerationContextValue | null>(null);
@@ -69,10 +84,15 @@ export function GenerationProvider({
   children: ReactNode;
 }) {
   const [capability, setCapability] = useState<CapabilityId>("video");
-  const { gradioUrl, status, sessionUptime, getClient } = useRuntime({
-    stationId,
-    capability,
-  });
+  const {
+    gradioUrl,
+    status,
+    sessionUptime,
+    getClient,
+    activeImageModelId,
+    setActiveImageModelId,
+    imageModels,
+  } = useRuntime({ stationId, capability });
 
   const [isLoading, setIsLoading] = useState(false);
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
@@ -95,6 +115,7 @@ export function GenerationProvider({
     return () => window.clearInterval(interval);
   }, [isLoading]);
 
+  // ===== Polling de estado de generación =====
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
     let cancelled = false;
@@ -138,6 +159,7 @@ export function GenerationProvider({
     };
   }, [isLoading, gradioUrl, getClient, capability]);
 
+  // ===== Polling de logs =====
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
     let cancelled = false;
@@ -166,6 +188,7 @@ export function GenerationProvider({
     };
   }, [isLoading, gradioUrl, getClient]);
 
+  // ===== Recuperación ante refresh =====
   useEffect(() => {
     let cancelled = false;
     const recover = async () => {
@@ -210,6 +233,36 @@ export function GenerationProvider({
     };
   }, [gradioUrl, getClient, capability]);
 
+  // ===== Helper de parseo de imágenes =====
+  const parseImagesFromResult = (raw: unknown): string[] => {
+    const images: string[] = [];
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (typeof item === "string") {
+          images.push(item);
+        } else if (item && typeof item === "object") {
+          const maybe =
+            (item as any).url ||
+            (item as any).image?.url ||
+            (item as any).path ||
+            (item as any).image?.path;
+          if (typeof maybe === "string") images.push(maybe);
+        }
+      }
+    }
+    return images;
+  };
+
+  const toAbsoluteUrls = (urls: string[], baseUrl: string | null): string[] => {
+    if (!baseUrl) return urls;
+    const base = new URL(baseUrl).origin;
+    return urls.map((url) => {
+      if (url.startsWith("http")) return url;
+      return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+    });
+  };
+
+  // ===== Generación principal =====
   const handleGenerate = useCallback(
     async (params: GenerateParams) => {
       if (!gradioUrl || !params.prompt.trim()) return;
@@ -233,6 +286,7 @@ export function GenerationProvider({
         stage: "preparing",
         started_at: localStart,
         capability,
+        modelId: activeImageModelId ?? undefined,
       });
 
       try {
@@ -286,59 +340,93 @@ export function GenerationProvider({
           }
           if (statusText) setStatusMsg(statusText);
         } else if (capability === "image") {
-          const result = await client.predict("/generate", [
-            params.prompt,
-            params.negativePrompt || "",
-            params.steps || 8,
-            params.aspectRatio || "1:1 Square",
-            params.resolution || "1024px (Standard)",
-            params.seed,
-            params.numImages || 1,
-            token,
-          ]);
+          // Determinar qué modelo se está usando
+          if (activeImageModelId === "flux-2-klein-4b") {
+            // Mapeo de labels para Flux (español)
+            const fluxAspectMap: Record<string, string> = {
+              "1:1 Square": "1:1 Cuadrado",
+              "16:9 Landscape": "16:9 Horizontal",
+              "9:16 Portrait": "9:16 Vertical",
+              "4:3 Standard": "4:3 Estándar",
+              "3:4 Portrait": "3:4 Vertical",
+              "1:1 Cuadrado": "1:1 Cuadrado",
+              "16:9 Horizontal": "16:9 Horizontal",
+              "9:16 Vertical": "9:16 Vertical",
+              "4:3 Estándar": "4:3 Estándar",
+              "3:4 Vertical": "3:4 Vertical",
+            };
 
-          // ─── PARSEO ROBUSTO DE IMÁGENES ───────────────────────────────
-          const data = result.data as unknown[];
-          const rawImages = data[0];
-          const statusText = data[1] as string;
+            const fluxResolutionMap: Record<string, string> = {
+              "1024px (Standard)": "1024px (Estándar)",
+              "1536px (High)": "1536px (Alta)",
+              "2048px (2K Ultra)": "2048px (2K Ultra)",
+              "1024px (Estándar)": "1024px (Estándar)",
+              "1536px (Alta)": "1536px (Alta)",
+            };
 
-          const images: string[] = [];
+            const fluxAspect = fluxAspectMap[params.aspectRatio ?? ""] ?? "1:1 Cuadrado";
+            const fluxResolution = fluxResolutionMap[params.resolution ?? ""] ?? "1024px (Estándar)";
 
-          if (Array.isArray(rawImages)) {
-            for (const item of rawImages) {
-              if (typeof item === "string") {
-                images.push(item);
-              } else if (item && typeof item === "object") {
-                // Posibles formatos de Gradio Gallery:
-                // { image: { url: "..." } }
-                // { url: "..." }
-                // { path: "..." }
-                const maybe =
-                  (item as any).url ||
-                  (item as any).image?.url ||
-                  (item as any).path ||
-                  (item as any).image?.path;
+            // Payload Flux
+            const result = await client.predict("/generate", [
+              params.prompt,
+              params.negativePrompt || "",
+              params.refFiles ?? [],
+              params.refModeLabel ?? "Ninguna (Texto → Imagen)",
+              params.maskFile ?? null,
+              params.modelModeLabel ?? "Masked Denoising...",
+              fluxAspect,
+              fluxResolution,
+              params.steps ?? 4,
+              params.fluxGuideScale ?? 5.0,
+              params.embeddedGuidance ?? 1.0,
+              params.seed,
+              params.numImages ?? 1,
+              token,
+            ]);
 
-                if (typeof maybe === "string") images.push(maybe);
+            const data = result.data as unknown[];
+            const rawImages = data[0];
+            const statusText = data[1] as string;
+            const zipPath = data[2] as string | undefined;
+
+            const images = parseImagesFromResult(rawImages);
+            if (images.length > 0) {
+              setImageSrcs(toAbsoluteUrls(images, gradioUrl));
+              if (zipPath && params.numImages && params.numImages > 1) {
+                sessionStorage.setItem("pf_flux_zip", zipPath);
               }
+            } else {
+              setErrorMsg("No se devolvieron imágenes.");
             }
-          }
 
-          // Temporal: ver el formato real en consola
-
-          if (images.length > 0) {
-            // Convertir rutas relativas a absolutas usando la base de Gradio
-            const base = gradioUrl ? new URL(gradioUrl).origin : "";
-            const absoluteImages = images.map((url) => {
-              if (url.startsWith("http")) return url;
-              return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
-            });
-            setImageSrcs(absoluteImages);
+            if (statusText) setStatusMsg(statusText);
           } else {
-            setErrorMsg("No se devolvieron imágenes.");
-          }
+            // Payload Krea (comportamiento actual)
+            const result = await client.predict("/generate", [
+              params.prompt,
+              params.negativePrompt || "",
+              params.steps || 8,
+              params.aspectRatio || "1:1 Square",
+              params.resolution || "1024px (Standard)",
+              params.seed,
+              params.numImages || 1,
+              token,
+            ]);
 
-          if (statusText) setStatusMsg(statusText);
+            const data = result.data as unknown[];
+            const rawImages = data[0];
+            const statusText = data[1] as string;
+
+            const images = parseImagesFromResult(rawImages);
+            if (images.length > 0) {
+              setImageSrcs(toAbsoluteUrls(images, gradioUrl));
+            } else {
+              setErrorMsg("No se devolvieron imágenes.");
+            }
+
+            if (statusText) setStatusMsg(statusText);
+          }
         }
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
@@ -346,9 +434,10 @@ export function GenerationProvider({
         setIsLoading(false);
       }
     },
-    [gradioUrl, getClient, capability, generationInfo?.id]
+    [gradioUrl, getClient, capability, activeImageModelId, generationInfo?.id]
   );
 
+  // ===== Cancelación =====
   const handleCancel = useCallback(async () => {
     if (!gradioUrl || isCancelling) return;
     setIsCancelling(true);
@@ -368,6 +457,7 @@ export function GenerationProvider({
     }
   }, [gradioUrl, getClient, isCancelling]);
 
+  // ===== Métricas derivadas =====
   const nowSec = nowTick / 1000;
   const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
 
@@ -428,6 +518,9 @@ export function GenerationProvider({
     recoveryState,
     status,
     sessionUptime: sessionUptime,
+    activeImageModelId,
+    setActiveImageModelId,
+    imageModels,
   };
 
   return (

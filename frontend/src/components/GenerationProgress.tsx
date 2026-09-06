@@ -1,4 +1,4 @@
-import { palette, fontDisplay} from "../styles/tokens";
+import { palette, fontDisplay, statePillStyle } from "../styles/tokens";
 import { formatHMS } from "../lib/helpers";
 
 interface GenerationProgressProps {
@@ -24,6 +24,17 @@ export function GenerationProgress({
   onCancel,
   engineLabel,
 }: GenerationProgressProps) {
+  // El componente es compartido por Video e Image; el único dato que
+  // lo distingue hoy es el motor activo. Lo usamos para que el
+  // fallback del título no asuma siempre "video".
+  const isVideo = engineLabel === "LTX-2.3";
+
+  // Preparando vs Generando: mientras no hay progreso numérico el
+  // job todavía está iniciando el runtime; en cuanto progress no es
+  // null, ya se está renderizando activamente.
+  const phase: "preparing" | "running" = progress != null ? "running" : "preparing";
+  const phaseLabel = phase === "running" ? "Generando" : "Preparando";
+
   return (
     <div
       style={{
@@ -36,12 +47,22 @@ export function GenerationProgress({
         minHeight: 360,
       }}
     >
-      <span style={{ fontSize: 13, color: palette.accentStrong, letterSpacing: 0.3, marginBottom: 10 }}>
-        <span className="pf-pulse">●</span> Pathfinder está creando
-        <span style={{ color: palette.inkFaint, fontWeight: 400 }}> · {engineLabel}</span>
-      </span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 18,
+        }}
+      >
+        <span style={statePillStyle(phase)}>
+          <span className="pf-pulse">●</span> {phaseLabel}
+        </span>
+        <span style={{ fontSize: 12.5, color: palette.inkFaint }}>{engineLabel}</span>
+      </div>
+
       <div style={{ fontFamily: fontDisplay, fontSize: 26, fontWeight: 600, color: palette.ink, marginBottom: 22 }}>
-        {stage || "Dando forma a tu video"}
+        {stage || (isVideo ? "Dando forma a tu video" : "Dando forma a tu imagen")}
       </div>
 
       <div style={{ width: "100%", maxWidth: 360, marginBottom: 16 }}>

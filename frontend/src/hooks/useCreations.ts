@@ -12,6 +12,7 @@ interface SaveCreationParams {
   guideScale: number;
   matchAudioDur: boolean;
   mediaType: "image" | "video" | "audio";
+  modelId?: string;
 }
 
 export function useCreations() {
@@ -24,6 +25,8 @@ export function useCreations() {
     setSaveError(null);
 
     try {
+      const modelId = params.modelId || (params.mediaType === "image" ? "krea-2-turbo" : "ltx-2.3");
+
       const metadata = {
         prompt: params.prompt,
         seed: params.seed,
@@ -33,8 +36,9 @@ export function useCreations() {
         guide_scale: params.guideScale,
         match_audio_dur: params.matchAudioDur,
         media_type: params.mediaType,
-        model: params.mediaType === "image" ? "krea-2-turbo" : "ltx-2.3",
-        engine: params.mediaType === "image" ? "Wan2GP" : "Wan2GP",
+        model_id: modelId,
+        model: modelId,
+        engine: "Wan2GP",
       };
 
       // 1. Obtener URL de subida presignada

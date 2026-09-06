@@ -17,6 +17,7 @@ export interface GenerationInfo {
   capability?: CapabilityId;
   model?: string;
   runtime?: string;
+  modelId?: string;
   status?: GenerationJobStatus;
   progress?: number;
   stage?: string;
@@ -57,6 +58,8 @@ export interface Creation {
   storage_key: string;
   status: "processing" | "ready" | "failed" | "expired" | "deleted";
   media_type?: "image" | "video" | "audio";
+  model_id?: string | null;
+  generation_id?: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
   expires_at: string;
