@@ -74,3 +74,220 @@ export const pillButton = (active: boolean): CSSProperties => ({
   color: active ? palette.accentStrong : palette.inkMuted,
   transition: "all 0.15s ease",
 });
+
+/* ============================================================
+   Pastillas de estado de generación (preparando / generando /
+   completo / error / cancelado). Compartidas por Video e Image.
+   ============================================================ */
+export type GenerationStateKind = "preparing" | "running" | "complete" | "error" | "cancelled";
+
+export const statePillStyle = (state: GenerationStateKind): CSSProperties => {
+  const map: Record<GenerationStateKind, { color: string; bg: string; border: string }> = {
+    preparing: { color: palette.inkMuted, bg: palette.surfaceSoft, border: palette.border },
+    running: { color: palette.accentStrong, bg: palette.accentDim, border: palette.accent },
+    complete: { color: palette.accentStrong, bg: palette.accentDim, border: palette.accent },
+    error: { color: palette.danger, bg: palette.dangerDim, border: palette.danger },
+    cancelled: { color: palette.inkFaint, bg: palette.surfaceSoft, border: palette.border },
+  };
+  const s = map[state];
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "5px 12px",
+    borderRadius: 999,
+    fontFamily: fontUI,
+    fontSize: 12,
+    fontWeight: 600,
+    color: s.color,
+    background: s.bg,
+    border: `1px solid ${s.border}`,
+  };
+};
+
+/* ============================================================
+   IMAGE STUDIO — REDISEÑO
+   Tokens para la superficie creativa (prompt + referencias),
+   las tarjetas Standard/Premium, la tira de referencias y el
+   resultado de imagen. Reemplazan por completo a los tokens
+   anteriores de Image (sectionPanel, modelToggle*, accordion*),
+   que quedan retirados por no tener uso tras el rediseño.
+   ============================================================ */
+
+/* ---------- Tier cards (Standard / Premium) ---------- */
+export const tierCard = (active: boolean): CSSProperties => ({
+  flex: 1,
+  minWidth: 220,
+  textAlign: "left",
+  cursor: "pointer",
+  padding: "18px 20px",
+  borderRadius: 18,
+  border: `1px solid ${active ? palette.accent : palette.border}`,
+  background: active
+    ? "linear-gradient(180deg, rgba(139,195,74,0.10), rgba(139,195,74,0.03))"
+    : palette.surfaceSoft,
+  transition: "border-color 0.18s ease, background 0.18s ease, transform 0.15s ease",
+  fontFamily: fontUI,
+});
+
+export const tierCardTitle = (active: boolean): CSSProperties => ({
+  fontFamily: fontDisplay,
+  fontSize: 16,
+  fontWeight: 600,
+  color: active ? palette.accentStrong : palette.ink,
+  marginBottom: 3,
+});
+
+export const tierCardEngine: CSSProperties = {
+  fontSize: 11.5,
+  color: palette.inkFaint,
+  marginBottom: 8,
+  letterSpacing: 0.2,
+};
+
+export const tierCardTagline: CSSProperties = {
+  fontSize: 12.5,
+  color: palette.inkMuted,
+  lineHeight: 1.5,
+};
+
+/* ---------- Creative surface (Prompt + References) ---------- */
+export const creativeSurface: CSSProperties = {
+  ...glass,
+  padding: "26px 28px 22px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 20,
+};
+
+export const promptTextarea: CSSProperties = {
+  width: "100%",
+  background: "transparent",
+  border: "none",
+  outline: "none",
+  resize: "none",
+  color: palette.ink,
+  fontFamily: fontUI,
+  fontSize: 19,
+  lineHeight: 1.55,
+  minHeight: 96,
+};
+
+export const negativePromptToggle: CSSProperties = {
+  alignSelf: "flex-start",
+  background: "transparent",
+  border: "none",
+  color: palette.inkFaint,
+  fontSize: 12,
+  cursor: "pointer",
+  padding: 0,
+  textDecoration: "underline",
+  textUnderlineOffset: 3,
+};
+
+/* ---------- Reference tray ---------- */
+export const referenceTrayLabel: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  color: palette.inkMuted,
+  letterSpacing: 0.3,
+  textTransform: "uppercase",
+  marginBottom: 10,
+};
+
+export const referenceThumbSize = 84;
+
+export const referenceThumb: CSSProperties = {
+  position: "relative",
+  width: referenceThumbSize,
+  height: referenceThumbSize,
+  borderRadius: 12,
+  overflow: "hidden",
+  border: `1px solid ${palette.border}`,
+  background: palette.surfaceSoft,
+  flexShrink: 0,
+};
+
+export const referenceThumbRemove: CSSProperties = {
+  position: "absolute",
+  top: 4,
+  right: 4,
+  width: 20,
+  height: 20,
+  borderRadius: "50%",
+  border: "none",
+  background: "rgba(7,8,10,0.75)",
+  color: palette.ink,
+  fontSize: 12,
+  lineHeight: "20px",
+  textAlign: "center",
+  cursor: "pointer",
+};
+
+export const referenceAddTile: CSSProperties = {
+  width: referenceThumbSize,
+  height: referenceThumbSize,
+  borderRadius: 12,
+  border: `1px dashed ${palette.border}`,
+  background: "transparent",
+  color: palette.inkFaint,
+  fontSize: 22,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  flexShrink: 0,
+  transition: "border-color 0.15s ease, color 0.15s ease",
+};
+
+/* ---------- Control groups (progressive disclosure) ---------- */
+export const controlGroup: CSSProperties = {
+  ...glass,
+  padding: "20px 22px",
+};
+
+export const controlGroupTitle: CSSProperties = {
+  fontFamily: fontUI,
+  fontSize: 12,
+  fontWeight: 600,
+  color: palette.inkMuted,
+  letterSpacing: 0.3,
+  textTransform: "uppercase",
+  marginBottom: 16,
+};
+
+/* ---------- Aspect ratio visual chip ---------- */
+export const aspectChip = (active: boolean): CSSProperties => ({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 6,
+  padding: "10px 12px",
+  borderRadius: 12,
+  cursor: "pointer",
+  border: `1px solid ${active ? palette.accent : palette.border}`,
+  background: active ? palette.accentDim : palette.surfaceSoft,
+  minWidth: 68,
+});
+
+/* ---------- Result stage (hero + variants) ---------- */
+export const resultHeroFrame: CSSProperties = {
+  borderRadius: 20,
+  overflow: "hidden",
+  background: "#000",
+  border: "1px solid rgba(255,255,255,0.06)",
+  boxShadow:
+    "0 30px 90px rgba(0,0,0,0.6), 0 0 120px rgba(139,195,74,0.05), 0 0 0 1px rgba(255,255,255,0.02) inset",
+};
+
+export const resultVariantThumb = (active: boolean): CSSProperties => ({
+  width: 64,
+  height: 64,
+  borderRadius: 10,
+  overflow: "hidden",
+  cursor: "pointer",
+  border: `2px solid ${active ? palette.accent : "transparent"}`,
+  opacity: active ? 1 : 0.6,
+  transition: "opacity 0.15s ease, border-color 0.15s ease",
+  flexShrink: 0,
+});
