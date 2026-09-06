@@ -153,4 +153,32 @@ input:focus, textarea:focus, select:focus { border-color: #8BC34A !important; }
 @media (max-width: 860px) {
   .pf-sidebar { display: none; }
 }
+
+/* ============================================================
+   Añadido — capability IMAGE (selector Standard/Premium,
+   secciones colapsables). Todo lo anterior permanece intacto.
+   ============================================================ */
+
+.pf-model-toggle button:hover {
+  color: #F3F5F1;
+}
+.pf-model-toggle button[data-active="true"]:hover {
+  color: #0A0B08;
+}
+
+.pf-accordion-header:hover .pf-accordion-caret {
+  color: #9BA39A;
+}
+
+@keyframes pf-accordion-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.pf-accordion-content {
+  animation: pf-accordion-in 0.18s ease;
+}
+
+.pf-panel-transition {
+  transition: opacity 0.2s ease;
+}
 `;

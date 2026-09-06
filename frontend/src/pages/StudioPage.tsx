@@ -14,6 +14,7 @@ import {
   inputBase,
   labelStyle,
   pillButton,
+  statePillStyle,
 } from "../styles/tokens";
 import { useGenerationContext } from "../context/GenerationContext";
 import { useCreations } from "../hooks/useCreations";
@@ -22,6 +23,7 @@ import { AudioChip } from "../components/AudioChip";
 import { GenerationProgress } from "../components/GenerationProgress";
 import { GenerationResult } from "../components/GenerationResult";
 import { ImageGenerationForm } from "../components/ImageGenerationForm";
+import { ImageGenerationResult } from "../components/ImageGenerationResult";
 
 const DURATION_OPTIONS = [
   "2 Seconds (49 frames)",
@@ -76,6 +78,7 @@ export function StudioPage({ profile }: StudioPageProps) {
     videoRatio,
     setVideoRatio,
     imageSrcs,
+    setImageSrcs,
     statusMsg,
     setStatusMsg,
     errorMsg,
@@ -92,6 +95,7 @@ export function StudioPage({ profile }: StudioPageProps) {
     completedDurationSec,
     backendError,
     canCancel,
+    activeImageModelId,
   } = useGenerationContext();
 
   // Video form state
@@ -115,6 +119,11 @@ export function StudioPage({ profile }: StudioPageProps) {
   const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
   const [logsOpen, setLogsOpen] = useState<boolean>(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState<boolean>(false);
+
+  // Estado "Cancelado": generationInfo conserva status "cancelled" hasta
+  // el próximo handleGenerate, así que esta bandera local solo controla
+  // si el aviso ya fue reconocido por el usuario. No toca el provider.
+  const [cancelledAcknowledged, setCancelledAcknowledged] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const endFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -150,6 +159,12 @@ export function StudioPage({ profile }: StudioPageProps) {
 
   useEffect(() => {
     if (isLoading) setParamsOpen(false);
+  }, [isLoading]);
+
+  // En cuanto arranca una generación nueva, cualquier aviso de
+  // "cancelado" anterior deja de ser relevante.
+  useEffect(() => {
+    if (isLoading) setCancelledAcknowledged(false);
   }, [isLoading]);
 
   const handleStartFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -211,6 +226,7 @@ export function StudioPage({ profile }: StudioPageProps) {
       guideScale,
       matchAudioDur,
       mediaType: "video",
+      modelId: "ltx-2.3",
     });
   };
 
@@ -225,6 +241,7 @@ export function StudioPage({ profile }: StudioPageProps) {
       guideScale: 0,
       matchAudioDur: false,
       mediaType: "image",
+      modelId: activeImageModelId ?? "krea-2-turbo",
     });
   };
 
@@ -242,6 +259,23 @@ export function StudioPage({ profile }: StudioPageProps) {
     ERROR: "No se pudo completar la creación",
     UNKNOWN: "Conexión no disponible",
   };
+
+  // Mismo cálculo que ya se usaba inline para GenerationProgress;
+  // se reutiliza también en la vista de "Cancelado" para que el
+  // motor mostrado sea siempre consistente.
+  const currentEngineLabel =
+    capability === "image"
+      ? activeImageModelId === "flux-2-klein-4b"
+        ? "Flux 2 Klein 4B"
+        : "Krea 2 Turbo"
+      : ENGINE_LABEL;
+
+  const showCancelledState =
+    !isLoading &&
+    !videoSrc &&
+    !(imageSrcs && imageSrcs.length > 0) &&
+    generationInfo?.status === "cancelled" &&
+    !cancelledAcknowledged;
 
   const handleGenerateClick = () => {
     if (capability === "video") {
@@ -266,8 +300,10 @@ export function StudioPage({ profile }: StudioPageProps) {
     if (newCapability === "audio") return;
     setCapability(newCapability);
     setVideoSrc(null);
+    setImageSrcs(null);
     setErrorMsg(null);
     setStatusMsg(null);
+    setCancelledAcknowledged(true);
   };
 
   return (
@@ -320,7 +356,7 @@ export function StudioPage({ profile }: StudioPageProps) {
           canCancel={canCancel}
           isCancelling={isCancelling}
           onCancel={handleCancel}
-          engineLabel={capability === "image" ? "Krea 2 Turbo" : ENGINE_LABEL}
+          engineLabel={currentEngineLabel}
         />
       ) : videoSrc ? (
         <GenerationResult
@@ -338,22 +374,45 @@ export function StudioPage({ profile }: StudioPageProps) {
           onDiscard={() => setVideoSrc(null)}
         />
       ) : imageSrcs && imageSrcs.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <h3 style={{ fontFamily: fontUI, color: palette.ink, fontSize: 20 }}>Imágenes generadas</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
-            {imageSrcs.map((src, idx) => (
-              <div key={idx} style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${palette.border}` }}>
-                <img src={src} alt={`Resultado ${idx + 1}`} style={{ width: "100%", height: "auto", display: "block" }} />
-                <button
-                  onClick={() => handleSaveImage(src)}
-                  disabled={isSaving}
-                  style={{ width: "100%", padding: "8px", background: palette.accentDim, color: palette.accentStrong, border: "none", cursor: "pointer" }}
-                >
-                  {isSaving ? "Guardando..." : "Guardar"}
-                </button>
-              </div>
-            ))}
+        <ImageGenerationResult
+          imageSrcs={imageSrcs}
+          engineLabel={currentEngineLabel}
+          onSave={(src: string) => handleSaveImage(src)}
+          isSaving={isSaving}
+          saveError={saveError}
+          onDiscard={() => setImageSrcs(null)}
+          onCreateAnother={() => setImageSrcs(null)}
+        />
+      ) : showCancelledState ? (
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            minHeight: 360,
+            gap: 18,
+          }}
+        >
+          <span style={statePillStyle("cancelled")}>● Cancelado</span>
+
+          <div style={{ fontFamily: fontUI, fontSize: 18, fontWeight: 600, color: palette.ink }}>
+            La generación se detuvo antes de terminar
           </div>
+          <div style={{ fontSize: 13, color: palette.inkFaint, maxWidth: 360 }}>
+            {currentEngineLabel} no llegó a producir un resultado porque cancelaste la creación. Tu prompt y
+            ajustes siguen aquí; puedes lanzarla de nuevo cuando quieras.
+          </div>
+
+          <button
+            onClick={() => setCancelledAcknowledged(true)}
+            className="pf-btn-primary"
+            style={{ padding: "11px 22px", fontSize: 14, marginTop: 4 }}
+          >
+            Volver al formulario
+          </button>
         </div>
       ) : (
         capability === "video" ? (
