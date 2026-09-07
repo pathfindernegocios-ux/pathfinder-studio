@@ -1,112 +1,56 @@
-import type { ChangeEvent } from "react";
-import { palette } from "../styles/tokens";
+// src/components/FrameChip.tsx
+import React from 'react';
 
 interface FrameChipProps {
-  inputId: string;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  preview: string | null;
   label: string;
-  sublabel: string;
-  emphasized?: boolean;
-  onOpen: () => void;
-  onClear: () => void;
+  icon?: string;
+  isSelected?: boolean;
+  onClick?: () => void;
 }
 
-export function FrameChip({
-  inputId,
-  inputRef,
-  onChange,
-  preview,
+const FrameChip: React.FC<FrameChipProps> = ({
   label,
-  sublabel,
-  emphasized,
-  onOpen,
-  onClear,
-}: FrameChipProps) {
-  const size = emphasized ? 64 : 48;
+  icon,
+  isSelected = false,
+  onClick,
+}) => {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        {preview ? (
-          <div
-            onClick={onOpen}
-            title={`Ver ${label.toLowerCase()} completa`}
-            style={{
-              width: size,
-              height: size,
-              borderRadius: 12,
-              overflow: "hidden",
-              cursor: "zoom-in",
-              border: `1px solid ${emphasized ? "rgba(139,195,74,0.35)" : palette.borderStrong}`,
-            }}
-          >
-            <img src={preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </div>
-        ) : (
-          <label
-            htmlFor={inputId}
-            style={{
-              width: size,
-              height: size,
-              borderRadius: 12,
-              border: `1px dashed ${emphasized ? palette.borderStrong : palette.border}`,
-              background: emphasized ? "rgba(255,255,255,0.02)" : "transparent",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: emphasized ? palette.inkMuted : palette.inkFaint,
-              fontSize: emphasized ? 18 : 15,
-              cursor: "pointer",
-            }}
-          >
-            ＋
-          </label>
-        )}
-        <input id={inputId} type="file" accept="image/*" ref={inputRef} onChange={onChange} style={{ display: "none" }} />
-        {preview && (
-          <button
-            type="button"
-            onClick={onClear}
-            aria-label={`Quitar ${label.toLowerCase()}`}
-            title="Quitar"
-            style={{
-              position: "absolute",
-              top: -6,
-              right: -6,
-              width: 18,
-              height: 18,
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.15)",
-              background: "rgba(7,8,10,0.9)",
-              color: palette.ink,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-              lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
-        )}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-        <span
-          style={{
-            fontSize: emphasized ? 13 : 12,
-            fontWeight: 500,
-            color: emphasized ? palette.ink : palette.inkMuted,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {label}
-        </span>
-        <span style={{ fontSize: 10.5, color: palette.inkFaint, whiteSpace: "nowrap", letterSpacing: 0.2 }}>
-          {sublabel}
-        </span>
-      </div>
-    </div>
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '10px 18px',
+        background: isSelected
+          ? 'var(--pf-text-primary)'
+          : 'var(--pf-bg-secondary)',
+        color: isSelected
+          ? '#FFFFFF'
+          : 'var(--pf-text-secondary)',
+        border: `1px solid ${isSelected ? 'var(--pf-text-primary)' : 'var(--pf-border-default)'}`,
+        borderRadius: '9999px',
+        fontFamily: 'var(--pf-font-ui)',
+        fontSize: '0.875rem',
+        fontWeight: isSelected ? 600 : 500,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.background = 'var(--pf-border-default)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) {
+          e.currentTarget.style.background = 'var(--pf-bg-secondary)';
+        }
+      }}
+    >
+      {icon && <span style={{ fontSize: '1.125rem' }}>{icon}</span>}
+      <span>{label}</span>
+    </button>
   );
-}
+};
+
+export default FrameChip;

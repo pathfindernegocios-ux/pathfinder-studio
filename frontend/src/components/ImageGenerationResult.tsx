@@ -1,128 +1,201 @@
-import { useState } from "react";
-import { palette, fontDisplay, resultHeroFrame, resultVariantThumb } from "../styles/tokens";
+// src/components/ImageGenerationResult.tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import { useCreations } from '../hooks/useCreations';
+import type { Creation } from '../types';
 
-/* ------------------------------------------------------------
-   ImageGenerationResult
-   Le da a Image el mismo nivel de dignidad que GenerationResult
-   le da a Video: la imagen es protagonista, hay una vista
-   principal con variantes navegables si se generaron varias, y
-   las acciones (descargar / guardar / descartar / crear otra)
-   siguen el mismo flujo de persistencia existente (saveCreation
-   → save-creation → R2 → complete-creation).
-
-   IMPORTANTE: este archivo va en
-   components/ImageGenerationResult.tsx — es un componente
-   nuevo y distinto de components/GenerationResult.tsx (el de
-   Video), que no debe tocarse.
-   ------------------------------------------------------------ */
-
-interface ImageGenerationResultProps {
-  imageSrcs: string[];
-  engineLabel: string;
-  onSave: (src: string) => void;
-  isSaving: boolean;
-  saveError: string | null;
-  onDiscard: () => void;
-  onCreateAnother: () => void;
+interface GenerationResultProps {
+  creation: Creation;
 }
 
-export function ImageGenerationResult({
-  imageSrcs,
-  engineLabel,
-  onSave,
-  isSaving,
-  saveError,
-  onDiscard,
-  onCreateAnother,
-}: ImageGenerationResultProps) {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const activeSrc = imageSrcs[activeIdx] ?? imageSrcs[0];
-  const hasVariants = imageSrcs.length > 1;
+const GenerationResult: React.FC<GenerationResultProps> = ({ creation }) => {
+  const { deleteCreation, getDownloadUrl } = useCreations();
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState(true);
+
+  useEffect(() => {
+    const loadMediaUrl = async () => {
+      if (creation.id && creation.storage_key) {
+        try {
+          const url = await getDownloadUrl(creation.id);
+          setMediaUrl(url);
+        } catch (error) {
+          console.error('Error loading media URL:', error);
+          setMediaUrl(null);
+        } finally {
+          setLoadingUrl(false);
+        }
+      } else {
+        setLoadingUrl(false);
+      }
+    };
+    loadMediaUrl();
+  }, [creation.id, creation.storage_key, getDownloadUrl]);
+
+  const handleDelete = useCallback(() => {
+    if (window.confirm('¿Estás seguro de eliminar esta creación?')) {
+      deleteCreation(creation.id);
+    }
+  }, [creation.id, deleteCreation]);
+
+  const isVideo = creation.media_type === 'video';
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ width: "100%", maxWidth: 720, marginBottom: 22 }}>
-        <div style={{ fontFamily: fontDisplay, fontSize: 22, fontWeight: 600, color: palette.ink, letterSpacing: -0.3 }}>
-          Tu creación
-        </div>
-        <div style={{ marginTop: 4, fontSize: 12.5, color: palette.inkFaint, letterSpacing: 0.2 }}>
-          {engineLabel}
-          {hasVariants && ` · ${imageSrcs.length} variantes`}
-        </div>
-      </div>
-
-      {/* Hero */}
+    <div
+      style={{
+        background: 'var(--pf-bg-secondary)',
+        borderRadius: 'var(--pf-radius-lg)',
+        border: '1px solid var(--pf-border-subtle)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Header con acciones */}
       <div
         style={{
-          ...resultHeroFrame,
-          width: "100%",
-          maxWidth: 640,
-          maxHeight: "min(66vh, 720px)",
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--pf-border-subtle)',
+          background: 'var(--pf-glass-surface)',
+          backdropFilter: 'blur(24px) saturate(180%)',
         }}
       >
-        <img
-          src={activeSrc}
-          alt="Resultado generado"
-          style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
-        />
-      </div>
-
-      {/* Variantes */}
-      {hasVariants && (
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          {imageSrcs.map((src, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setActiveIdx(idx)}
-              style={{ ...resultVariantThumb(idx === activeIdx), border: "none", padding: 0, background: "transparent" }}
-              aria-label={`Ver variante ${idx + 1}`}
-            >
-              <img src={src} alt={`Variante ${idx + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Acciones */}
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 720,
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          justifyContent: "center",
-          marginTop: 26,
-          flexWrap: "wrap",
-        }}
-      >
-        <a
-          href={activeSrc}
-          download
-          target="_blank"
-          rel="noreferrer"
-          className="pf-btn-ghost"
-          style={{ padding: "12px 22px", fontSize: 14, textDecoration: "none", display: "inline-block" }}
+        <div
+          style={{
+            fontFamily: 'var(--pf-font-display)',
+            fontSize: '1.125rem',
+            color: 'var(--pf-text-primary)',
+            letterSpacing: '-0.025em',
+          }}
         >
-          Descargar
-        </a>
-
-        <button onClick={() => onSave(activeSrc)} disabled={isSaving} className="pf-btn-primary" style={{ padding: "12px 22px", fontSize: 14 }}>
-          {isSaving ? "Guardando..." : "Guardar"}
-        </button>
-
-        <button onClick={onCreateAnother} className="pf-btn-ghost" style={{ padding: "12px 22px", fontSize: 14 }}>
-          Crear otra
-        </button>
-
-        <button onClick={onDiscard} className="pf-btn-ghost" style={{ padding: "12px 22px", fontSize: 14 }}>
-          Descartar
+          Resultado
+        </div>
+        <button
+          onClick={handleDelete}
+          style={{
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid #EF4444',
+            borderRadius: '9999px',
+            padding: '8px 16px',
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            color: '#EF4444',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+        >
+          Eliminar
         </button>
       </div>
 
-      {saveError && <p style={{ color: palette.danger, fontSize: 13, marginTop: 10 }}>{saveError}</p>}
-      {isSaving && <p style={{ color: palette.inkFaint, fontSize: 13, marginTop: 10 }}>Guardando en Mis creaciones...</p>}
+      {/* Media principal */}
+      <div
+        style={{
+          padding: '24px',
+          background: 'var(--pf-bg-primary)',
+        }}
+      >
+        {loadingUrl ? (
+          <div
+            style={{
+              width: '100%',
+              height: '400px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--pf-bg-secondary)',
+              borderRadius: '16px',
+              color: 'var(--pf-text-muted)',
+              fontFamily: 'var(--pf-font-ui)',
+            }}
+          >
+            Cargando...
+          </div>
+        ) : mediaUrl ? (
+          isVideo ? (
+            <video
+              src={mediaUrl}
+              controls
+              autoPlay
+              loop
+              muted
+              style={{
+                width: '100%',
+                borderRadius: '16px',
+                border: '1px solid var(--pf-border-default)',
+                boxShadow: 'var(--pf-shadow-floating)',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <img
+              src={mediaUrl}
+              alt={creation.prompt}
+              style={{
+                width: '100%',
+                borderRadius: '16px',
+                border: '1px solid var(--pf-border-default)',
+                boxShadow: 'var(--pf-shadow-floating)',
+              }}
+            />
+          )
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '400px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--pf-bg-secondary)',
+              borderRadius: '16px',
+              color: 'var(--pf-text-muted)',
+              fontFamily: 'var(--pf-font-ui)',
+            }}
+          >
+            Sin media disponible
+          </div>
+        )}
+      </div>
+
+      {/* Prompt usado */}
+      <div
+        style={{
+          padding: '20px',
+          borderTop: '1px solid var(--pf-border-subtle)',
+          background: 'var(--pf-glass-surface)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+        }}
+      >
+        <div
+          style={{
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: 'var(--pf-text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            marginBottom: '8px',
+          }}
+        >
+          Prompt utilizado
+        </div>
+        <p
+          className="pf-font-prompt"
+          style={{
+            color: 'var(--pf-text-primary)',
+            lineHeight: 1.6,
+            margin: 0,
+          }}
+        >
+          {creation.prompt}
+        </p>
+      </div>
     </div>
   );
-}
+};
+
+export default GenerationResult;

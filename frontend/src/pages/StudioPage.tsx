@@ -1,815 +1,150 @@
-import { useState, useRef, useEffect } from "react";
-import type { ChangeEvent } from "react";
-import type { Status, AspectOption } from "../types";
-import {
-  durationSeconds,
-  durationLabel,
-  durationFrames,
-  computeDims,
-  formatHMS,
-} from "../lib/helpers";
-import {
-  fontUI,
-  palette,
-  inputBase,
-  labelStyle,
-  pillButton,
-  statePillStyle,
-} from "../styles/tokens";
-import { useGenerationContext } from "../context/GenerationContext";
-import { useCreations } from "../hooks/useCreations";
-import { FrameChip } from "../components/FrameChip";
-import { AudioChip } from "../components/AudioChip";
-import { GenerationProgress } from "../components/GenerationProgress";
-import { GenerationResult } from "../components/GenerationResult";
-import { ImageGenerationForm } from "../components/ImageGenerationForm";
-import { ImageGenerationResult } from "../components/ImageGenerationResult";
+// src/pages/StudioPage.tsx
+import React, { useEffect, useState } from 'react';
+import Sidebar from '../components/Sidebar';
+import FloatingCommandCenter from '../components/FloatingCommandCenter';
+import { useCreations } from '../hooks/useCreations';
 
-const DURATION_OPTIONS = [
-  "2 Seconds (49 frames)",
-  "3 Seconds (73 frames)",
-  "5 Seconds (121 frames)",
-  "8 Seconds (193 frames)",
-  "10 Seconds (241 frames)",
-  "15 Seconds (361 frames)",
-  "20 Seconds (481 frames)",
-  "25 Seconds (601 frames)",
-  "30 Seconds (721 frames)",
-];
+const StudioPage: React.FC = () => {
+  const { creations, getDownloadUrl } = useCreations();
+  const [latestMediaUrl, setLatestMediaUrl] = useState<string | null>(null);
+  
+  // Nota: Como Sidebar maneja su estado internamente, asumimos un ancho base 
+  // para el layout inicial. El sidebar real puede variar visualmente.
+  // Para una sincronización perfecta sin props, lo ideal es usar CSS Grid 
+  // con minmax o dejar que el sidebar sea fixed y el grid ocupe el resto.
+  const sidebarWidth = 280; 
 
-const ENGINE_LABEL = "LTX-2.3";
-const RESOLUTION_OPTIONS = ["1080p", "720p", "540p", "480p"];
-
-const ASPECT_RATIO_OPTIONS: AspectOption[] = [
-  { label: "16:9 Landscape", short: "16:9", ratio: 16 / 9 },
-  { label: "4:3 Standard", short: "4:3", ratio: 4 / 3 },
-  { label: "1:1 Square", short: "1:1", ratio: 1 },
-  { label: "3:4 Portrait", short: "3:4", ratio: 3 / 4 },
-  { label: "9:16 Portrait", short: "9:16", ratio: 9 / 16 },
-];
-
-function usePersistentState<T>(key: string, initialValue: T) {
-  const [state, setState] = useState<T>(() => {
-    const stored = localStorage.getItem(key);
-    return stored ? (JSON.parse(stored) as T) : initialValue;
-  });
+  const latestCreation = creations.length > 0 ? creations[0] : null;
 
   useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(state));
-  }, [key, state]);
-
-  return [state, setState] as const;
-}
-
-interface StudioPageProps {
-  profile: { station_id: string | null } | null;
-}
-
-export function StudioPage({ profile }: StudioPageProps) {
-  void profile;
-
-  const {
-    gradioUrl,
-    capability,
-    setCapability,
-    status,
-    videoSrc,
-    setVideoSrc,
-    videoRatio,
-    setVideoRatio,
-    imageSrcs,
-    setImageSrcs,
-    statusMsg,
-    setStatusMsg,
-    errorMsg,
-    setErrorMsg,
-    isLoading,
-    generationInfo,
-    logs,
-    isCancelling,
-    handleGenerate,
-    handleCancel,
-    progressFrac,
-    liveElapsedSec,
-    remainingSec,
-    completedDurationSec,
-    backendError,
-    canCancel,
-    activeImageModelId,
-  } = useGenerationContext();
-
-  // Video form state
-  const [imageStartFile, setImageStartFile] = useState<File | null>(null);
-  const [imageStartPreview, setImageStartPreview] = useState<string | null>(null);
-  const [imageEndFile, setImageEndFile] = useState<File | null>(null);
-  const [imageEndPreview, setImageEndPreview] = useState<string | null>(null);
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [audioName, setAudioName] = useState<string>("");
-  const [audioPreview, setAudioPreview] = useState<string | null>(null);
-
-  const [prompt, setPrompt] = usePersistentState<string>("pf_prompt", "");
-  const [seed, setSeed] = usePersistentState<number>("pf_seed", -1);
-  const [duration, setDuration] = usePersistentState<string>("pf_duration", "5 Seconds (121 frames)");
-  const [resolution, setResolution] = usePersistentState<string>("pf_resolution", "720p");
-  const [aspectRatio, setAspectRatio] = usePersistentState<string>("pf_aspect_ratio", "16:9 Landscape");
-  const [guideScale, setGuideScale] = usePersistentState<number>("pf_guide_scale", 4.0);
-  const [matchAudioDur, setMatchAudioDur] = usePersistentState<boolean>("pf_match_audio_dur", false);
-
-  const [paramsOpen, setParamsOpen] = useState<boolean>(false);
-  const [advancedOpen, setAdvancedOpen] = useState<boolean>(false);
-  const [logsOpen, setLogsOpen] = useState<boolean>(false);
-  const [diagnosticsOpen, setDiagnosticsOpen] = useState<boolean>(false);
-
-  const [cancelledAcknowledged, setCancelledAcknowledged] = useState<boolean>(false);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const endFileInputRef = useRef<HTMLInputElement | null>(null);
-  const audioInputRef = useRef<HTMLInputElement | null>(null);
-  const logsEndRef = useRef<HTMLDivElement | null>(null);
-
-  const { isSaving, saveError, saveCreation } = useCreations();
-
-  // Reuse effect
-  useEffect(() => {
-    const reuseRaw = sessionStorage.getItem("pf_reuse_data");
-    if (reuseRaw) {
-      try {
-        const reuse = JSON.parse(reuseRaw);
-        if (reuse.capability) setCapability(reuse.capability);
-        if (reuse.prompt !== undefined) setPrompt(reuse.prompt);
-        if (reuse.resolution !== undefined) setResolution(reuse.resolution);
-        if (reuse.aspect_ratio !== undefined) setAspectRatio(reuse.aspect_ratio);
-        if (reuse.duration !== undefined) setDuration(reuse.duration);
-        if (reuse.seed !== undefined && reuse.seed !== null) setSeed(reuse.seed);
-        if (reuse.guide_scale !== undefined) setGuideScale(reuse.guide_scale);
-        if (reuse.match_audio_dur !== undefined) setMatchAudioDur(reuse.match_audio_dur);
-      } catch {}
-      sessionStorage.removeItem("pf_reuse_data");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (logsOpen && diagnosticsOpen) {
-      logsEndRef.current?.scrollIntoView({ block: "end" });
-    }
-  }, [logs, logsOpen, diagnosticsOpen]);
-
-  useEffect(() => {
-    if (isLoading) setParamsOpen(false);
-  }, [isLoading]);
-
-  useEffect(() => {
-    if (isLoading) setCancelledAcknowledged(false);
-  }, [isLoading]);
-
-  const handleStartFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setImageStartFile(file);
-    setVideoSrc(null);
-    setErrorMsg(null);
-    setImageStartPreview(file ? URL.createObjectURL(file) : null);
-  };
-
-  const handleEndFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setImageEndFile(file);
-    setImageEndPreview(file ? URL.createObjectURL(file) : null);
-  };
-
-  const handleAudioChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setAudioFile(file);
-    setAudioName(file ? file.name : "");
-    setAudioPreview(file ? URL.createObjectURL(file) : null);
-  };
-
-  const clearStartFile = () => {
-    setImageStartFile(null);
-    setImageStartPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const clearEndFile = () => {
-    setImageEndFile(null);
-    setImageEndPreview(null);
-    if (endFileInputRef.current) endFileInputRef.current.value = "";
-  };
-
-  const clearAudioFile = () => {
-    setAudioFile(null);
-    setAudioName("");
-    setAudioPreview(null);
-    setMatchAudioDur(false);
-    if (audioInputRef.current) audioInputRef.current.value = "";
-  };
-
-  const handleAudioTrimmed = (file: File) => {
-    setAudioFile(file);
-    setAudioName(file.name);
-    setAudioPreview(URL.createObjectURL(file));
-  };
-
-  const handleSaveCreation = async () => {
-    if (!videoSrc) return;
-    await saveCreation({
-      tempUrl: videoSrc,
-      prompt,
-      seed,
-      duration,
-      resolution,
-      aspectRatio,
-      guideScale,
-      matchAudioDur,
-      mediaType: "video",
-      modelId: "ltx-2.3",
-    });
-  };
-
-  const handleSaveImage = async (src: string) => {
-    await saveCreation({
-      tempUrl: src,
-      prompt: prompt || "Imagen generada",
-      seed,
-      duration: "",
-      resolution: "",
-      aspectRatio: "",
-      guideScale: 0,
-      matchAudioDur: false,
-      mediaType: "image",
-      modelId: activeImageModelId ?? "krea-2-turbo",
-    });
-  };
-
-  const isButtonDisabled =
-    status !== "READY" ||
-    isLoading ||
-    !imageStartFile ||
-    !prompt.trim() ||
-    !gradioUrl;
-
-  const statusLabel: Record<Status, string> = {
-    STARTING: "Preparando Pathfinder",
-    READY: "Lista para crear",
-    BUSY: "Creando",
-    ERROR: "No se pudo completar la creación",
-    UNKNOWN: "Conexión no disponible",
-  };
-
-  const currentEngineLabel =
-    capability === "image"
-      ? activeImageModelId === "flux-2-klein-4b"
-        ? "Flux 2 Klein 4B"
-        : "Krea 2 Turbo"
-      : ENGINE_LABEL;
-
-  const showCancelledState =
-    !isLoading &&
-    !videoSrc &&
-    !(imageSrcs && imageSrcs.length > 0) &&
-    generationInfo?.status === "cancelled" &&
-    !cancelledAcknowledged;
-
-  const handleGenerateClick = () => {
-    if (capability === "video") {
-      if (!imageStartFile) return;
-      handleGenerate({
-        imageStartFile,
-        imageEndFile,
-        audioFile,
-        prompt,
-        seed,
-        duration,
-        resolution,
-        aspectRatio,
-        guideScale,
-        matchAudioDur,
-      });
-    }
-  };
-
-  const handleCapabilityChange = (newCapability: "image" | "video" | "audio") => {
-    if (newCapability === "audio") return;
-    setCapability(newCapability);
-    setVideoSrc(null);
-    setImageSrcs(null);
-    setErrorMsg(null);
-    setStatusMsg(null);
-    setCancelledAcknowledged(true);
-  };
+    const loadLatestMedia = async () => {
+      if (latestCreation && latestCreation.id) {
+        try {
+          const url = await getDownloadUrl(latestCreation.id);
+          setLatestMediaUrl(url);
+        } catch (error) {
+          console.error('Error loading media URL:', error);
+          setLatestMediaUrl(null);
+        }
+      } else {
+        setLatestMediaUrl(null);
+      }
+    };
+    loadLatestMedia();
+  }, [latestCreation, getDownloadUrl]);
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", width: "100%", flex: 1, display: "flex", flexDirection: "column" }}>
-      {/* Selector de capability */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-        {["image", "video", "audio"].map((c) => (
-          <button
-            key={c}
-            onClick={() => handleCapabilityChange(c as any)}
-            disabled={c === "audio"}
-            style={{
-              padding: "8px 16px",
-              borderRadius: 999,
-              fontSize: 13,
-              fontFamily: fontUI,
-              cursor: c === "audio" ? "not-allowed" : "pointer",
-              border: `1px solid ${capability === c ? palette.accent : palette.border}`,
-              background: capability === c ? palette.accentDim : "transparent",
-              color: capability === c ? palette.accentStrong : palette.inkMuted,
-              opacity: c === "audio" ? 0.5 : 1,
-              transition: "all 0.15s ease",
-            }}
-          >
-            {c === "image" ? "Imagen" : c === "video" ? "Video" : "Audio"}
-          </button>
-        ))}
+    <div
+      style={{
+        display: 'grid',
+        // Usamos un ancho base. Si Sidebar se colapsa visualmente, 
+        // el área de canvas se ajustará si usamos fr, pero el gap visual podría quedar.
+        // La solución robusta sin props es que Sidebar sea 'position: fixed' y este grid ocupe 100%.
+        gridTemplateColumns: `${sidebarWidth}px 1fr`,
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        background: 'var(--pf-bg-primary)',
+      }}
+    >
+      {/* 1. SIDEBAR COLUMN */}
+      <div
+        style={{
+          position: 'relative',
+          height: '100%',
+          borderRight: '1px solid var(--pf-border-subtle)',
+          background: 'var(--pf-bg-secondary)',
+          zIndex: 40,
+        }}
+      >
+        {/* CORRECCIÓN: Sin props, Sidebar gestiona su estado interno */}
+        <Sidebar />
       </div>
 
-      {!gradioUrl && (
-        <div style={{ marginBottom: 20, color: palette.inkFaint, fontSize: 13 }}>
-          Buscando tu estación Pathfinder...
-        </div>
-      )}
-
-      {(errorMsg || backendError) && (
-        <p style={{ color: palette.danger, fontSize: 13, marginBottom: 14 }}>{errorMsg || backendError}</p>
-      )}
-      {statusMsg && !errorMsg && !backendError && !isLoading && !videoSrc && !imageSrcs && (
-        <p style={{ color: palette.inkMuted, fontSize: 13, marginBottom: 14 }}>{statusMsg}</p>
-      )}
-
-      {isLoading ? (
-        <GenerationProgress
-          stage={generationInfo?.stage}
-          progress={generationInfo?.progress ?? null}
-          progressFrac={progressFrac}
-          liveElapsedSec={liveElapsedSec}
-          remainingSec={remainingSec}
-          canCancel={canCancel}
-          isCancelling={isCancelling}
-          onCancel={handleCancel}
-          engineLabel={currentEngineLabel}
-        />
-      ) : videoSrc ? (
-        <GenerationResult
-          videoSrc={videoSrc}
-          videoRatio={videoRatio}
-          onVideoRatioChange={setVideoRatio}
-          selectedAspect={ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)}
-          duration={duration}
-          completedDurationSec={completedDurationSec}
-          onCreateAnother={() => setVideoSrc(null)}
-          engineLabel={ENGINE_LABEL}
-          onSave={handleSaveCreation}
-          isSaving={isSaving}
-          saveError={saveError}
-          onDiscard={() => setVideoSrc(null)}
-        />
-      ) : imageSrcs && imageSrcs.length > 0 ? (
-        <ImageGenerationResult
-          imageSrcs={imageSrcs}
-          engineLabel={currentEngineLabel}
-          onSave={(src: string) => handleSaveImage(src)}
-          isSaving={isSaving}
-          saveError={saveError}
-          onDiscard={() => setImageSrcs(null)}
-          onCreateAnother={() => setImageSrcs(null)}
-        />
-      ) : showCancelledState ? (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            minHeight: 360,
-            gap: 18,
-          }}
-        >
-          <span style={statePillStyle("cancelled")}>● Cancelado</span>
-
-          <div style={{ fontFamily: fontUI, fontSize: 18, fontWeight: 600, color: palette.ink }}>
-            La generación se detuvo antes de terminar
-          </div>
-          <div style={{ fontSize: 13, color: palette.inkFaint, maxWidth: 360 }}>
-            {currentEngineLabel} no llegó a producir un resultado porque cancelaste la creación. Tu prompt y
-            ajustes siguen aquí; puedes lanzarla de nuevo cuando quieras.
-          </div>
-
-          <button
-            onClick={() => setCancelledAcknowledged(true)}
-            className="pf-btn-primary"
-            style={{ padding: "11px 22px", fontSize: 14, marginTop: 4 }}
-          >
-            Volver al formulario
-          </button>
-        </div>
-      ) : (
-        capability === "video" ? (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.014) 0%, rgba(255,255,255,0.004) 100%)",
-              border: `1px solid rgba(255,255,255,0.03)`,
-              borderRadius: 28,
-              padding: "38px 40px 26px",
-            }}
-          >
-            <textarea
-              placeholder="Una mujer entra a un estudio y dice “hola”. Se escucha el ambiente del estudio."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={5}
-              style={{
-                ...inputBase,
-                background: "transparent",
-                border: "none",
-                padding: 0,
-                fontSize: 21,
-                lineHeight: 1.55,
-                resize: "none",
-                minHeight: 140,
-                flex: 1,
-              }}
-            />
-
-            <div style={{ fontSize: 11, color: palette.inkFaint, opacity: 0.75, marginBottom: 18 }}>
-              Guía opcional · [VISUAL] [SPEECH] [SOUND]
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", marginBottom: 22 }}>
-              <FrameChip
-                inputId="start-frame-input"
-                inputRef={fileInputRef}
-                onChange={handleStartFileChange}
-                preview={imageStartPreview}
-                label="Imagen de inicio"
-                sublabel="Start Frame"
-                emphasized
-                onOpen={() => imageStartPreview && window.open(imageStartPreview, "_blank")}
-                onClear={clearStartFile}
-              />
-              <FrameChip
-                inputId="end-frame-input"
-                inputRef={endFileInputRef}
-                onChange={handleEndFileChange}
-                preview={imageEndPreview}
-                label="Imagen final"
-                sublabel="End Frame · opcional"
-                onOpen={() => imageEndPreview && window.open(imageEndPreview, "_blank")}
-                onClear={clearEndFile}
-              />
-
-              <div style={{ width: 1, height: 40, background: palette.border, margin: "0 2px" }} />
-
-              {audioName && audioPreview ? (
-                <AudioChip
-                  audioName={audioName}
-                  audioPreview={audioPreview}
-                  matchAudioDur={matchAudioDur}
-                  onToggleMatchDur={setMatchAudioDur}
-                  onClear={clearAudioFile}
-                  onTrimmed={handleAudioTrimmed}
-                />
-              ) : (
-                <label
-                  htmlFor="audio-input"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "8px 14px",
-                    borderRadius: 999,
-                    border: `1px dashed ${palette.border}`,
-                    color: palette.inkFaint,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    marginTop: 4,
-                  }}
-                >
-                  <span>＋</span> Audio
-                </label>
-              )}
-              <input
-                id="audio-input"
-                type="file"
-                accept="audio/*"
-                ref={audioInputRef}
-                onChange={handleAudioChange}
-                style={{ display: "none" }}
-              />
-            </div>
-
+      {/* 2. CANVAS AREA */}
+      <div
+        style={{
+          position: 'relative',
+          overflowY: 'auto',
+          height: '100%',
+          background: 'var(--pf-bg-primary)',
+          padding: '40px',
+          paddingBottom: '320px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: '1400px', flex: 1 }}>
+          {latestCreation ? (
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 16,
-                paddingTop: 18,
-                borderTop: `1px solid ${palette.border}`,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: '24px',
               }}
             >
-              <button
-                onClick={() => setParamsOpen((v) => !v)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: fontUI,
-                  color: palette.inkMuted,
-                  fontSize: 13,
-                  padding: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <span>
-                  {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {durationSeconds(duration)} s
-                </span>
-                <span style={{ color: palette.accentStrong, textDecoration: "underline", textUnderlineOffset: 3 }}>
-                  {paramsOpen ? "Cerrar" : "Configuración"}
-                </span>
-              </button>
-
-              <button
-                onClick={handleGenerateClick}
-                disabled={isButtonDisabled}
-                className="pf-btn-primary"
-                style={{ padding: "13px 26px", fontSize: 14.5, letterSpacing: 0.1 }}
-              >
-                Crear video
-              </button>
-            </div>
-
-            {paramsOpen && (
-              <div style={{ paddingTop: 22, marginTop: 4 }}>
-                <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>Formato</label>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {ASPECT_RATIO_OPTIONS.map((opt) => {
-                      const dims = computeDims(resolution, opt.ratio);
-                      const active = aspectRatio === opt.label;
-                      const maxBox = 28;
-                      const boxW = opt.ratio >= 1 ? maxBox : maxBox * opt.ratio;
-                      const boxH = opt.ratio >= 1 ? maxBox / opt.ratio : maxBox;
-                      return (
-                        <button
-                          key={opt.label}
-                          type="button"
-                          onClick={() => setAspectRatio(opt.label)}
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "12px 14px",
-                            borderRadius: 14,
-                            cursor: "pointer",
-                            fontFamily: fontUI,
-                            border: `1px solid ${active ? palette.accent : palette.border}`,
-                            background: active ? palette.accentDim : palette.surfaceSoft,
-                            minWidth: 84,
-                            transition: "all 0.15s ease",
-                          }}
-                        >
-                          <div style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <div
-                              style={{
-                                width: boxW,
-                                height: boxH,
-                                border: `1.5px solid ${active ? palette.accentStrong : palette.inkFaint}`,
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: active ? palette.accentStrong : palette.ink }}>
-                            {opt.short}
-                          </span>
-                          <span style={{ fontSize: 10, color: palette.inkFaint }}>
-                            {dims.width}×{dims.height}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 18 }}>
-                  <label style={labelStyle}>Resolución</label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {RESOLUTION_OPTIONS.map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setResolution(opt)}
-                        style={pillButton(resolution === opt)}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 6 }}>
-                  <label style={labelStyle}>Duración</label>
-                  <select
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    style={{ ...inputBase, cursor: "pointer", maxWidth: 260 }}
-                  >
-                    {DURATION_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt} style={{ background: "#14150F" }}>
-                        {durationLabel(opt)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${palette.border}` }}>
-                  <button
-                    type="button"
-                    onClick={() => setAdvancedOpen((v) => !v)}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      color: palette.inkFaint,
-                      fontSize: 12.5,
-                      fontFamily: fontUI,
-                      padding: 0,
-                      textDecoration: "underline",
-                      textUnderlineOffset: 3,
-                    }}
-                  >
-                    {advancedOpen ? "Ocultar avanzado" : "Avanzado"}
-                  </button>
-
-                  {advancedOpen && (
-                    <div style={{ marginTop: 16 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-                        <div>
-                          <label style={labelStyle}>Seed</label>
-                          <input
-                            type="number"
-                            value={seed}
-                            onChange={(e) => setSeed(parseInt(e.target.value, 10))}
-                            style={inputBase}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label style={labelStyle}>
-                          Prompt influence · <span style={{ color: palette.ink }}>{guideScale.toFixed(1)}</span>
-                        </label>
-                        <input
-                          type="range"
-                          min={1}
-                          max={8}
-                          step={0.5}
-                          value={guideScale}
-                          onChange={(e) => setGuideScale(parseFloat(e.target.value))}
-                          style={{ width: "100%", accentColor: palette.accent }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ flex: 1 }}>
-            <ImageGenerationForm />
-          </div>
-        )
-      )}
-
-      <div style={{ marginTop: 22 }}>
-        <button
-          onClick={() => setLogsOpen((v) => !v)}
-          style={{
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            fontFamily: fontUI,
-            fontSize: 12.5,
-            color: palette.inkFaint,
-            padding: 0,
-          }}
-        >
-          {logsOpen ? "Ocultar detalles de generación" : "Detalles de generación"}
-        </button>
-        {logsOpen && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 12.5, color: palette.inkFaint, lineHeight: 1.9, marginBottom: 8 }}>
-              {capability === "image" ? (
-                <>
-                  <div>Modelo · {currentEngineLabel}</div>
-                  <div>Estado · {statusLabel[status]}</div>
-                  {generationInfo?.stage && <div>Etapa · {generationInfo.stage}</div>}
-                  {generationInfo?.prompt && (
-                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                      Prompt · {generationInfo.prompt}
-                    </div>
-                  )}
-                  {generationInfo?.started_at && (
-                    <div>
-                      Inicio · {new Date(generationInfo.started_at * 1000).toLocaleString("es-MX", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  )}
-                  {generationInfo?.progress != null && (
-                    <div>Progreso · {Math.round(generationInfo.progress * 100)}%</div>
-                  )}
-                  <div>Seed · {seed === -1 ? "aleatoria (-1)" : seed}</div>
-                  {completedDurationSec !== null ? (
-                    <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>
-                  ) : liveElapsedSec !== null ? (
-                    <div>Tiempo transcurrido · {formatHMS(liveElapsedSec)}</div>
-                  ) : null}
-                  {generationInfo?.id && <div>ID · {generationInfo.id}</div>}
-                </>
-              ) : (
-                <>
-                  <div>Modelo · {ENGINE_LABEL}</div>
-                  <div>Estado · {statusLabel[status]}</div>
-                  {generationInfo?.stage && <div>Etapa · {generationInfo.stage}</div>}
-                  <div>
-                    Formato · {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {computeDims(resolution, ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.ratio ?? 16 / 9).width}×{computeDims(resolution, ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.ratio ?? 16 / 9).height}
-                  </div>
-                  <div>
-                    Duración objetivo · {durationLabel(duration)} · {durationFrames(duration)} frames
-                  </div>
-                  <div>Seed · {seed === -1 ? "aleatoria (-1)" : seed}</div>
-                  <div>Prompt influence · {guideScale.toFixed(1)}</div>
-                  {completedDurationSec !== null && <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>}
-                  {generationInfo?.id && <div>ID · {generationInfo.id}</div>}
-                </>
-              )}
-            </div>
-
-            <button
-              onClick={() => setDiagnosticsOpen((v) => !v)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: palette.inkFaint,
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: fontUI,
-                padding: 0,
-                textDecoration: "underline",
-                textUnderlineOffset: 3,
-              }}
-            >
-              {diagnosticsOpen ? "Ocultar diagnóstico" : "Ver diagnóstico"}
-              {logs.length > 0 ? ` (${logs.length})` : ""}
-            </button>
-
-            {diagnosticsOpen && (
               <div
-                className="pf-log-scroll"
+                className="pf-glass-panel"
                 style={{
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  marginTop: 10,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: "rgba(0,0,0,0.25)",
-                  fontFamily: "'JetBrains Mono', 'Courier New', monospace",
-                  fontSize: 11.5,
-                  color: palette.inkFaint,
+                  padding: '20px',
+                  borderRadius: 'var(--pf-radius-lg)',
+                  background: 'var(--pf-glass-surface)',
+                  backdropFilter: 'blur(24px) saturate(180%)',
+                  border: '1px solid var(--pf-border-subtle)',
                 }}
               >
-                {logs.length === 0 ? (
-                  <div style={{ color: palette.inkFaint, padding: "4px 0" }}>Sin actividad todavía.</div>
+                {latestMediaUrl ? (
+                  latestCreation.media_type === 'video' ? (
+                    <video src={latestMediaUrl} controls muted loop autoPlay style={{ width: '100%', borderRadius: '12px', display: 'block' }} />
+                  ) : (
+                    <img src={latestMediaUrl} alt={latestCreation.prompt} style={{ width: '100%', borderRadius: '12px', display: 'block' }} />
+                  )
                 ) : (
-                  logs.map((entry) => (
-                    <div key={entry.seq} style={{ padding: "2px 0", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                      <span style={{ color: palette.inkFaint, opacity: 0.6 }}>
-                        [{new Date(entry.ts * 1000).toLocaleTimeString()}]
-                      </span>{" "}
-                      <span style={{ color: palette.inkMuted }}>{entry.msg}</span>
-                    </div>
-                  ))
+                  <div style={{ width: '100%', aspectRatio: '1', background: 'var(--pf-bg-secondary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pf-text-muted)' }}>
+                    Cargando...
+                  </div>
                 )}
-                <div ref={logsEndRef} />
+                <p className="pf-font-prompt" style={{ marginTop: '16px', fontFamily: 'var(--pf-font-display)', fontSize: '1rem', color: 'var(--pf-text-primary)', lineHeight: 1.5 }}>
+                  {latestCreation.prompt}
+                </p>
+                <div style={{ marginTop: '8px', fontFamily: 'var(--pf-font-ui)', fontSize: '0.75rem', color: 'var(--pf-text-muted)', textTransform: 'capitalize' }}>
+                  {latestCreation.media_type || 'imagen'} • {new Date(latestCreation.created_at).toLocaleDateString('es-ES')}
+                </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div style={{ height: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+              <div style={{ fontSize: '5rem', marginBottom: '24px', opacity: 0.5 }}>🎨</div>
+              <h2 className="pf-font-prompt" style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--pf-text-primary)', marginBottom: '16px' }}>
+                Tu lienzo está vacío
+              </h2>
+              <p style={{ fontFamily: 'var(--pf-font-ui)', fontSize: '1rem', color: 'var(--pf-text-secondary)', maxWidth: '400px' }}>
+                Usa el panel inferior para crear tu primera obra de arte con IA.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 3. FLOATING COMMAND CENTER */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '32px',
+          // Centrado respecto al viewport asumiendo sidebar expandido. 
+          // Si el sidebar se colapsa, el panel se desplazará ligeramente, 
+          // pero al ser fixed y centrado con calc, se mantiene estable en la mayoría de casos.
+          left: `calc(${sidebarWidth}px + ((100vw - ${sidebarWidth}px) / 2) - (min(90%, 800px) / 2))`,
+          width: 'min(90%, 800px)',
+          zIndex: 50,
+          transition: 'left 0.3s ease',
+        }}
+      >
+        <FloatingCommandCenter />
       </div>
     </div>
   );
-}
+};
+
+export default StudioPage;

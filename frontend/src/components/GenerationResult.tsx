@@ -1,143 +1,282 @@
-import { palette, fontDisplay } from "../styles/tokens";
-import { durationSeconds, formatHMS } from "../lib/helpers";
+// src/components/GenerationResult.tsx
+import React, { useState, useCallback } from 'react';
+
+interface Variant {
+  id: string;
+  imageUrl: string;
+}
 
 interface GenerationResultProps {
-  videoSrc: string;
-  videoRatio: number | null;
-  onVideoRatioChange: (ratio: number) => void;
-  selectedAspect: { label: string; short: string; ratio: number } | undefined;
-  duration: string;
-  completedDurationSec: number | null;
-  onCreateAnother: () => void;
-  engineLabel: string;
-  onSave: () => void;
-  isSaving: boolean;
-  saveError: string | null;
-  onDiscard: () => void;
+  prompt: string;
+  variants: Variant[];
+  createdAt: string;
+  isFavorite?: boolean;
+  onVariantSelect?: (variantId: string) => void;
+  onFavoriteToggle?: () => void;
+  onDelete?: () => void;
 }
 
-export function GenerationResult({
-  videoSrc,
-  videoRatio,
-  onVideoRatioChange,
-  selectedAspect,
-  duration,
-  completedDurationSec,
-  engineLabel,
-  onSave,
-  isSaving,
-  saveError,
-  onDiscard,
-}: GenerationResultProps) {
-  const ratio = videoRatio ?? selectedAspect?.ratio ?? 16 / 9;
-  const aspectShort = selectedAspect?.short ?? "";
-  const maxH = "min(66vh, 720px)";
+const resultHeroFrameStyle: React.CSSProperties = {
+  background: 'var(--pf-bg-secondary)',
+  borderRadius: 'var(--pf-radius-lg)',
+  border: '1px solid var(--pf-border-subtle)',
+  overflow: 'hidden',
+};
+
+const resultVariantThumbStyle: React.CSSProperties = {
+  borderRadius: '12px',
+  border: '2px solid var(--pf-border-default)',
+  cursor: 'pointer',
+  transition: 'border-color 0.2s ease, transform 0.2s ease',
+};
+
+const GenerationResult: React.FC<GenerationResultProps> = ({
+  prompt,
+  variants,
+  createdAt,
+  isFavorite = false,
+  onVariantSelect,
+  onFavoriteToggle,
+  onDelete,
+}) => {
+  const [selectedVariant, setSelectedVariant] = useState<string>(
+    variants[0]?.id || ''
+  );
+
+  const handleVariantClick = useCallback(
+    (variantId: string) => {
+      setSelectedVariant(variantId);
+      onVariantSelect?.(variantId);
+    },
+    [onVariantSelect]
+  );
+
+  const selectedImageData = variants.find(
+    (v) => v.id === selectedVariant
+  )?.imageUrl;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ width: "100%", maxWidth: 720, marginBottom: 22 }}>
+    <div style={resultHeroFrameStyle}>
+      {/* Header con acciones */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--pf-border-subtle)',
+          background: 'var(--pf-glass-surface)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+        }}
+      >
         <div
           style={{
-            fontFamily: fontDisplay,
-            fontSize: 22,
-            fontWeight: 600,
-            color: palette.ink,
-            letterSpacing: -0.3,
+            fontFamily: 'var(--pf-font-display)',
+            fontSize: '1.125rem',
+            color: 'var(--pf-text-primary)',
+            letterSpacing: '-0.025em',
           }}
         >
-          Tu creación
+          Resultado
         </div>
-        <div style={{ marginTop: 4, fontSize: 12.5, color: palette.inkFaint, letterSpacing: 0.2 }}>
-          {engineLabel} · {aspectShort} · {durationSeconds(duration)} s
-          {completedDurationSec !== null && (
-            <span style={{ opacity: 0.8 }}> · Completado en {formatHMS(completedDurationSec)}</span>
-          )}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={onFavoriteToggle}
+            style={{
+              background: isFavorite
+                ? '#EF4444'
+                : 'var(--pf-bg-secondary)',
+              border: '1px solid var(--pf-border-default)',
+              borderRadius: '9999px',
+              padding: '8px 16px',
+              fontFamily: 'var(--pf-font-ui)',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              color: isFavorite
+                ? '#FFFFFF'
+                : 'var(--pf-text-secondary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.opacity = '0.9')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.opacity = '1')
+            }
+          >
+            {isFavorite ? '★ Favorito' : '☆ Favorito'}
+          </button>
+          <button
+            onClick={onDelete}
+            style={{
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid #EF4444',
+              borderRadius: '9999px',
+              padding: '8px 16px',
+              fontFamily: 'var(--pf-font-ui)',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              color: '#EF4444',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.opacity = '0.9')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.opacity = '1')
+            }
+          >
+            Eliminar
+          </button>
         </div>
       </div>
 
+      {/* Imagen principal */}
       <div
         style={{
-          aspectRatio: String(ratio),
-          width: `min(100%, calc(${maxH} * ${ratio}))`,
-          maxHeight: maxH,
-          borderRadius: 18,
-          overflow: "hidden",
-          background: "#000",
-          border: "1px solid rgba(255,255,255,0.06)",
-          boxShadow:
-            "0 30px 90px rgba(0,0,0,0.6), 0 0 120px rgba(139,195,74,0.05), 0 0 0 1px rgba(255,255,255,0.02) inset",
+          padding: '24px',
+          background: 'var(--pf-bg-primary)',
         }}
       >
-        <video
-          src={videoSrc}
-          controls
-          playsInline
-          onLoadedMetadata={(e) => {
-            const { videoWidth, videoHeight } = e.currentTarget;
-            if (videoWidth > 0 && videoHeight > 0) onVideoRatioChange(videoWidth / videoHeight);
-          }}
+        {selectedImageData ? (
+          <img
+            src={selectedImageData}
+            alt="Generación"
+            style={{
+              width: '100%',
+              borderRadius: '16px',
+              border: '1px solid var(--pf-border-default)',
+              boxShadow: 'var(--pf-shadow-floating)',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '400px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--pf-bg-secondary)',
+              borderRadius: '16px',
+              color: 'var(--pf-text-muted)',
+              fontFamily: 'var(--pf-font-ui)',
+            }}
+          >
+            Sin imagen disponible
+          </div>
+        )}
+      </div>
+
+      {/* Variantes */}
+      {variants.length > 1 && (
+        <div
           style={{
-            display: "block",
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            background: "#000",
+            padding: '20px',
+            borderTop: '1px solid var(--pf-border-subtle)',
+            background: 'var(--pf-bg-secondary)',
           }}
-        />
-      </div>
+        >
+          <div
+            style={{
+              fontFamily: 'var(--pf-font-ui)',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'var(--pf-text-secondary)',
+              marginBottom: '12px',
+            }}
+          >
+            Variantes
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            {variants.map((variant) => (
+              <div
+                key={variant.id}
+                onClick={() => handleVariantClick(variant.id)}
+                style={{
+                  ...resultVariantThumbStyle,
+                  borderColor:
+                    selectedVariant === variant.id
+                      ? 'var(--pf-text-primary)'
+                      : 'var(--pf-border-default)',
+                  opacity:
+                    selectedVariant === variant.id ? 1 : 0.7,
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.transform = 'scale(1.05)')
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.transform = 'scale(1)')
+                }
+              >
+                <img
+                  src={variant.imageUrl}
+                  alt={`Variante ${variant.id}`}
+                  style={{
+                    width: '100%',
+                    borderRadius: '10px',
+                    display: 'block',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
+      {/* Prompt usado */}
       <div
         style={{
-          width: "100%",
-          maxWidth: 720,
-          display: "flex",
-          gap: 14,
-          alignItems: "center",
-          justifyContent: "center",
-          marginTop: 26,
-          flexWrap: "wrap",
+          padding: '20px',
+          borderTop: '1px solid var(--pf-border-subtle)',
+          background: 'var(--pf-glass-surface)',
+          backdropFilter: 'blur(24px) saturate(180%)',
         }}
       >
-        <a
-          href={videoSrc}
-          download
-          target="_blank"
-          rel="noreferrer"
-          className="pf-btn-ghost"
-          style={{ padding: "12px 22px", fontSize: 14, textDecoration: "none", display: "inline-block" }}
+        <div
+          style={{
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: 'var(--pf-text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            marginBottom: '8px',
+          }}
         >
-          Descargar
-        </a>
-
-        <button
-          onClick={onSave}
-          disabled={isSaving}
-          className="pf-btn-primary"
-          style={{ padding: "12px 22px", fontSize: 14 }}
+          Prompt utilizado
+        </div>
+        <p
+          className="pf-font-prompt"
+          style={{
+            color: 'var(--pf-text-primary)',
+            lineHeight: 1.6,
+            margin: 0,
+          }}
         >
-          {isSaving ? "Guardando..." : "Guardar"}
-        </button>
-
-        <button
-          onClick={onDiscard}
-          className="pf-btn-ghost"
-          style={{ padding: "12px 22px", fontSize: 14 }}
+          {prompt}
+        </p>
+        <div
+          style={{
+            marginTop: '12px',
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.8125rem',
+            color: 'var(--pf-text-muted)',
+          }}
         >
-          Descartar
-        </button>
+          Creado: {new Date(createdAt).toLocaleDateString('es-ES')}
+        </div>
       </div>
-
-      {saveError && (
-        <p style={{ color: palette.danger, fontSize: 13, marginTop: 10 }}>
-          {saveError}
-        </p>
-      )}
-
-      {isSaving && (
-        <p style={{ color: palette.inkFaint, fontSize: 13, marginTop: 10 }}>
-          Guardando en Mis creaciones...
-        </p>
-      )}
     </div>
   );
-}
+};
+
+export default GenerationResult;

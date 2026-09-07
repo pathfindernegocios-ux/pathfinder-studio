@@ -1,75 +1,193 @@
-import { palette, fontDisplay, fontUI } from "../styles/tokens";
-import { globalStyleSheet } from "../styles/globalStyles";
+// src/components/WelcomeScreen.tsx
+import React from 'react';
+import { Link } from 'react-router-dom';
 
 interface WelcomeScreenProps {
-  onEnterStudio: () => void;
+  onGetStarted?: () => void;
 }
 
-export function WelcomeScreen({ onEnterStudio }: WelcomeScreenProps) {
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onGetStarted,
+}) => {
   return (
     <div
       style={{
-        minHeight: "100vh",
-        background: palette.voidGradient,
-        fontFamily: fontUI,
-        color: palette.ink,
-        display: "flex",
-        flexDirection: "column",
-        position: "relative",
-        overflow: "hidden",
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--pf-bg-primary)',
+        padding: '40px 20px',
+        textAlign: 'center',
       }}
     >
-      <style>{globalStyleSheet}</style>
-      <div className="pf-intro-glow" aria-hidden="true" />
-
-      <div style={{ padding: "28px 36px", fontSize: 14, color: palette.inkMuted, letterSpacing: 0.2 }}>
-        Pathfinder
-      </div>
-
+      {/* Hero Section */}
       <div
         style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: "0 24px",
-          position: "relative",
+          maxWidth: '800px',
+          marginBottom: '48px',
         }}
       >
         <h1
+          className="pf-font-prompt"
           style={{
-            fontFamily: fontDisplay,
-            fontWeight: 600,
-            fontSize: "clamp(32px, 5vw, 56px)",
-            letterSpacing: -1,
+            fontSize: '3.5rem',
+            fontWeight: 700,
+            color: 'var(--pf-text-primary)',
+            marginBottom: '24px',
+            letterSpacing: '-0.04em',
             lineHeight: 1.1,
-            margin: 0,
-            maxWidth: 720,
           }}
         >
-          ¿Qué vamos a crear hoy?
+          Crea imágenes increíbles
+          <br />
+          con inteligencia artificial
         </h1>
         <p
           style={{
-            marginTop: 18,
-            fontSize: 16,
-            color: palette.inkMuted,
-            maxWidth: 480,
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '1.25rem',
+            color: 'var(--pf-text-secondary)',
             lineHeight: 1.6,
+            marginBottom: '40px',
           }}
         >
-          Escribe una idea, agrega una imagen y Pathfinder la convierte en video con sonido.
+          Transforma tus ideas en obras de arte visuales utilizando
+          modelos de IA de última generación. Simple, rápido y
+          poderoso.
         </p>
-        <button
-          onClick={onEnterStudio}
-          className="pf-btn-primary"
-          style={{ marginTop: 34, padding: "14px 30px", fontSize: 15 }}
-        >
-          Entrar al Studio
-        </button>
+        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+          <Link
+            to="/studio"
+            style={{
+              textDecoration: 'none',
+              display: 'inline-block',
+              background: 'var(--pf-text-primary)',
+              color: '#FFFFFF',
+              fontFamily: 'var(--pf-font-ui)',
+              fontSize: '1rem',
+              fontWeight: 600,
+              padding: '16px 32px',
+              borderRadius: '9999px',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: 'var(--pf-shadow-floating)',
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.transform = 'translateY(-2px)')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.transform = 'translateY(0)')
+            }
+            onClick={onGetStarted}
+          >
+            Comenzar ahora
+          </Link>
+          <a
+            href="#learn-more"
+            style={{
+              display: 'inline-block',
+              background: 'var(--pf-bg-secondary)',
+              color: 'var(--pf-text-primary)',
+              fontFamily: 'var(--pf-font-ui)',
+              fontSize: '1rem',
+              fontWeight: 600,
+              padding: '16px 32px',
+              borderRadius: '9999px',
+              border: '1px solid var(--pf-border-default)',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = 'var(--pf-border-default)')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.background = 'var(--pf-bg-secondary)')
+            }
+          >
+            Saber más
+          </a>
+        </div>
+      </div>
+
+      {/* Features Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '24px',
+          maxWidth: '1200px',
+          width: '100%',
+        }}
+      >
+        {[
+          {
+            icon: '⚡',
+            title: 'Generación rápida',
+            description:
+              'Obtén resultados en segundos con nuestra infraestructura optimizada.',
+          },
+          {
+            icon: '🎨',
+            title: 'Múltiples estilos',
+            description:
+              'Desde realismo hasta arte abstracto, explora infinitas posibilidades.',
+          },
+          {
+            icon: '💾',
+            title: 'Historial guardado',
+            description:
+              'Todas tus creaciones se almacenan automáticamente para acceso futuro.',
+          },
+        ].map((feature, index) => (
+          <div
+            key={index}
+            className="pf-glass-panel"
+            style={{
+              padding: '32px 24px',
+              borderRadius: 'var(--pf-radius-lg)',
+              textAlign: 'left',
+            }}
+          >
+            <div
+              style={{
+                fontSize: '2.5rem',
+                marginBottom: '16px',
+              }}
+            >
+              {feature.icon}
+            </div>
+            <h3
+              style={{
+                fontFamily: 'var(--pf-font-display)',
+                fontSize: '1.25rem',
+                fontWeight: 600,
+                color: 'var(--pf-text-primary)',
+                marginBottom: '12px',
+                letterSpacing: '-0.025em',
+              }}
+            >
+              {feature.title}
+            </h3>
+            <p
+              style={{
+                fontFamily: 'var(--pf-font-ui)',
+                fontSize: '0.9375rem',
+                color: 'var(--pf-text-secondary)',
+                lineHeight: 1.6,
+                margin: 0,
+              }}
+            >
+              {feature.description}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
-}
+};
+
+export default WelcomeScreen;

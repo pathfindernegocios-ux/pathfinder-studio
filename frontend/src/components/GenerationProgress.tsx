@@ -1,123 +1,120 @@
-import { palette, fontDisplay, statePillStyle } from "../styles/tokens";
-import { formatHMS } from "../lib/helpers";
+// src/components/GenerationProgress.tsx
+import React from 'react';
 
 interface GenerationProgressProps {
-  stage: string | undefined;
-  progress: number | null;
-  progressFrac: number;
-  liveElapsedSec: number | null;
-  remainingSec: number | null;
-  canCancel: boolean;
-  isCancelling: boolean;
-  onCancel: () => void;
-  engineLabel: string;
+  progress: number;
+  status?: 'pending' | 'processing' | 'completed' | 'error';
+  message?: string;
 }
 
-export function GenerationProgress({
-  stage,
+const GenerationProgress: React.FC<GenerationProgressProps> = ({
   progress,
-  progressFrac,
-  liveElapsedSec,
-  remainingSec,
-  canCancel,
-  isCancelling,
-  onCancel,
-  engineLabel,
-}: GenerationProgressProps) {
-  // El componente es compartido por Video e Image; el único dato que
-  // lo distingue hoy es el motor activo. Lo usamos para que el
-  // fallback del título no asuma siempre "video".
-  const isVideo = engineLabel === "LTX-2.3";
+  status = 'processing',
+  message,
+}) => {
+  const getStatusColor = () => {
+    switch (status) {
+      case 'completed':
+        return '#10B981';
+      case 'error':
+        return '#EF4444';
+      default:
+        return 'var(--pf-text-primary)';
+    }
+  };
 
-  // Preparando vs Generando: mientras no hay progreso numérico el
-  // job todavía está iniciando el runtime; en cuanto progress no es
-  // null, ya se está renderizando activamente.
-  const phase: "preparing" | "running" = progress != null ? "running" : "preparing";
-  const phaseLabel = phase === "running" ? "Generando" : "Preparando";
+  const getStatusMessage = () => {
+    if (message) return message;
+    switch (status) {
+      case 'pending':
+        return 'En cola...';
+      case 'processing':
+        return 'Generando imagen...';
+      case 'completed':
+        return '¡Completado!';
+      case 'error':
+        return 'Error en la generación';
+      default:
+        return '';
+    }
+  };
 
   return (
     <div
       style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        minHeight: 360,
+        width: '100%',
+        padding: '24px',
+        background: 'var(--pf-glass-surface)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        borderRadius: 'var(--pf-radius-lg)',
+        border: '1px solid var(--pf-border-subtle)',
       }}
     >
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 18,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '12px',
         }}
       >
-        <span style={statePillStyle(phase)}>
-          <span className="pf-pulse">●</span> {phaseLabel}
+        <span
+          style={{
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            color: 'var(--pf-text-secondary)',
+          }}
+        >
+          {getStatusMessage()}
         </span>
-        <span style={{ fontSize: 12.5, color: palette.inkFaint }}>{engineLabel}</span>
+        <span
+          style={{
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            color: getStatusColor(),
+          }}
+        >
+          {Math.round(progress)}%
+        </span>
       </div>
 
-      <div style={{ fontFamily: fontDisplay, fontSize: 26, fontWeight: 600, color: palette.ink, marginBottom: 22 }}>
-        {stage || (isVideo ? "Dando forma a tu video" : "Dando forma a tu imagen")}
+      <div
+        style={{
+          width: '100%',
+          height: '8px',
+          background: 'var(--pf-bg-secondary)',
+          borderRadius: '9999px',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${progress}%`,
+            height: '100%',
+            background: getStatusColor(),
+            borderRadius: '9999px',
+            transition: 'width 0.3s ease, background 0.3s ease',
+          }}
+        />
       </div>
 
-      <div style={{ width: "100%", maxWidth: 360, marginBottom: 16 }}>
-        {progress != null ? (
-          <>
-            <div
-              style={{
-                width: "100%",
-                height: 6,
-                borderRadius: 999,
-                background: "rgba(255,255,255,0.06)",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  width: `${Math.round(progressFrac * 100)}%`,
-                  height: "100%",
-                  background: `linear-gradient(90deg, ${palette.accent}, ${palette.accentStrong})`,
-                  borderRadius: 999,
-                  transition: "width 0.4s ease",
-                  boxShadow: `0 0 10px ${palette.accentDim}`,
-                }}
-              />
-            </div>
-            <div style={{ marginTop: 8, fontSize: 13, color: palette.accentStrong, fontWeight: 600 }}>
-              {Math.round(progressFrac * 100)}%
-            </div>
-          </>
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: 6,
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.06)",
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
-            <div className="pf-indeterminate" />
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: "flex", gap: 22, fontSize: 12, color: palette.inkFaint, marginBottom: 26 }}>
-        <span>Tiempo transcurrido · {liveElapsedSec !== null ? formatHMS(liveElapsedSec) : "--:--:--"}</span>
-        {remainingSec !== null && <span>Tiempo estimado · {formatHMS(remainingSec)}</span>}
-      </div>
-
-      {canCancel && (
-        <button onClick={onCancel} disabled={isCancelling} className="pf-btn-cancel">
-          {isCancelling ? "Cancelando..." : "Cancelar generación"}
-        </button>
+      {status === 'error' && (
+        <p
+          style={{
+            marginTop: '12px',
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.8125rem',
+            color: '#EF4444',
+            margin: 0,
+          }}
+        >
+          Por favor, inténtalo de nuevo o contacta soporte si el problema persiste.
+        </p>
       )}
     </div>
   );
-}
+};
+
+export default GenerationProgress;
