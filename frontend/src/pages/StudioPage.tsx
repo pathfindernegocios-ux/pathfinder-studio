@@ -120,9 +120,6 @@ export function StudioPage({ profile }: StudioPageProps) {
   const [logsOpen, setLogsOpen] = useState<boolean>(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState<boolean>(false);
 
-  // Estado "Cancelado": generationInfo conserva status "cancelled" hasta
-  // el próximo handleGenerate, así que esta bandera local solo controla
-  // si el aviso ya fue reconocido por el usuario. No toca el provider.
   const [cancelledAcknowledged, setCancelledAcknowledged] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -161,8 +158,6 @@ export function StudioPage({ profile }: StudioPageProps) {
     if (isLoading) setParamsOpen(false);
   }, [isLoading]);
 
-  // En cuanto arranca una generación nueva, cualquier aviso de
-  // "cancelado" anterior deja de ser relevante.
   useEffect(() => {
     if (isLoading) setCancelledAcknowledged(false);
   }, [isLoading]);
@@ -260,9 +255,6 @@ export function StudioPage({ profile }: StudioPageProps) {
     UNKNOWN: "Conexión no disponible",
   };
 
-  // Mismo cálculo que ya se usaba inline para GenerationProgress;
-  // se reutiliza también en la vista de "Cancelado" para que el
-  // motor mostrado sea siempre consistente.
   const currentEngineLabel =
     capability === "image"
       ? activeImageModelId === "flux-2-klein-4b"
@@ -293,7 +285,6 @@ export function StudioPage({ profile }: StudioPageProps) {
         matchAudioDur,
       });
     }
-    // Para image, ImageGenerationForm llama directamente a handleGenerate
   };
 
   const handleCapabilityChange = (newCapability: "image" | "video" | "audio") => {
@@ -718,29 +709,54 @@ export function StudioPage({ profile }: StudioPageProps) {
         {logsOpen && (
           <div style={{ marginTop: 10 }}>
             <div style={{ fontSize: 12.5, color: palette.inkFaint, lineHeight: 1.9, marginBottom: 8 }}>
-              {(() => {
-                const aspectOpt = ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio);
-                const dims = computeDims(resolution, aspectOpt?.ratio ?? 16 / 9);
-                const frames = durationFrames(duration);
-                return (
-                  <>
-                    <div>Modelo · {ENGINE_LABEL}</div>
-                    <div>Estado · {statusLabel[status]}</div>
-                    {generationInfo?.stage && <div>Etapa · {generationInfo.stage}</div>}
-                    <div>
-                      Formato · {aspectOpt?.short ?? aspectRatio} · {resolution} · {dims.width}×{dims.height}
+              {capability === "image" ? (
+                <>
+                  <div>Modelo · {currentEngineLabel}</div>
+                  <div>Estado · {statusLabel[status]}</div>
+                  {generationInfo?.stage && <div>Etapa · {generationInfo.stage}</div>}
+                  {generationInfo?.prompt && (
+                    <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      Prompt · {generationInfo.prompt}
                     </div>
+                  )}
+                  {generationInfo?.started_at && (
                     <div>
-                      Duración objetivo · {durationLabel(duration)}
-                      {frames && ` · ${frames} frames`}
+                      Inicio · {new Date(generationInfo.started_at * 1000).toLocaleString("es-MX", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
                     </div>
-                    <div>Seed · {seed === -1 ? "aleatoria (-1)" : seed}</div>
-                    <div>Prompt influence · {guideScale.toFixed(1)}</div>
-                    {completedDurationSec !== null && <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>}
-                    {generationInfo?.id && <div>ID · {generationInfo.id}</div>}
-                  </>
-                );
-              })()}
+                  )}
+                  {generationInfo?.progress != null && (
+                    <div>Progreso · {Math.round(generationInfo.progress * 100)}%</div>
+                  )}
+                  <div>Seed · {seed === -1 ? "aleatoria (-1)" : seed}</div>
+                  {completedDurationSec !== null ? (
+                    <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>
+                  ) : liveElapsedSec !== null ? (
+                    <div>Tiempo transcurrido · {formatHMS(liveElapsedSec)}</div>
+                  ) : null}
+                  {generationInfo?.id && <div>ID · {generationInfo.id}</div>}
+                </>
+              ) : (
+                <>
+                  <div>Modelo · {ENGINE_LABEL}</div>
+                  <div>Estado · {statusLabel[status]}</div>
+                  {generationInfo?.stage && <div>Etapa · {generationInfo.stage}</div>}
+                  <div>
+                    Formato · {ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.short ?? aspectRatio} · {resolution} · {computeDims(resolution, ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.ratio ?? 16 / 9).width}×{computeDims(resolution, ASPECT_RATIO_OPTIONS.find((o) => o.label === aspectRatio)?.ratio ?? 16 / 9).height}
+                  </div>
+                  <div>
+                    Duración objetivo · {durationLabel(duration)} · {durationFrames(duration)} frames
+                  </div>
+                  <div>Seed · {seed === -1 ? "aleatoria (-1)" : seed}</div>
+                  <div>Prompt influence · {guideScale.toFixed(1)}</div>
+                  {completedDurationSec !== null && <div>Tiempo de generación · {formatHMS(completedDurationSec)}</div>}
+                  {generationInfo?.id && <div>ID · {generationInfo.id}</div>}
+                </>
+              )}
             </div>
 
             <button

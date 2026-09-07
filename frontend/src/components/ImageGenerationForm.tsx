@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useGenerationContext } from "../context/GenerationContext";
 import {
   palette,
@@ -76,6 +76,36 @@ const MODEL_META: Record<string, { label: string; engine: string; tagline: strin
   },
 };
 
+// Mapeos para convertir los labels cortos del formulario a los valores exactos
+// que esperan los notebooks.
+const FLUX_ASPECT_FULL: Record<string, string> = {
+  "1:1": "1:1 Cuadrado",
+  "16:9": "16:9 Horizontal",
+  "9:16": "9:16 Vertical",
+  "4:3": "4:3 Estándar",
+  "3:4": "3:4 Vertical",
+};
+
+const FLUX_RESOLUTION_FULL: Record<string, string> = {
+  "1024px": "1024px (Estándar)",
+  "1536px": "1536px (Alta)",
+  "2048px (2K)": "2048px (2K Ultra)",
+};
+
+const KREA_ASPECT_FULL: Record<string, string> = {
+  "1:1": "1:1 Square",
+  "16:9": "16:9 Landscape",
+  "9:16": "9:16 Portrait",
+  "4:3": "4:3 Standard",
+  "3:4": "3:4 Portrait",
+};
+
+const KREA_RESOLUTION_FULL: Record<string, string> = {
+  "1024px": "1024px (Standard)",
+  "1536px": "1536px (High)",
+  "2048px (2K)": "2048px (2K Ultra)",
+};
+
 function referenceUrl(file: File) {
   return URL.createObjectURL(file);
 }
@@ -115,6 +145,19 @@ export function ImageGenerationForm() {
 
   const isButtonDisabled = !prompt.trim() || isLoading;
 
+  // Efecto para ajustar steps/resolución/aspect según modelo activo.
+  useEffect(() => {
+    if (activeImageModelId === "flux-2-klein-4b") {
+      setSteps(4);
+      setResolution("1024px");
+      setAspectRatio("1:1");
+    } else if (activeImageModelId === "krea-2-turbo") {
+      setSteps(8);
+      setResolution("1024px");
+      setAspectRatio("1:1");
+    }
+  }, [activeImageModelId]);
+
   const handleModelChange = (modelId: string) => {
     setActiveImageModelId(modelId);
     setSteps(modelId === "flux-2-klein-4b" ? 4 : 8);
@@ -136,8 +179,8 @@ export function ImageGenerationForm() {
         seed,
         negativePrompt,
         steps,
-        resolution,
-        aspectRatio,
+        resolution: FLUX_RESOLUTION_FULL[resolution] ?? "1024px (Estándar)",
+        aspectRatio: FLUX_ASPECT_FULL[aspectRatio] ?? "1:1 Cuadrado",
         numImages,
         refFiles,
         refModeLabel,
@@ -151,8 +194,8 @@ export function ImageGenerationForm() {
         prompt,
         negativePrompt,
         steps,
-        resolution,
-        aspectRatio,
+        resolution: KREA_RESOLUTION_FULL[resolution] ?? "1024px (Standard)",
+        aspectRatio: KREA_ASPECT_FULL[aspectRatio] ?? "1:1 Square",
         seed,
         numImages,
         stylePreset,
@@ -307,6 +350,20 @@ export function ImageGenerationForm() {
 
         {isFlux ? (
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={labelStyle}>
+                Steps · <span style={{ color: palette.ink }}>{steps}</span>
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={12}
+                step={1}
+                value={steps}
+                onChange={(e) => setSteps(parseInt(e.target.value, 10))}
+                style={{ width: "100%", accentColor: palette.accent }}
+              />
+            </div>
             <div style={{ flex: 1, minWidth: 160 }}>
               <label style={labelStyle}>
                 Guide Scale · <span style={{ color: palette.ink }}>{guideScaleFlux.toFixed(1)}</span>

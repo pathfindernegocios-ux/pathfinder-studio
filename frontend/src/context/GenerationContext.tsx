@@ -280,6 +280,7 @@ export function GenerationProvider({
       lastLogSeqRef.current = 0;
       setRecoveryState("active");
 
+      // Incluir prompt desde el inicio
       setGenerationInfo({
         status: "preparing",
         progress: 0,
@@ -287,6 +288,7 @@ export function GenerationProvider({
         started_at: localStart,
         capability,
         modelId: activeImageModelId ?? undefined,
+        prompt: params.prompt,
       });
 
       try {
@@ -335,6 +337,13 @@ export function GenerationProvider({
             setVideoSrc(url);
             const gid = generationInfo?.id || "";
             sessionStorage.setItem(`gen_video_${gid}`, url);
+            setGenerationInfo((prev) => ({
+              ...prev,
+              status: "complete",
+              progress: 1,
+              stage: "complete",
+              finished_at: Date.now() / 1000,
+            }));
           } else {
             setErrorMsg("No se devolvió un video válido.");
           }
@@ -396,6 +405,13 @@ export function GenerationProvider({
               if (zipPath && params.numImages && params.numImages > 1) {
                 sessionStorage.setItem("pf_flux_zip", zipPath);
               }
+              setGenerationInfo((prev) => ({
+                ...prev,
+                status: "complete",
+                progress: 1,
+                stage: "complete",
+                finished_at: Date.now() / 1000,
+              }));
             } else {
               setErrorMsg("No se devolvieron imágenes.");
             }
@@ -421,6 +437,13 @@ export function GenerationProvider({
             const images = parseImagesFromResult(rawImages);
             if (images.length > 0) {
               setImageSrcs(toAbsoluteUrls(images, gradioUrl));
+              setGenerationInfo((prev) => ({
+                ...prev,
+                status: "complete",
+                progress: 1,
+                stage: "complete",
+                finished_at: Date.now() / 1000,
+              }));
             } else {
               setErrorMsg("No se devolvieron imágenes.");
             }
@@ -430,6 +453,11 @@ export function GenerationProvider({
         }
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
+        setGenerationInfo((prev) => ({
+          ...prev,
+          status: "error",
+          finished_at: Date.now() / 1000,
+        }));
       } finally {
         setIsLoading(false);
       }

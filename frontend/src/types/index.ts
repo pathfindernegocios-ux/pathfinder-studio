@@ -18,6 +18,7 @@ export interface GenerationInfo {
   model?: string;
   runtime?: string;
   modelId?: string;
+  prompt?: string;
   status?: GenerationJobStatus;
   progress?: number;
   stage?: string;

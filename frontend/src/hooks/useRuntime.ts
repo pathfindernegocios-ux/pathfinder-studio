@@ -46,20 +46,25 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
 
         if (!error && data && data.length > 0) {
           const runtimes = data as { gradio_url: string; state: Status; model_id: string }[];
+
           setImageModels(runtimes.map((r) => ({ model_id: r.model_id, gradio_url: r.gradio_url })));
 
           setActiveImageModelId((prev) => {
             if (prev && runtimes.some((r) => r.model_id === prev)) return prev;
             return runtimes[0].model_id;
           });
+
+          // No tocar gradioUrl ni status aquí; lo maneja el efecto siguiente
+          // y el polling de /status. Así evitamos el parpadeo.
         } else {
+          // Solo si no hay runtimes, limpiar
           setImageModels([]);
           setActiveImageModelId(null);
           setGradioUrl(null);
           setStatus("UNKNOWN");
         }
       } else {
-        // Video: comportamiento original
+        // Video: comportamiento original, pero sin forzar estado desde Supabase
         const { data, error } = await supabase
           .from("runtimes")
           .select("gradio_url, state")
@@ -69,13 +74,14 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
           .limit(1)
           .maybeSingle();
 
-        if (!error && data) {
-          setGradioUrl(data.gradio_url);
-          setStatus((data.state as Status) ?? "UNKNOWN");
+        if (!error && data && data.gradio_url) {
+          setGradioUrl((prev) => (prev === data.gradio_url ? prev : data.gradio_url));
+          // El estado lo actualizará /status; no usamos data.state
         } else {
           setGradioUrl(null);
           setStatus("UNKNOWN");
         }
+
         setImageModels([]);
         setActiveImageModelId(null);
       }
@@ -89,10 +95,11 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
   // Efecto para actualizar gradioUrl según el modelo activo de imagen
   useEffect(() => {
     if (capability !== "image" || !activeImageModelId || imageModels.length === 0) return;
+
     const selected = imageModels.find((m) => m.model_id === activeImageModelId);
     if (selected) {
-      setGradioUrl(selected.gradio_url);
-      setStatus("UNKNOWN"); // se actualizará con el polling de /status
+      setGradioUrl((prev) => (prev === selected.gradio_url ? prev : selected.gradio_url));
+      // No tocar status aquí
     } else {
       setGradioUrl(null);
       setStatus("UNKNOWN");
