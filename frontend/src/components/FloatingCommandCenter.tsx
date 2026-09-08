@@ -48,13 +48,13 @@ interface FluxParams {
   numImages: number;
   refFiles: File[];
   refModeLabel: string;
-  maskFile: File | null; // Mantenemos el estado pero no lo usamos en la UI si no hay input
+  maskFile: File | null;
   modelModeLabel: string;
   fluxGuideScale: number;
   embeddedGuidance: number;
 }
 
-// Componente auxiliar para menús desplegables inteligentes (Arriba/Abajo)
+// Componente auxiliar para menús desplegables inteligentes
 const DropdownButton = ({ options, value, onChange, formatOption }: { 
   options: string[]; 
   value: string; 
@@ -76,7 +76,6 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
       if (buttonRef.current && isOpen) {
         const rect = buttonRef.current.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
-        // Si hay menos de 200px abajo, abrir hacia arriba
         setOpenUp(spaceBelow < 200);
       }
     };
@@ -102,13 +101,13 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         style={{
-          padding: '6px 10px',
-          background: 'rgba(255,255,255,0.5)',
-          border: '1px solid var(--pf-border-default)',
+          padding: '5px 10px',
+          background: '#F9FAFB',
+          border: '1px solid #E5E7EB',
           borderRadius: '8px',
           fontSize: '12px',
           fontFamily: 'var(--pf-font-ui)',
-          color: 'var(--pf-text-primary)',
+          color: '#374151',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -127,9 +126,9 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
           top: openUp ? 'auto' : 'calc(100% + 4px)',
           left: 0,
           background: 'white',
-          border: '1px solid var(--pf-border-default)',
+          border: '1px solid #E5E7EB',
           borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
           zIndex: 1000,
           minWidth: '140px',
           maxHeight: '200px',
@@ -149,10 +148,10 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
                 fontFamily: 'var(--pf-font-ui)',
                 cursor: 'pointer',
                 borderRadius: '6px',
-                color: value === option ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)',
+                color: value === option ? '#111827' : '#4B5563',
                 whiteSpace: 'nowrap'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--pf-bg-tertiary)'}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               {formatOption ? formatOption(option) : option}
@@ -174,7 +173,7 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
   step?: number;
 }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-    <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase' }}>{label}</span>
+    <span style={{ fontSize: '10px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>{label}</span>
     <input
       type="number"
       value={value}
@@ -185,12 +184,12 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
       style={{
         width: '50px',
         padding: '4px 8px',
-        background: 'rgba(255,255,255,0.5)',
-        border: '1px solid var(--pf-border-default)',
+        background: '#F9FAFB',
+        border: '1px solid #E5E7EB',
         borderRadius: '8px',
         fontSize: '12px',
         fontFamily: 'var(--pf-font-ui)',
-        color: 'var(--pf-text-primary)'
+        color: '#111827'
       }}
     />
   </div>
@@ -200,6 +199,25 @@ const FloatingCommandCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('video');
   const [prompt, setPrompt] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // --- Cache de Object URLs -------------------------------------------------
+  // Antes, cada render de este componente (por ejemplo, cada tecla que se
+  // escribía en el textarea del prompt) volvía a llamar
+  // URL.createObjectURL(file) para los mismos archivos de referencia/video,
+  // generando una URL nueva en cada ocasión. El navegador trataba eso como
+  // una imagen distinta y la recargaba -> parpadeo. Ahora la URL se crea UNA
+  // sola vez por archivo y se reutiliza mientras el archivo siga en uso.
+  const objectUrlCacheRef = useRef<Map<File, string>>(new Map());
+
+  const getObjectUrl = useCallback((file: File): string => {
+    const cache = objectUrlCacheRef.current;
+    let url = cache.get(file);
+    if (!url) {
+      url = URL.createObjectURL(file);
+      cache.set(file, url);
+    }
+    return url;
+  }, []);
   
   const { 
     handleGenerate, 
@@ -259,12 +277,40 @@ const FloatingCommandCenter: React.FC = () => {
     seed: -1,
     numImages: 1,
     refFiles: [],
-    refModeLabel: 'None (Text-to-Image)',
+    refModeLabel: 'Ninguna (Texto → Imagen)',
     maskFile: null,
-    modelModeLabel: 'Prompt Focused Denoising : Inpainted area will follow the prompt more closely', // Default seguro
+    modelModeLabel: 'Masked Denoising : Inpainted area may reuse some content that has been masked',
     fluxGuideScale: 5,
     embeddedGuidance: 1,
   });
+
+  // Limpieza de URLs huérfanas: cuando un archivo deja de estar referenciado
+  // en cualquiera de los estados (se quitó como start/end/audio o como
+  // referencia de Flux), se libera su URL. Así no hay fugas de memoria y
+  // tampoco se revoca una URL que todavía se está usando en pantalla.
+  useEffect(() => {
+    const activeFiles = new Set<File>([
+      ...(videoParams.imageStartFile ? [videoParams.imageStartFile] : []),
+      ...(videoParams.imageEndFile ? [videoParams.imageEndFile] : []),
+      ...(videoParams.audioFile ? [videoParams.audioFile] : []),
+      ...fluxParams.refFiles,
+    ]);
+    const cache = objectUrlCacheRef.current;
+    for (const [file, url] of cache.entries()) {
+      if (!activeFiles.has(file)) {
+        URL.revokeObjectURL(url);
+        cache.delete(file);
+      }
+    }
+  }, [videoParams.imageStartFile, videoParams.imageEndFile, videoParams.audioFile, fluxParams.refFiles]);
+
+  // Al desmontar el componente, liberar todo lo que quedara en caché.
+  useEffect(() => {
+    return () => {
+      objectUrlCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
+      objectUrlCacheRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'video') setCapability('video');
@@ -288,13 +334,15 @@ const FloatingCommandCenter: React.FC = () => {
   };
 
   const handleFluxRefFilesChange = (files: File[]) => {
-    // Limitar a 4 imágenes
-    if (files.length > 4) {
-      alert("Máximo 4 imágenes de referencia permitidas.");
-      setFluxParams(prev => ({ ...prev, refFiles: Array.from(files).slice(0, 4) }));
-    } else {
-      setFluxParams(prev => ({ ...prev, refFiles: Array.from(files) }));
+    const validFiles = Array.from(files).filter(f => f instanceof File);
+    if (validFiles.length === 0) {
+      console.warn("No se seleccionaron archivos válidos.");
+      return;
     }
+    if (validFiles.length > 4) {
+      alert("Máximo 4 imágenes de referencia permitidas.");
+    }
+    setFluxParams(prev => ({ ...prev, refFiles: validFiles.slice(0, 4) }));
   };
 
   const handleModelChange = (modelId: string, isComingSoon: boolean) => {
@@ -307,7 +355,29 @@ const FloatingCommandCenter: React.FC = () => {
 
   const handleGenerateClick = useCallback(async () => {
     if (!prompt.trim()) return;
-    
+
+    const ratioLabel =
+      activeTab === 'video'
+        ? videoParams.aspectRatio
+        : activeTab === 'image'
+          ? (isFluxActive ? fluxParams.aspectRatio : kreaParams.aspectRatio)
+          : '1:1';
+    const ratioToken = ratioLabel.split(' ')[0];
+    const [ratioWRaw, ratioHRaw] = ratioToken.split(':');
+    const ratioW = parseFloat(ratioWRaw);
+    const ratioH = parseFloat(ratioHRaw);
+    const aspectRatioCss = ratioW && ratioH ? `${ratioW}/${ratioH}` : '1/1';
+    const modelLabel =
+      activeTab === 'video'
+        ? (STATIC_VIDEO_MODELS.find(m => m.id === selectedVideoModelId)?.name || 'Video')
+        : activeTab === 'image'
+          ? (STATIC_IMAGE_MODELS.find(m => m.id === selectedImageModelId)?.name || 'Imagen')
+          : 'Audio';
+
+    window.dispatchEvent(new CustomEvent('pathfinder-generation-meta', {
+      detail: { prompt, mediaType: activeTab, aspectRatioCss, modelLabel }
+    }));
+
     try {
       if (activeTab === 'video') {
         await handleGenerate({ prompt, ...videoParams });
@@ -322,7 +392,7 @@ const FloatingCommandCenter: React.FC = () => {
             seed: fluxParams.seed,
             numImages: fluxParams.numImages,
             refFiles: fluxParams.refFiles.length > 0 ? fluxParams.refFiles : undefined,
-            refModeLabel: fluxParams.refModeLabel !== 'None (Text-to-Image)' ? fluxParams.refModeLabel : undefined,
+            refModeLabel: fluxParams.refModeLabel !== 'Ninguna (Texto → Imagen)' ? fluxParams.refModeLabel : undefined,
             modelModeLabel: fluxParams.modelModeLabel,
             fluxGuideScale: fluxParams.fluxGuideScale,
             embeddedGuidance: fluxParams.embeddedGuidance,
@@ -342,8 +412,9 @@ const FloatingCommandCenter: React.FC = () => {
       }
     } catch (error) {
       console.error('Error generating:', error);
+      alert("Ocurrió un error al generar. Revisa la consola para más detalles.");
     }
-  }, [prompt, activeTab, videoParams, kreaParams, fluxParams, isFluxActive, handleGenerate]);
+  }, [prompt, activeTab, videoParams, kreaParams, fluxParams, isFluxActive, handleGenerate, selectedVideoModelId, selectedImageModelId]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleGenerateClick();
@@ -359,12 +430,19 @@ const FloatingCommandCenter: React.FC = () => {
 
   const fluxResolutions = ['1024px (Estándar)', '1536px (Alta)', '2048px (2K Ultra)'];
   const fluxAspectRatios = ['1:1 Cuadrado', '16:9 Horizontal', '9:16 Vertical', '4:3 Estándar', '3:4 Vertical'];
-  const fluxRefModes = ['None (Text-to-Image)', 'Subject/Scene + People or Objects (KI)', 'People or Objects Only (I)'];
-  // Opciones simplificadas sin "Masked Denoising" obsoleto
+  
+  const fluxRefModes = [
+    'Ninguna (Texto → Imagen)', 
+    'Sujeto/Escenario + Personas u Objetos (KI)', 
+    'Solo Personas u Objetos (I)'
+  ];
+  
   const fluxInpaintModes = [
-    'Prompt Focused Denoising : Inpainted area will follow the prompt more closely',
-    'Prompt Focused Denoising (2x)',
-    'Prompt Focused Denoising (5x)'
+    'Masked Denoising : Inpainted area may reuse some content that has been masked',
+    'LanPaint (2 steps): ~2x slower, easy task',
+    'LanPaint (5 steps): ~5x slower, medium task',
+    'LanPaint (10 steps): ~10x slower, hard task',
+    'LanPaint (15 steps): ~15x slower, very hard task'
   ];
 
   const isModelReady = (modelId: string) => {
@@ -372,17 +450,43 @@ const FloatingCommandCenter: React.FC = () => {
     return imageModels.some((m: any) => m.model_id === modelId);
   };
 
+  // Ya NO crea una URL nueva en cada render: usa getObjectUrl, que devuelve
+  // siempre la misma URL para el mismo archivo mientras siga vigente.
   const renderFileThumbnail = (file: File, type: 'ref' | 'video-start' | 'video-end' | 'video-audio') => {
-    const url = URL.createObjectURL(file);
+    if (!file || !(file instanceof File)) {
+      console.warn("Intento de renderizar thumbnail con archivo inválido:", file);
+      return null;
+    }
+
+    let url: string | null = null;
+    try {
+      url = getObjectUrl(file);
+    } catch (e) {
+      console.error("Error creando URL del objeto:", e, file);
+      return null;
+    }
+    
     const isImage = type !== 'video-audio';
     
     const handleClick = () => {
-      if (isImage) setSelectedImage(url);
+      if (isImage && url) setSelectedImage(url);
+    };
+
+    const handleRemove = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // Solo actualizamos el estado; la URL se revoca sola en el efecto de
+      // limpieza de arriba cuando deja de estar referenciada.
+      if (type === 'video-start') setVideoParams(p => ({...p, imageStartFile: null}));
+      if (type === 'video-end') setVideoParams(p => ({...p, imageEndFile: null}));
+      if (type === 'video-audio') setVideoParams(p => ({...p, audioFile: null}));
+      if (type === 'ref') {
+        setFluxParams(p => ({...p, refFiles: p.refFiles.filter(f => f !== file)}));
+      }
     };
 
     return (
       <div 
-        key={url} 
+        key={file.name + file.lastModified} 
         onClick={handleClick}
         style={{ 
           position: 'relative', 
@@ -391,8 +495,8 @@ const FloatingCommandCenter: React.FC = () => {
           borderRadius: '6px', 
           overflow: 'hidden', 
           cursor: isImage ? 'pointer' : 'default',
-          border: '1px solid var(--pf-border-default)',
-          background: 'var(--pf-bg-secondary)'
+          border: '1px solid #E5E7EB',
+          background: '#F9FAFB'
         }}
       >
         {isImage ? (
@@ -401,13 +505,7 @@ const FloatingCommandCenter: React.FC = () => {
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🎵</div>
         )}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (type === 'video-start') setVideoParams(p => ({...p, imageStartFile: null}));
-            if (type === 'video-end') setVideoParams(p => ({...p, imageEndFile: null}));
-            if (type === 'video-audio') setVideoParams(p => ({...p, audioFile: null}));
-            if (type === 'ref') setFluxParams(p => ({...p, refFiles: p.refFiles.filter(f => f !== file)}));
-          }}
+          onClick={handleRemove}
           style={{
             position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px',
             borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none',
@@ -446,7 +544,7 @@ const FloatingCommandCenter: React.FC = () => {
     if (models.length === 0) return null;
 
     return (
-      <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.05)', padding: '4px', borderRadius: '8px' }}>
+      <div style={{ display: 'flex', gap: '6px', background: '#F3F4F6', padding: '4px', borderRadius: '8px' }}>
         {models.map((model) => {
           const isActive = currentModelId === model.id;
           const isReady = isModelReady(model.id);
@@ -459,12 +557,12 @@ const FloatingCommandCenter: React.FC = () => {
               disabled={isDisabled}
               style={{
                 padding: '4px 10px', borderRadius: '6px', border: 'none',
-                background: isActive ? 'white' : 'transparent',
+                background: isActive ? '#FFFFFF' : 'transparent',
                 fontFamily: 'var(--pf-font-ui)', fontSize: '11px',
-                fontWeight: isActive ? 700 : 500,
-                color: isDisabled ? 'var(--pf-text-muted)' : (isActive ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)'),
+                fontWeight: isActive ? 600 : 500,
+                color: isDisabled ? '#9CA3AF' : (isActive ? '#111827' : '#4B5563'),
                 cursor: isDisabled ? 'not-allowed' : 'pointer',
-                boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
                 opacity: isDisabled ? 0.6 : 1, position: 'relative', transition: 'all 0.2s',
               }}
               title={model.comingSoon ? 'Próximamente' : (!isReady ? 'Cargando...' : model.name)}
@@ -492,24 +590,24 @@ const FloatingCommandCenter: React.FC = () => {
         <div
           className="pf-glass-panel"
           style={{
-            background: 'rgba(255, 255, 255, 0.85)',
-            backdropFilter: 'blur(24px) saturate(180%)',
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-            borderRadius: '20px',
-            boxShadow: '0 12px 32px -8px rgba(0, 0, 0, 0.1)',
+            background: '#FFFFFF',
+            backdropFilter: 'none',
+            border: '1px solid #E5E7EB',
+            borderRadius: '18px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
             display: 'flex', flexDirection: 'column', overflow: 'visible', transition: 'all 0.3s ease',
           }}
         >
-          <div style={{ padding: '12px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ padding: '10px 14px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
               {(['video', 'image', 'audio'] as TabType[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   style={{
-                    padding: '6px 12px', borderRadius: '8px', border: 'none',
-                    background: activeTab === tab ? 'var(--pf-text-primary)' : 'transparent',
-                    color: activeTab === tab ? '#FFFFFF' : 'var(--pf-text-secondary)',
+                    padding: '5px 12px', borderRadius: '8px', border: 'none',
+                    background: activeTab === tab ? '#111827' : 'transparent',
+                    color: activeTab === tab ? '#FFFFFF' : '#4B5563',
                     fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
                     cursor: 'pointer', transition: 'all 0.2s',
                   }}
@@ -521,14 +619,14 @@ const FloatingCommandCenter: React.FC = () => {
             {(activeTab === 'image' || activeTab === 'video') && renderModelSelector()}
           </div>
 
-          <div style={{ padding: '16px' }}>
+          <div style={{ padding: '12px 14px' }}>
             {(activeTab === 'video' || (activeTab === 'image' && isFluxActive)) && (
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 {activeTab === 'video' && (
                   <>
                     <label style={{ position: 'relative', cursor: 'pointer' }}>
                       <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? 'var(--pf-bg-secondary)' : 'rgba(255,255,255,0.5)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
                         <span>{videoParams.imageStartFile ? '🖼️ Start Loaded' : '+ Start'}</span>
                       </div>
                     </label>
@@ -536,7 +634,7 @@ const FloatingCommandCenter: React.FC = () => {
                     
                     <label style={{ position: 'relative', cursor: 'pointer' }}>
                       <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? 'var(--pf-bg-secondary)' : 'rgba(255,255,255,0.5)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
                         <span>{videoParams.imageEndFile ? '🖼️ End Loaded' : '+ End'}</span>
                       </div>
                     </label>
@@ -544,7 +642,7 @@ const FloatingCommandCenter: React.FC = () => {
                     
                     <label style={{ position: 'relative', cursor: 'pointer' }}>
                       <input type="file" accept="audio/*" onChange={(e) => handleVideoFileChange('audio', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? 'var(--pf-bg-secondary)' : 'rgba(255,255,255,0.5)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
                         <span>{videoParams.audioFile ? '🎵 Audio Loaded' : '+ Audio'}</span>
                       </div>
                     </label>
@@ -555,13 +653,23 @@ const FloatingCommandCenter: React.FC = () => {
                 {activeTab === 'image' && isFluxActive && (
                   <>
                     <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input type="file" multiple accept="image/*" onChange={(e) => handleFluxRefFilesChange(Array.from(e.target.files || []))} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? 'var(--pf-bg-secondary)' : 'rgba(255,255,255,0.5)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                      <input 
+                        type="file" 
+                        multiple 
+                        accept="image/*" 
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            handleFluxRefFilesChange(Array.from(e.target.files));
+                          }
+                        }} 
+                        style={{ display: 'none' }} 
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
                         <span>{fluxParams.refFiles.length > 0 ? `📎 ${fluxParams.refFiles.length} Refs` : '+ Referencias'}</span>
                       </div>
                     </label>
                     {fluxParams.refFiles.slice(0, 4).map((f, idx) => (
-                      <div key={idx} style={{ position: 'relative' }}>
+                      <div key={`${f.name}-${f.lastModified}-${idx}`} style={{ position: 'relative' }}>
                         {renderFileThumbnail(f, 'ref')}
                         <span style={{ position: 'absolute', bottom: '0', right: '0', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '1px 3px', borderRadius: '4px' }}>{idx + 1}</span>
                       </div>
@@ -579,10 +687,10 @@ const FloatingCommandCenter: React.FC = () => {
                 placeholder={activeTab === 'video' ? "Describe tu video..." : "Describe tu imagen..."}
                 rows={1}
                 style={{
-                  width: '100%', minHeight: '44px', maxHeight: '120px', background: 'transparent',
+                  width: '100%', minHeight: '38px', maxHeight: '110px', background: 'transparent',
                   border: 'none', outline: 'none', resize: 'vertical',
-                  fontFamily: 'var(--pf-font-display)', fontSize: '16px', color: 'var(--pf-text-primary)',
-                  lineHeight: 1.5, paddingRight: '140px',
+                  fontFamily: 'var(--pf-font-display)', fontSize: '15px', color: '#111827',
+                  lineHeight: 1.4, paddingRight: '140px',
                 }}
                 disabled={isLoading}
               />
@@ -591,9 +699,9 @@ const FloatingCommandCenter: React.FC = () => {
                 disabled={!prompt.trim() || isLoading}
                 style={{
                   position: 'absolute', right: '0', bottom: '0',
-                  background: !prompt.trim() || isLoading ? 'var(--pf-border-subtle)' : 'var(--pf-text-primary)',
+                  background: !prompt.trim() || isLoading ? '#E5E7EB' : '#111827',
                   color: '#FFFFFF', fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
-                  padding: '8px 20px', borderRadius: '99px', border: 'none',
+                  padding: '7px 18px', borderRadius: '99px', border: 'none',
                   cursor: !prompt.trim() || isLoading ? 'not-allowed' : 'pointer',
                   opacity: !prompt.trim() || isLoading ? '0.5' : '1', transition: 'all 0.2s', whiteSpace: 'nowrap',
                 }}
@@ -602,14 +710,14 @@ const FloatingCommandCenter: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--pf-border-subtle)' }}>
+            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #F3F4F6' }}>
               {activeTab === 'video' && (
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <DropdownButton options={videoDurations} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + '...'} />
                   <DropdownButton options={videoResolutions} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
                   <DropdownButton options={videoAspectRatios} value={videoParams.aspectRatio} onChange={(v: string) => setVideoParams({...videoParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
                   <NumberInput label="Guide" value={videoParams.guideScale} onChange={(v: number) => setVideoParams({...videoParams, guideScale: v})} min={1} max={8} step={0.5} />
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
                     <input type="checkbox" checked={videoParams.matchAudioDur} onChange={(e) => setVideoParams({...videoParams, matchAudioDur: e.target.checked})} style={{ marginRight: '4px' }} />
                     Match Audio
                   </label>
@@ -635,13 +743,13 @@ const FloatingCommandCenter: React.FC = () => {
                      <details style={{ display: 'inline-block' }}>
                         <summary style={{
                           listStyle: 'none',
-                          background: 'transparent',
-                          border: '1px solid var(--pf-border-default)',
+                          background: '#F9FAFB',
+                          border: '1px solid #E5E7EB',
                           borderRadius: '8px',
-                          padding: '6px 10px',
+                          padding: '5px 10px',
                           fontSize: '12px',
                           fontFamily: 'var(--pf-font-ui)',
-                          color: 'var(--pf-text-secondary)',
+                          color: '#4B5563',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -654,9 +762,9 @@ const FloatingCommandCenter: React.FC = () => {
                           bottom: 'calc(100% + 8px)',
                           left: 0,
                           background: 'white',
-                          border: '1px solid var(--pf-border-default)',
+                          border: '1px solid #E5E7EB',
                           borderRadius: '8px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                           zIndex: 1000,
                           padding: '12px',
                           display: 'flex',
@@ -664,13 +772,13 @@ const FloatingCommandCenter: React.FC = () => {
                           gap: '8px',
                           width: '220px'
                         }}>
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--pf-text-muted)', marginBottom: '4px' }}>Reference Mode</div>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginBottom: '4px' }}>Reference Mode</div>
                           <DropdownButton options={fluxRefModes} value={fluxParams.refModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, refModeLabel: v})} />
                           
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--pf-text-muted)', marginTop: '8px', marginBottom: '4px' }}>Inpaint Mode</div>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginTop: '8px', marginBottom: '4px' }}>Inpaint Mode</div>
                           <DropdownButton options={fluxInpaintModes} value={fluxParams.modelModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, modelModeLabel: v})} />
                           
-                          <div style={{ marginTop: '8px', borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '8px' }}>
+                          <div style={{ marginTop: '8px', borderTop: '1px solid #F3F4F6', paddingTop: '8px' }}>
                             <NumberInput label="Guide Scale" value={fluxParams.fluxGuideScale} onChange={(v: number) => setFluxParams({...fluxParams, fluxGuideScale: v})} min={0.5} max={10} step={0.5} />
                           </div>
                           <div>

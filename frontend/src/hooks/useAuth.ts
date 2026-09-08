@@ -10,37 +10,64 @@ export function useAuth() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Inicializar hasEnteredStudio desde localStorage
-  const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(
-    () => localStorage.getItem("pathfinder_has_entered_studio") === "true"
-  );
+  const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("pathfinder_has_entered_studio") === "true";
+    } catch (e) {
+      return false;
+    }
+  });
 
   // Persistir cambios en localStorage
   useEffect(() => {
-    if (hasEnteredStudio) {
-      localStorage.setItem("pathfinder_has_entered_studio", "true");
-    } else {
-      localStorage.removeItem("pathfinder_has_entered_studio");
+    try {
+      if (hasEnteredStudio) {
+        localStorage.setItem("pathfinder_has_entered_studio", "true");
+      } else {
+        localStorage.removeItem("pathfinder_has_entered_studio");
+      }
+    } catch (e) {
+      console.warn("Error accediendo a localStorage:", e);
     }
   }, [hasEnteredStudio]);
 
   async function fetchProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    if (!error) setProfile(data);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (!error) setProfile(data);
+    } catch (e) {
+      console.error("Error fetching profile:", e);
+    }
   }
 
   useEffect(() => {
+    // 1. Obtener sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) fetchProfile(session.user.id);
     });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 2. Escuchar cambios de autenticación
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
+      
+      // SOLUCIÓN AL BUCLE: Si la sesión es null (logout, expiración, error),
+      // limpiamos inmediatamente hasEnteredStudio para forzar la redirección a /auth
+      if (!session) {
+        setHasEnteredStudio(false);
+        setProfile(null);
+        // Limpieza explícita por seguridad
+        try {
+          localStorage.removeItem("pathfinder_has_entered_studio");
+        } catch (e) {}
+      } else {
+        // Si hay sesión, cargamos el perfil
+        await fetchProfile(session.user.id);
+      }
     });
 
     return () => {
@@ -62,10 +89,10 @@ export function useAuth() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
+    // El estado se actualizará automáticamente vía onAuthStateChange
     setSession(null);
     setProfile(null);
     setHasEnteredStudio(false);
-    localStorage.removeItem("pathfinder_has_entered_studio");
   }
 
   return {

@@ -1,3 +1,4 @@
+// src/context/GenerationContext.tsx
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
@@ -12,7 +13,6 @@ interface ImageRuntime {
   gradio_url: string;
 }
 
-// Nuevo tipo para el historial de sesión (Chat)
 export interface SessionItem {
   id: string;
   type: 'user-prompt' | 'ai-response';
@@ -22,7 +22,7 @@ export interface SessionItem {
   modelId: string;
   createdAt: number;
   status: 'temporary' | 'saved' | 'saving';
-  creationId?: string; // ID de Supabase si ya se guardó
+  creationId?: string;
 }
 
 interface GenerateParams {
@@ -80,7 +80,6 @@ interface GenerationContextValue {
   activeImageModelId: string | null;
   setActiveImageModelId: (id: string | null) => void;
   imageModels: ImageRuntime[];
-  // Nuevos estados para el Chat
   sessionHistory: SessionItem[];
   saveSessionItem: (itemId: string) => Promise<void>;
   discardSessionItem: (itemId: string) => void;
@@ -112,9 +111,7 @@ export function GenerationProvider({
 
   const { saveCreation } = useCreations();
   
-  // Estado para el historial tipo Chat
   const [sessionHistory, setSessionHistory] = useState<SessionItem[]>([]);
-
   const [isLoading, setIsLoading] = useState(false);
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -136,8 +133,7 @@ export function GenerationProvider({
     return () => window.clearInterval(interval);
   }, [isLoading]);
 
-  // ... (Polling de estado y logs se mantiene igual que antes) ...
-  // ===== Polling de estado de generación =====
+  // ===== Polling de estado =====
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
     let cancelled = false;
@@ -148,7 +144,9 @@ export function GenerationProvider({
         const result = await client.predict("/generation_status", []);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
         const info = raw as GenerationInfo | undefined;
+        
         if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) return;
+        
         if (!cancelled) {
           setGenerationInfo(info ?? null);
           if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
@@ -159,7 +157,9 @@ export function GenerationProvider({
             }
           }
         }
-      } catch { /* noop */ }
+      } catch (err) {
+        console.error("Error polling status:", err);
+      }
     };
     poll();
     const interval = window.setInterval(poll, GENERATION_POLL_MS);
@@ -180,14 +180,16 @@ export function GenerationProvider({
         if (!entries?.length || cancelled) return;
         lastLogSeqRef.current = entries[entries.length - 1].seq;
         setLogs((prev) => [...prev, ...entries].slice(-400));
-      } catch { /* noop */ }
+      } catch (err) {
+        console.error("Error polling logs:", err);
+      }
     };
     poll();
     const interval = window.setInterval(poll, LOGS_POLL_MS);
     return () => { cancelled = true; window.clearInterval(interval); };
   }, [isLoading, gradioUrl, getClient]);
 
-  // ===== Recuperación ante refresh =====
+  // ===== Recuperación =====
   useEffect(() => {
     let cancelled = false;
     const recover = async () => {
@@ -241,8 +243,7 @@ export function GenerationProvider({
     return urls.map((url) => url.startsWith("http") ? url : `${base}${url.startsWith("/") ? "" : "/"}${url}`);
   };
 
-  // ===== ACCIONES DE SESIÓN (CHAT) =====
-  
+  // ===== ACCIONES DE SESIÓN =====
   const saveSessionItem = useCallback(async (itemId: string) => {
     const item = sessionHistory.find(i => i.id === itemId);
     if (!item || item.status === 'saved') return;
@@ -250,13 +251,13 @@ export function GenerationProvider({
     setSessionHistory(prev => prev.map(i => i.id === itemId ? { ...i, status: 'saving' } : i));
 
     try {
-      const url = item.mediaUrls[0]; // Guardamos la primera versión por ahora
+      const url = item.mediaUrls[0];
       if (!url) throw new Error("No media URL");
 
       const creation = await saveCreation({
         tempUrl: url,
         prompt: item.prompt || "",
-        seed: 0, // Podríamos guardar el seed en el item
+        seed: 0,
         duration: item.mediaType === 'video' ? "5s" : "",
         resolution: "1080p",
         aspectRatio: "16:9",
@@ -301,14 +302,13 @@ export function GenerationProvider({
       lastLogSeqRef.current = 0;
       setRecoveryState("active");
 
-      // 1. Agregar el prompt del usuario al chat inmediatamente
       const userItemId = `msg-${Date.now()}`;
       setSessionHistory(prev => [...prev, {
         id: userItemId,
         type: 'user-prompt',
         prompt: params.prompt,
         mediaUrls: [],
-        mediaType: 'image', // placeholder
+        mediaType: 'image',
         modelId: '',
         createdAt: Date.now(),
         status: 'temporary'
@@ -354,7 +354,6 @@ export function GenerationProvider({
             setVideoSrc(tempUrl);
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
             
-            // 2. Agregar respuesta de la IA al chat (Temporal)
             setSessionHistory(prev => [...prev, {
               id: `resp-${Date.now()}`,
               type: 'ai-response',
@@ -372,35 +371,78 @@ export function GenerationProvider({
             setErrorMsg("No se devolvió un video válido.");
           }
         } else if (capability === "image") {
-          // Lógica simplificada para imagen (Flux/Krea) similar a video
-          // ... (Misma lógica de payload que antes) ...
-          // Asumimos que obtienes absoluteUrls correctamente aquí
           let absoluteUrls: string[] = [];
           
           if (activeImageModelId === "flux-2-klein-4b") {
-             // ... (Código Flux anterior) ...
-             // Payload Flux
-            const fluxAspectMap: Record<string, string> = { "1:1 Square": "1:1 Cuadrado", "16:9 Landscape": "16:9 Horizontal", "9:16 Portrait": "9:16 Vertical", "4:3 Standard": "4:3 Estándar", "3:4 Portrait": "3:4 Vertical" };
-            const fluxResolutionMap: Record<string, string> = { "1024px (Standard)": "1024px (Estándar)", "1536px (High)": "1536px (Alta)", "2048px (2K Ultra)": "2048px (2K Ultra)" };
+            const fluxAspectMap: Record<string, string> = { 
+              "1:1 Square": "1:1 Cuadrado", 
+              "16:9 Landscape": "16:9 Horizontal", 
+              "9:16 Portrait": "9:16 Vertical", 
+              "4:3 Standard": "4:3 Estándar", 
+              "3:4 Portrait": "3:4 Vertical",
+              // Mapeo inverso por seguridad
+              "1:1 Cuadrado": "1:1 Cuadrado",
+              "16:9 Horizontal": "16:9 Horizontal",
+              "9:16 Vertical": "9:16 Vertical",
+              "4:3 Estándar": "4:3 Estándar",
+              "3:4 Vertical": "3:4 Vertical",
+            };
+            const fluxResolutionMap: Record<string, string> = { 
+              "1024px (Standard)": "1024px (Estándar)", 
+              "1536px (High)": "1536px (Alta)", 
+              "2048px (2K Ultra)": "2048px (2K Ultra)",
+              // Mapeo inverso
+              "1024px (Estándar)": "1024px (Estándar)",
+              "1536px (Alta)": "1536px (Alta)",
+            };
+
             const fluxAspect = fluxAspectMap[params.aspectRatio ?? ""] ?? "1:1 Cuadrado";
             const fluxResolution = fluxResolutionMap[params.resolution ?? ""] ?? "1024px (Estándar)";
             
+            const validRefFiles = (params.refFiles || [])
+              .filter((f): f is File => f instanceof File)
+              .slice(0, 4);
+
+            // CORRECCIÓN CRÍTICA: Forzar valor en español si es undefined/null
+            // NUNCA enviar "None (Text-to-Image)"
+            const safeRefModeLabel = params.refModeLabel && params.refModeLabel.trim() !== "" 
+              ? params.refModeLabel 
+              : "Ninguna (Texto → Imagen)";
+
+            const safeModelMode = params.modelModeLabel || "Masked Denoising : Inpainted area may reuse some content that has been masked";
+
             const result = await client.predict("/generate", [
-              params.prompt, params.negativePrompt || "", params.refFiles ?? [],
-              params.refModeLabel ?? "Ninguna (Texto → Imagen)", params.maskFile ?? null,
-              params.modelModeLabel ?? "Masked Denoising : Inpainted area may reuse some content that has been masked",
-              fluxAspect, fluxResolution, params.steps ?? 4, params.fluxGuideScale ?? 5.0,
-              params.embeddedGuidance ?? 1.0, params.seed, params.numImages ?? 1, token,
+              params.prompt, 
+              params.negativePrompt || "", 
+              validRefFiles,
+              safeRefModeLabel, // Aquí estaba el error
+              null, 
+              safeModelMode,
+              fluxAspect, 
+              fluxResolution, 
+              params.steps ?? 4, 
+              params.fluxGuideScale ?? 5.0,
+              params.embeddedGuidance ?? 1.0, 
+              params.seed, 
+              params.numImages ?? 1, 
+              token,
             ]);
+            
             const data = result.data as unknown[];
             const images = parseImagesFromResult(data[0]);
             absoluteUrls = toAbsoluteUrls(images, gradioUrl);
+            
           } else {
             // Krea
             const result = await client.predict("/generate", [
-              params.prompt, params.negativePrompt || "", params.steps || 8,
-              params.aspectRatio || "1:1 Square", params.resolution || "1024px (Standard)",
-              params.seed, params.numImages || 1, token,
+              params.prompt, 
+              params.negativePrompt || "", 
+              params.steps || 8,
+              params.aspectRatio || "1:1 Square", 
+              params.resolution || "1024px (Standard)",
+              params.seed, 
+              params.numImages || 1, 
+              token,
             ]);
             const data = result.data as unknown[];
             const images = parseImagesFromResult(data[0]);
@@ -409,7 +451,6 @@ export function GenerationProvider({
 
           if (absoluteUrls.length > 0) {
             setImageSrcs(absoluteUrls);
-            // 2. Agregar respuesta de la IA al chat (Temporal)
             setSessionHistory(prev => [...prev, {
               id: `resp-${Date.now()}`,
               type: 'ai-response',
@@ -426,6 +467,7 @@ export function GenerationProvider({
           }
         }
       } catch (err) {
+        console.error("Error crítico en generación:", err);
         setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
         setGenerationInfo(prev => ({ ...prev, status: "error", finished_at: Date.now() / 1000 }));
       } finally {
