@@ -1,24 +1,52 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+
 :root {
-  --pf-bg: #141517;
-  --pf-bg2: #1C1E22;
-  --pf-text: #F2F2F2;
-  --pf-text2: #9EA4AA;
-  --pf-accent: #D7DADF;
+  --pf-bg-primary: #FFFFFF;
+  --pf-bg-secondary: #FAFAFA;
+  --pf-bg-tertiary: #F5F5F5;
+  --pf-text-primary: #0A0A0A;
+  --pf-text-secondary: #525252;
+  --pf-text-muted: #A1A1AA;
+  --pf-border-default: #E5E5E5;
+  --pf-border-subtle: #F4F4F5;
+  --pf-accent-primary: #0A0A0A;
+  --pf-accent-secondary: #525252;
+  --pf-success: #10B981;
+  --pf-warning: #F59E0B;
+  --pf-error: #EF4444;
+  --pf-glass-surface: rgba(255, 255, 255, 0.75);
+  --pf-shadow-floating: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+}
+
+.pf-glass-panel {
+  background: var(--pf-glass-surface);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--pf-border-subtle);
+  border-radius: 12px;
+}
+
+.pf-font-prompt {
+  font-family: 'Satoshi', sans-serif;
+  font-size: 1.125rem;
+  letter-spacing: -0.025em;
 }
 
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(163, 163, 163, 0.4) transparent;
 }
 
-body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--pf-bg);
-  color: var(--pf-text);
-  min-height: 100vh;
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-#root {
-  min-height: 100vh;
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(163, 163, 163, 0.4);
+  border-radius: 3px;
 }

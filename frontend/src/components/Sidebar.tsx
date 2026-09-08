@@ -1,287 +1,283 @@
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
-import { palette, fontDisplay, fontUI, NAV_ITEMS } from "../styles/tokens";
-import {
-  StudioIcon,
-  ProjectsIcon,
-  CreationsIcon,
-  AssetsIcon,
-  AcademyIcon,
-  StationIcon,
-  SettingsIcon,
-} from "./NavIcons";
+// src/components/Sidebar.tsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabaseClient';
+import { 
+  StudioIcon, 
+  CreationsIcon, 
+  AssetsIcon, 
+  StationIcon, 
+  ProjectsIcon, 
+  AcademyIcon, 
+  SettingsIcon 
+} from './NavIcons';
 
-const ICONS: Record<string, React.ReactNode> = {
-  studio: <StudioIcon />,
-  projects: <ProjectsIcon />,
-  creations: <CreationsIcon />,
-  assets: <AssetsIcon />,
-  academy: <AcademyIcon />,
-  station: <StationIcon />,
-  settings: <SettingsIcon />,
-};
-
-const AVAILABLE_MODELS = [
-  {
-    modelId: "ltx-2.3",
-    label: "LTX-2.3",
-    description: "Generación de video con audio",
-    capability: "video" as const,
-  },
-  {
-    modelId: "krea-2-turbo",
-    label: "Krea-2 Turbo",
-    description: "Generación de imágenes",
-    capability: "image" as const,
-  },
-  {
-    modelId: "flux-2-klein-4b",
-    label: "Flux.2 Klein 4B",
-    description: "Generación de imágenes experimental",
-    capability: "image" as const,
-  },
-];
-
+// El ancho ya NO vive aquí adentro. Lo controla el padre (StudioPage) para que
+// nunca haya un desfase entre "lo que el sidebar mide realmente" y "el espacio
+// que el layout le reserva" (eso era lo que dejaba el rastro/franja gris al
+// colapsar). Este componente solo pinta su contenido al 100% del contenedor
+// que le pasen.
 interface SidebarProps {
-  statusColor: string;
-  statusLabel: string;
-  status: "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
-  sessionUptime: string;
-  stationDetailsOpen: boolean;
-  onToggleStationDetails: () => void;
-  onDownloadNotebook: (modelId: string) => void;
-  onLogout: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
-export function Sidebar({
-  statusColor,
-  statusLabel,
-  status,
-  sessionUptime,
-  stationDetailsOpen,
-  onToggleStationDetails,
-  onDownloadNotebook,
-  onLogout,
-}: SidebarProps) {
-  const [isPrepareOpen, setIsPrepareOpen] = useState(false);
-  const isPulsing = status === "BUSY" || status === "STARTING";
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
+  const location = useLocation();
+  const { session, profile } = useAuth();
 
-  const handleDownload = (modelId: string) => {
-    onDownloadNotebook(modelId);
-    setIsPrepareOpen(false);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
+  // Configuración de navegación
+  // featured: true -> Se muestra siempre (incluso colapsado)
+  // featured: false -> Se oculta al colapsar
+  const navItems = [
+    { path: '/studio', label: 'Studio', icon: StudioIcon, featured: true },
+    { path: '/projects', label: 'Proyectos', icon: ProjectsIcon, featured: false },
+    { path: '/creations', label: 'Mis Creaciones', icon: CreationsIcon, featured: true },
+    { path: '/assets', label: 'Assets', icon: AssetsIcon, featured: true },
+    { path: '/academy', label: 'Academy', icon: AcademyIcon, featured: false },
+    { path: '/station', label: 'Mi Estación', icon: StationIcon, featured: true },
+    { path: '/settings', label: 'Configuración', icon: SettingsIcon, featured: false },
+  ];
+
   return (
-    <>
-      <aside
-        style={{
-          width: 224,
-          flexShrink: 0,
-          borderRight: `1px solid ${palette.border}`,
-          padding: "26px 16px",
-          display: "flex",
-          flexDirection: "column",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-        }}
-        className="pf-sidebar"
-      >
-        <div
-          style={{
-            fontFamily: fontDisplay,
-            fontSize: 19,
-            fontWeight: 600,
-            color: palette.ink,
-            letterSpacing: -0.3,
-            padding: "0 10px",
-            marginBottom: 28,
-          }}
-        >
+    <div 
+      style={{ 
+        width: '100%',
+        height: '100%',
+        background: 'var(--pf-bg-secondary, #1C1E22)', 
+        borderRight: '1px solid var(--pf-border-subtle, #2A2D31)', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        overflow: 'hidden' 
+      }}
+    >
+      {/* Header */}
+      <div style={{ 
+        height: '64px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        padding: '0 20px',
+        borderBottom: '1px solid var(--pf-border-subtle, #2A2D31)' 
+      }}>
+        <div style={{ 
+          opacity: collapsed ? 0 : 1, 
+          transform: collapsed ? 'translateX(-10px)' : 'translateX(0)',
+          transition: 'all 0.2s ease',
+          fontFamily: 'var(--pf-font-display, system-ui)', 
+          fontSize: '1.25rem', 
+          fontWeight: 800, 
+          color: 'var(--pf-text-primary, #F2F2F2)', 
+          letterSpacing: '-0.03em',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden'
+        }}>
           Pathfinder
         </div>
-
-        <nav style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
-          {NAV_ITEMS.map((item) => {
-            const icon = ICONS[item.key] ?? null;
-            const path = item.key === "studio" ? "/studio" : `/${item.key}`;
-
-            if (item.enabled) {
-              return (
-                <NavLink
-                  key={item.key}
-                  to={path}
-                  className={({ isActive }) =>
-                    isActive ? "pf-nav-item pf-nav-item-active" : "pf-nav-item"
-                  }
-                  style={{ textDecoration: "none" }}
-                >
-                  {icon && (
-                    <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>
-                      {icon}
-                    </span>
-                  )}
-                  <span style={{ marginLeft: 8 }}>{item.label}</span>
-                </NavLink>
-              );
-            }
-
-            return (
-              <button
-                key={item.key}
-                type="button"
-                disabled
-                title="Próximamente"
-                className="pf-nav-item"
-              >
-                {icon && (
-                  <span style={{ display: "flex", alignItems: "center", fontSize: 18 }}>
-                    {icon}
-                  </span>
-                )}
-                <span style={{ marginLeft: 8 }}>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div style={{ borderTop: `1px solid ${palette.border}`, paddingTop: 14, marginTop: 14 }}>
-          <button
-            type="button"
-            onClick={onToggleStationDetails}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: "9px 10px",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              borderRadius: 10,
-              color: palette.inkMuted,
-              fontFamily: fontUI,
-            }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                backgroundColor: statusColor,
-                boxShadow: `0 0 8px ${statusColor}`,
-                flexShrink: 0,
-              }}
-              className={isPulsing ? "pf-pulse" : ""}
-            />
-            <span style={{ fontSize: 13, textAlign: "left", flex: 1 }}>{statusLabel}</span>
-          </button>
-          {stationDetailsOpen && (
-            <div style={{ padding: "8px 10px 2px", fontSize: 12, color: palette.inkFaint, lineHeight: 1.7 }}>
-              <div>Sesión activa · {sessionUptime}</div>
-            </div>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
-            <button
-              onClick={() => setIsPrepareOpen(true)}
-              className="pf-nav-item"
-              style={{ fontSize: 12.5 }}
-            >
-              Preparar estación
-            </button>
-            <button onClick={onLogout} className="pf-nav-item" style={{ fontSize: 12.5 }}>
-              Cerrar sesión
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {isPrepareOpen && (
-        <div
-          onClick={() => setIsPrepareOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.75)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 200,
+        
+        <button 
+          onClick={onToggleCollapsed} 
+          style={{ 
+            background: 'transparent', 
+            border: 'none', 
+            cursor: 'pointer', 
+            padding: '8px', 
+            borderRadius: '8px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            color: 'var(--pf-text-secondary, #9EA4AA)',
+            transition: 'color 0.2s',
+            flexShrink: 0
           }}
+          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--pf-text-primary, #F2F2F2)'}
+          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)'}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: palette.surfaceStrong,
-              border: `1px solid ${palette.border}`,
-              borderRadius: 16,
-              padding: 28,
-              width: "100%",
-              maxWidth: 560,
-              boxShadow: "0 24px 80px rgba(0,0,0,0.5)",
-            }}
-          >
-            <h2
-              style={{
-                fontFamily: fontDisplay,
-                fontSize: 22,
-                fontWeight: 600,
-                color: palette.ink,
-                margin: "0 0 6px",
-              }}
-            >
-              Preparar estación
-            </h2>
-            <p style={{ fontSize: 14, color: palette.inkMuted, margin: "0 0 24px" }}>
-              Selecciona qué quieres generar en Kaggle.
-            </p>
+          {collapsed ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+          )}
+        </button>
+      </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {AVAILABLE_MODELS.map((model) => (
-                <div
-                  key={model.modelId}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 16,
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    border: `1px solid ${palette.border}`,
-                    background: palette.surfaceSoft,
-                  }}
-                >
-                  <div>
-                    <div style={{ fontFamily: fontUI, fontWeight: 600, color: palette.ink }}>
-                      {model.label}
-                    </div>
-                    <div style={{ fontSize: 12.5, color: palette.inkFaint, marginTop: 2 }}>
-                      {model.description}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDownload(model.modelId)}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 8,
-                      background: palette.accentDim,
-                      color: palette.accentStrong,
-                      border: "none",
-                      cursor: "pointer",
-                      fontFamily: fontUI,
-                      fontSize: 13,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Descargar
-                  </button>
-                </div>
-              ))}
+      {/* Navigation List */}
+      <nav style={{ 
+        flex: 1, 
+        padding: '20px 12px', 
+        overflowY: 'auto', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '4px' 
+      }}>
+        {navItems.map((item) => {
+          // Lógica de visibilidad: Si está colapsado, solo muestra los 'featured'
+          if (collapsed && !item.featured) return null;
+
+          const isActive = location.pathname === item.path;
+          const Icon = item.icon;
+
+          return (
+            <Link 
+              key={item.path} 
+              to={item.path} 
+              style={{ 
+                textDecoration: 'none', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '14px', 
+                padding: '10px 12px', 
+                borderRadius: '10px', 
+                background: isActive ? 'var(--pf-glass-surface, rgba(255,255,255,0.05))' : 'transparent', 
+                border: isActive ? '1px solid var(--pf-border-default, #40454D)' : '1px solid transparent', 
+                transition: 'all 0.2s ease', 
+                color: isActive ? 'var(--pf-text-primary, #F2F2F2)' : 'var(--pf-text-secondary, #9EA4AA)',
+                marginBottom: '2px'
+              }}
+              title={collapsed ? item.label : undefined}
+            >
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                flexShrink: 0,
+                color: isActive ? 'var(--pf-accent-primary, #D7DADF)' : 'currentColor'
+              }}>
+                <Icon className={isActive ? "text-accent" : ""} />
+              </div>
+              
+              <span style={{ 
+                fontFamily: 'var(--pf-font-ui, system-ui)', 
+                fontSize: '0.9rem', 
+                fontWeight: isActive ? 600 : 500,
+                whiteSpace: 'nowrap',
+                opacity: collapsed ? 0 : 1,
+                transform: collapsed ? 'translateX(-10px)' : 'translateX(0)',
+                transition: 'all 0.2s ease',
+                overflow: 'hidden'
+              }}>
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* User Section */}
+      <div style={{ 
+        padding: '16px', 
+        borderTop: '1px solid var(--pf-border-subtle, #2A2D31)', 
+        background: 'var(--pf-glass-surface, rgba(255,255,255,0.02))', 
+        backdropFilter: 'blur(12px)' 
+      }}>
+        {session && profile ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ 
+              width: '36px', 
+              height: '36px', 
+              borderRadius: '50%', 
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', 
+              color: '#FFFFFF', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontFamily: 'var(--pf-font-ui)', 
+              fontSize: '0.9rem', 
+              fontWeight: 700,
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+              flexShrink: 0
+            }}>
+              {(profile.email || profile.user_metadata?.email || 'U')[0].toUpperCase()}
             </div>
+            
+            {!collapsed && (
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ 
+                  fontFamily: 'var(--pf-font-ui)', 
+                  fontSize: '0.85rem', 
+                  fontWeight: 600, 
+                  color: 'var(--pf-text-primary, #F2F2F2)', 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis' 
+                }}>
+                  {profile.email?.split('@')[0] || 'Usuario'}
+                </div>
+                <div style={{ 
+                  fontFamily: 'var(--pf-font-ui)', 
+                  fontSize: '0.75rem', 
+                  color: 'var(--pf-text-muted, #6E747D)',
+                  marginTop: '2px'
+                }}>
+                  En línea
+                </div>
+              </div>
+            )}
+            
+            {!collapsed && (
+              <button 
+                onClick={handleLogout} 
+                style={{ 
+                  background: 'transparent', 
+                  border: '1px solid var(--pf-border-default, #40454D)', 
+                  borderRadius: '8px', 
+                  padding: '6px 12px', 
+                  fontFamily: 'var(--pf-font-ui)', 
+                  fontSize: '0.75rem', 
+                  fontWeight: 500,
+                  color: 'var(--pf-text-secondary, #9EA4AA)', 
+                  cursor: 'pointer', 
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                  e.currentTarget.style.color = '#ef4444';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'var(--pf-border-default, #40454D)';
+                  e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)';
+                }}
+              >
+                Salir
+              </button>
+            )}
           </div>
-        </div>
-      )}
-    </>
+        ) : (
+          <Link to="/auth" style={{ textDecoration: 'none' }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '8px', 
+              padding: '10px', 
+              background: 'var(--pf-text-primary, #F2F2F2)', 
+              color: '#000000', 
+              borderRadius: '10px', 
+              fontFamily: 'var(--pf-font-ui)', 
+              fontSize: '0.85rem', 
+              fontWeight: 600,
+              transition: 'transform 0.2s'
+            }}>
+              <span style={{ width: '18px', height: '18px', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
+              </span>
+              {!collapsed && <span>Iniciar sesión</span>}
+            </div>
+          </Link>
+        )}
+      </div>
+    </div>
   );
-}
+};
+
+export default Sidebar;
