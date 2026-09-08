@@ -12,7 +12,7 @@ const STATIC_IMAGE_MODELS = [
 ];
 
 const STATIC_VIDEO_MODELS = [
-  { id: 'ltx-2.3-22b', name: 'LTX 2.3', type: 'ltx' },
+  { id: 'ltx-2.3', name: 'LTX 2.3', type: 'ltx' },
   { id: 'wan-i2v-video', name: 'Wan I2V', type: 'wan', comingSoon: true },
 ];
 
@@ -48,13 +48,13 @@ interface FluxParams {
   numImages: number;
   refFiles: File[];
   refModeLabel: string;
-  maskFile: File | null;
+  maskFile: File | null; // Mantenemos el estado pero no lo usamos en la UI si no hay input
   modelModeLabel: string;
   fluxGuideScale: number;
   embeddedGuidance: number;
 }
 
-// Componente auxiliar para menús desplegables compactos
+// Componente auxiliar para menús desplegables inteligentes (Arriba/Abajo)
 const DropdownButton = ({ options, value, onChange, formatOption }: { 
   options: string[]; 
   value: string; 
@@ -63,6 +63,7 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
+  const [openUp, setOpenUp] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -70,9 +71,28 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
         setIsOpen(false);
       }
     };
+    
+    const checkPosition = () => {
+      if (buttonRef.current && isOpen) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        // Si hay menos de 200px abajo, abrir hacia arriba
+        setOpenUp(spaceBelow < 200);
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('scroll', checkPosition, true);
+    window.addEventListener('resize', checkPosition);
+    
+    if (isOpen) checkPosition();
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('scroll', checkPosition, true);
+      window.removeEventListener('resize', checkPosition);
+    };
+  }, [isOpen]);
 
   const displayValue = formatOption ? formatOption(value) : value;
 
@@ -93,22 +113,24 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          minWidth: '100px'
+          minWidth: '100px',
+          whiteSpace: 'nowrap'
         }}
       >
-        <span>{displayValue}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80px', display: 'inline-block' }}>{displayValue}</span>
         <span style={{ fontSize: '10px' }}>{isOpen ? '▲' : '▼'}</span>
       </button>
       {isOpen && (
         <div style={{
           position: 'absolute',
-          top: 'calc(100% + 4px)',
+          bottom: openUp ? 'calc(100% + 4px)' : 'auto',
+          top: openUp ? 'auto' : 'calc(100% + 4px)',
           left: 0,
           background: 'white',
           border: '1px solid var(--pf-border-default)',
           borderRadius: '8px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          zIndex: 100,
+          zIndex: 1000,
           minWidth: '140px',
           maxHeight: '200px',
           overflowY: 'auto',
@@ -127,7 +149,8 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
                 fontFamily: 'var(--pf-font-ui)',
                 cursor: 'pointer',
                 borderRadius: '6px',
-                color: value === option ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)'
+                color: value === option ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)',
+                whiteSpace: 'nowrap'
               }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--pf-bg-tertiary)'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -176,50 +199,42 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
 const FloatingCommandCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('video');
   const [prompt, setPrompt] = useState('');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [fluxAdvancedOpen, setFluxAdvancedOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const { 
     handleGenerate, 
     isLoading, 
     setCapability, 
-    imageModels, // Solo usado para verificar estado "Ready"
+    imageModels,
     activeImageModelId, 
     setActiveImageModelId 
   } = useGenerationContext();
 
-  // Lógica de selección de modelo estática con fallback a defaults
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>('krea-2-turbo');
-  const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>('ltx-2.3-22b');
+  const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>('ltx-2.3');
 
-  // Sincronizar con el contexto si el modelo está disponible, sino mantener el estático
   useEffect(() => {
     if (activeTab === 'image') {
-      // Si el contexto tiene un modelo activo válido, lo usamos. Si no, mantenemos el default estático.
       if (activeImageModelId && STATIC_IMAGE_MODELS.some(m => m.id === activeImageModelId)) {
         setSelectedImageModelId(activeImageModelId);
       } else if (!activeImageModelId) {
-        // Default inicial
         setSelectedImageModelId('krea-2-turbo');
       }
     } else if (activeTab === 'video') {
-       if (!activeImageModelId) { // Reutilizamos activeImageModelId o creamos videoModelId si existe en contexto
-         setSelectedVideoModelId('ltx-2.3-22b');
+       if (!activeImageModelId) {
+         setSelectedVideoModelId('ltx-2.3');
        }
     }
   }, [activeTab, activeImageModelId]);
 
   const isFluxActive = selectedImageModelId.includes('flux');
   
-
-  // Estados locales para parámetros
   const [videoParams, setVideoParams] = useState<VideoParams>({
     imageStartFile: null,
     imageEndFile: null,
     audioFile: null,
-    duration: '5 Seconds (121 frames)',
-    resolution: '720p',
+    duration: '5 Seconds',
+    resolution: '1080p',
     aspectRatio: '16:9 Landscape',
     guideScale: 4.0,
     seed: -1,
@@ -244,9 +259,9 @@ const FloatingCommandCenter: React.FC = () => {
     seed: -1,
     numImages: 1,
     refFiles: [],
-    refModeLabel: 'Ninguna (Texto → Imagen)',
+    refModeLabel: 'None (Text-to-Image)',
     maskFile: null,
-    modelModeLabel: 'Rápido',
+    modelModeLabel: 'Prompt Focused Denoising : Inpainted area will follow the prompt more closely', // Default seguro
     fluxGuideScale: 5,
     embeddedGuidance: 1,
   });
@@ -257,24 +272,36 @@ const FloatingCommandCenter: React.FC = () => {
     else if (activeTab === 'audio') setCapability('audio');
   }, [activeTab, setCapability]);
 
+  useEffect(() => {
+    const handleSetPrompt = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setPrompt(customEvent.detail);
+      }
+    };
+    window.addEventListener('pathfinder-set-prompt', handleSetPrompt as EventListener);
+    return () => window.removeEventListener('pathfinder-set-prompt', handleSetPrompt as EventListener);
+  }, []);
+
   const handleVideoFileChange = (type: 'start' | 'end' | 'audio', file: File | null) => {
     setVideoParams(prev => ({ ...prev, [type === 'start' ? 'imageStartFile' : type === 'end' ? 'imageEndFile' : 'audioFile']: file }));
   };
 
-  const handleFluxRefFilesChange = (files: File[]) => setFluxParams(prev => ({ ...prev, refFiles: files }));
-  const handleFluxMaskChange = (file: File | null) => setFluxParams(prev => ({ ...prev, maskFile: file }));
+  const handleFluxRefFilesChange = (files: File[]) => {
+    // Limitar a 4 imágenes
+    if (files.length > 4) {
+      alert("Máximo 4 imágenes de referencia permitidas.");
+      setFluxParams(prev => ({ ...prev, refFiles: Array.from(files).slice(0, 4) }));
+    } else {
+      setFluxParams(prev => ({ ...prev, refFiles: Array.from(files) }));
+    }
+  };
 
   const handleModelChange = (modelId: string, isComingSoon: boolean) => {
     if (isComingSoon) return;
-    
     if (activeTab === 'image') {
       setSelectedImageModelId(modelId);
-      // Actualizar contexto si es necesario para sincronización con backend
       if (setActiveImageModelId) setActiveImageModelId(modelId);
-      
-      // Resetear ajustes avanzados al cambiar de modelo
-      setAdvancedOpen(false);
-      setFluxAdvancedOpen(false);
     }
   };
 
@@ -288,22 +315,31 @@ const FloatingCommandCenter: React.FC = () => {
         if (isFluxActive) {
           await handleGenerate({ 
             prompt, 
-            ...fluxParams,
             negativePrompt: fluxParams.negativePrompt || undefined,
+            steps: fluxParams.steps,
+            resolution: fluxParams.resolution,
+            aspectRatio: fluxParams.aspectRatio,
+            seed: fluxParams.seed,
+            numImages: fluxParams.numImages,
             refFiles: fluxParams.refFiles.length > 0 ? fluxParams.refFiles : undefined,
-            refModeLabel: fluxParams.refModeLabel !== 'Ninguna (Texto → Imagen)' ? fluxParams.refModeLabel : undefined,
-            modelModeLabel: fluxParams.modelModeLabel !== 'Rápido' ? fluxParams.modelModeLabel : undefined,
+            refModeLabel: fluxParams.refModeLabel !== 'None (Text-to-Image)' ? fluxParams.refModeLabel : undefined,
+            modelModeLabel: fluxParams.modelModeLabel,
+            fluxGuideScale: fluxParams.fluxGuideScale,
+            embeddedGuidance: fluxParams.embeddedGuidance,
           });
         } else {
           await handleGenerate({ 
             prompt, 
-            ...kreaParams,
             negativePrompt: kreaParams.negativePrompt || undefined,
+            steps: kreaParams.steps,
+            resolution: kreaParams.resolution,
+            aspectRatio: kreaParams.aspectRatio,
+            seed: kreaParams.seed,
+            numImages: kreaParams.numImages,
             stylePreset: kreaParams.stylePreset !== 'None' ? kreaParams.stylePreset : undefined,
           });
         }
       }
-      setPrompt('');
     } catch (error) {
       console.error('Error generating:', error);
     }
@@ -313,37 +349,35 @@ const FloatingCommandCenter: React.FC = () => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleGenerateClick();
   }, [handleGenerateClick]);
 
-  // Opciones para menús desplegables
-  const videoDurations = ['5 Seconds (121 frames)', '2 Seconds (49 frames)', '10 Seconds (241 frames)'];
-  const videoResolutions = ['720p', '1080p', '480p'];
-  const videoAspectRatios = ['16:9 Landscape', '9:16 Portrait', '1:1 Square'];
+  const videoDurations = ['2 Seconds', '3 Seconds', '5 Seconds', '8 Seconds', '10 Seconds', '15 Seconds', '20 Seconds', '25 Seconds', '30 Seconds'];
+  const videoResolutions = ['1080p', '720p', '540p', '480p'];
+  const videoAspectRatios = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
   
   const kreaStylePresets = ['None', 'Cinematic', 'Photographic', 'Anime', 'Cyberpunk'];
-  const kreaResolutions = ['1024px (Standard)', '2048px (HD)'];
-  const kreaAspectRatios = ['1:1 Square', '16:9 Landscape', '9:16 Portrait'];
+  const kreaResolutions = ['1024px (Standard)', '1536px (High)', '2048px (2K Ultra)'];
+  const kreaAspectRatios = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait'];
 
-  const fluxResolutions = ['1024px (Estándar)', '2048px (HD)'];
-  const fluxAspectRatios = ['1:1 Cuadrado', '16:9 Landscape', '9:16 Portrait'];
-  const fluxRefModes = ['Ninguna (Texto → Imagen)', 'Sujeto/Escenario + Personas u Objetos (KI)', 'Solo Personas u Objetos (I)'];
-  const fluxInpaintModes = ['Rápido', 'Preciso (2x)', 'Preciso (5x)'];
+  const fluxResolutions = ['1024px (Estándar)', '1536px (Alta)', '2048px (2K Ultra)'];
+  const fluxAspectRatios = ['1:1 Cuadrado', '16:9 Horizontal', '9:16 Vertical', '4:3 Estándar', '3:4 Vertical'];
+  const fluxRefModes = ['None (Text-to-Image)', 'Subject/Scene + People or Objects (KI)', 'People or Objects Only (I)'];
+  // Opciones simplificadas sin "Masked Denoising" obsoleto
+  const fluxInpaintModes = [
+    'Prompt Focused Denoising : Inpainted area will follow the prompt more closely',
+    'Prompt Focused Denoising (2x)',
+    'Prompt Focused Denoising (5x)'
+  ];
 
-  // Función para verificar si un modelo está "Ready" según el contexto
   const isModelReady = (modelId: string) => {
     if (!imageModels || !Array.isArray(imageModels)) return false;
     return imageModels.some((m: any) => m.model_id === modelId);
   };
 
-  // Función para renderizar miniaturas de archivos
-  const renderFileThumbnail = (file: File, type: 'video-start' | 'video-end' | 'video-audio' | 'mask' | 'ref' | 'image' | 'audio') => {
-    const isImage = type === 'video-start' || type === 'video-end' || type === 'mask' || type === 'ref' || type === 'image';
-    const isAudio = type === 'video-audio' || type === 'audio';
-    
+  const renderFileThumbnail = (file: File, type: 'ref' | 'video-start' | 'video-end' | 'video-audio') => {
     const url = URL.createObjectURL(file);
+    const isImage = type !== 'video-audio';
     
     const handleClick = () => {
-      if (isImage) {
-        setSelectedImage(url);
-      }
+      if (isImage) setSelectedImage(url);
     };
 
     return (
@@ -363,33 +397,21 @@ const FloatingCommandCenter: React.FC = () => {
       >
         {isImage ? (
           <img src={url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : isAudio ? (
+        ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🎵</div>
-        ) : null}
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
             if (type === 'video-start') setVideoParams(p => ({...p, imageStartFile: null}));
             if (type === 'video-end') setVideoParams(p => ({...p, imageEndFile: null}));
             if (type === 'video-audio') setVideoParams(p => ({...p, audioFile: null}));
-            if (type === 'mask') setFluxParams(p => ({...p, maskFile: null}));
+            if (type === 'ref') setFluxParams(p => ({...p, refFiles: p.refFiles.filter(f => f !== file)}));
           }}
           style={{
-            position: 'absolute',
-            top: '2px',
-            right: '2px',
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
-            background: 'rgba(0,0,0,0.6)',
-            color: 'white',
-            border: 'none',
-            fontSize: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: 0
+            position: 'absolute', top: '2px', right: '2px', width: '16px', height: '16px',
+            borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none',
+            fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0
           }}
         >
           ×
@@ -398,41 +420,25 @@ const FloatingCommandCenter: React.FC = () => {
     );
   };
 
-  // Lightbox para ver imagen completa
   const renderLightbox = () => {
     if (!selectedImage) return null;
     return (
       <div 
         onClick={() => setSelectedImage(null)}
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.85)',
-          zIndex: 200,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer'
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)', zIndex: 200,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
         }}
       >
         <img 
-          src={selectedImage} 
-          alt="Vista completa" 
-          style={{ 
-            maxWidth: '90vw', 
-            maxHeight: '90vh', 
-            objectFit: 'contain',
-            borderRadius: '8px'
-          }} 
+          src={selectedImage} alt="Vista completa" 
+          style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: '8px' }} 
         />
       </div>
     );
   };
 
-  // Renderizado del Selector de Modelos
   const renderModelSelector = () => {
     const models = activeTab === 'image' ? STATIC_IMAGE_MODELS : activeTab === 'video' ? STATIC_VIDEO_MODELS : [];
     const currentModelId = activeTab === 'image' ? selectedImageModelId : selectedVideoModelId;
@@ -452,34 +458,23 @@ const FloatingCommandCenter: React.FC = () => {
               onClick={() => handleModelChange(model.id, !!model.comingSoon)}
               disabled={isDisabled}
               style={{
-                padding: '4px 10px',
-                borderRadius: '6px',
-                border: 'none',
+                padding: '4px 10px', borderRadius: '6px', border: 'none',
                 background: isActive ? 'white' : 'transparent',
-                fontFamily: 'var(--pf-font-ui)',
-                fontSize: '11px',
+                fontFamily: 'var(--pf-font-ui)', fontSize: '11px',
                 fontWeight: isActive ? 700 : 500,
                 color: isDisabled ? 'var(--pf-text-muted)' : (isActive ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)'),
                 cursor: isDisabled ? 'not-allowed' : 'pointer',
                 boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                opacity: isDisabled ? 0.6 : 1,
-                position: 'relative',
-                transition: 'all 0.2s',
+                opacity: isDisabled ? 0.6 : 1, position: 'relative', transition: 'all 0.2s',
               }}
               title={model.comingSoon ? 'Próximamente' : (!isReady ? 'Cargando...' : model.name)}
             >
               {model.name}
-              {/* Indicador verde "ON" solo si está activo Y ready */}
               {isActive && isReady && !model.comingSoon && (
                 <span style={{
-                  position: 'absolute',
-                  top: '-2px',
-                  right: '-2px',
-                  width: '8px',
-                  height: '8px',
-                  background: '#10B981', // Verde éxito
-                  borderRadius: '50%',
-                  border: '1px solid white'
+                  position: 'absolute', top: '-2px', right: '-2px',
+                  width: '8px', height: '8px', background: '#10B981',
+                  borderRadius: '50%', border: '1px solid white'
                 }} />
               )}
               {model.comingSoon && <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.7 }}>Soon</span>}
@@ -502,44 +497,31 @@ const FloatingCommandCenter: React.FC = () => {
             border: '1px solid rgba(0, 0, 0, 0.08)',
             borderRadius: '20px',
             boxShadow: '0 12px 32px -8px rgba(0, 0, 0, 0.1)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'visible',
-            transition: 'all 0.3s ease',
+            display: 'flex', flexDirection: 'column', overflow: 'visible', transition: 'all 0.3s ease',
           }}
         >
-          {/* Tabs y Selector de Modelo */}
           <div style={{ padding: '12px 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
               {(['video', 'image', 'audio'] as TabType[]).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => { setActiveTab(tab); setAdvancedOpen(false); }}
+                  onClick={() => setActiveTab(tab)}
                   style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
+                    padding: '6px 12px', borderRadius: '8px', border: 'none',
                     background: activeTab === tab ? 'var(--pf-text-primary)' : 'transparent',
                     color: activeTab === tab ? '#FFFFFF' : 'var(--pf-text-secondary)',
-                    fontFamily: 'var(--pf-font-ui)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
+                    fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
+                    cursor: 'pointer', transition: 'all 0.2s',
                   }}
                 >
                   {tab === 'video' ? '🎬 Video' : tab === 'image' ? '🖼️ Imagen' : '🎵 Audio'}
                 </button>
               ))}
             </div>
-
-            {/* Selector de Modelos Estático */}
             {(activeTab === 'image' || activeTab === 'video') && renderModelSelector()}
           </div>
 
-          {/* Contenido principal */}
           <div style={{ padding: '16px' }}>
-            {/* Inputs de archivo contextualizados */}
             {(activeTab === 'video' || (activeTab === 'image' && isFluxActive)) && (
               <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                 {activeTab === 'video' && (
@@ -575,24 +557,20 @@ const FloatingCommandCenter: React.FC = () => {
                     <label style={{ position: 'relative', cursor: 'pointer' }}>
                       <input type="file" multiple accept="image/*" onChange={(e) => handleFluxRefFilesChange(Array.from(e.target.files || []))} style={{ display: 'none' }} />
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? 'var(--pf-bg-secondary)' : 'rgba(255,255,255,0.5)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                        <span>{fluxParams.refFiles.length > 0 ? `🖼️ ${fluxParams.refFiles.length} Refs` : '+ Referencias'}</span>
+                        <span>{fluxParams.refFiles.length > 0 ? `📎 ${fluxParams.refFiles.length} Refs` : '+ Referencias'}</span>
                       </div>
                     </label>
-                    {fluxParams.refFiles.slice(0, 4).map((f) => renderFileThumbnail(f, 'ref'))}
-                    
-                    <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input type="file" accept="image/*" onChange={(e) => handleFluxMaskChange(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.maskFile ? 'var(--pf-bg-secondary)' : 'rgba(255,255,255,0.5)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                        <span>{fluxParams.maskFile ? '🎭 Mask Loaded' : '+ Máscara'}</span>
+                    {fluxParams.refFiles.slice(0, 4).map((f, idx) => (
+                      <div key={idx} style={{ position: 'relative' }}>
+                        {renderFileThumbnail(f, 'ref')}
+                        <span style={{ position: 'absolute', bottom: '0', right: '0', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '1px 3px', borderRadius: '4px' }}>{idx + 1}</span>
                       </div>
-                    </label>
-                    {fluxParams.maskFile && renderFileThumbnail(fluxParams.maskFile, 'mask')}
+                    ))}
                   </>
                 )}
               </div>
             )}
 
-            {/* Área de prompt con botón integrado */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
               <textarea
                 value={prompt}
@@ -601,18 +579,10 @@ const FloatingCommandCenter: React.FC = () => {
                 placeholder={activeTab === 'video' ? "Describe tu video..." : "Describe tu imagen..."}
                 rows={1}
                 style={{
-                  width: '100%',
-                  minHeight: '44px',
-                  maxHeight: '120px',
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  resize: 'vertical',
-                  fontFamily: 'var(--pf-font-display)',
-                  fontSize: '16px',
-                  color: 'var(--pf-text-primary)',
-                  lineHeight: 1.5,
-                  paddingRight: '140px',
+                  width: '100%', minHeight: '44px', maxHeight: '120px', background: 'transparent',
+                  border: 'none', outline: 'none', resize: 'vertical',
+                  fontFamily: 'var(--pf-font-display)', fontSize: '16px', color: 'var(--pf-text-primary)',
+                  lineHeight: 1.5, paddingRight: '140px',
                 }}
                 disabled={isLoading}
               />
@@ -620,144 +590,51 @@ const FloatingCommandCenter: React.FC = () => {
                 onClick={handleGenerateClick}
                 disabled={!prompt.trim() || isLoading}
                 style={{
-                  position: 'absolute',
-                  right: '0',
-                  bottom: '0',
+                  position: 'absolute', right: '0', bottom: '0',
                   background: !prompt.trim() || isLoading ? 'var(--pf-border-subtle)' : 'var(--pf-text-primary)',
-                  color: '#FFFFFF',
-                  fontFamily: 'var(--pf-font-ui)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  padding: '8px 20px',
-                  borderRadius: '99px',
-                  border: 'none',
+                  color: '#FFFFFF', fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
+                  padding: '8px 20px', borderRadius: '99px', border: 'none',
                   cursor: !prompt.trim() || isLoading ? 'not-allowed' : 'pointer',
-                  opacity: !prompt.trim() || isLoading ? '0.5' : '1',
-                  transition: 'all 0.2s',
-                  whiteSpace: 'nowrap',
+                  opacity: !prompt.trim() || isLoading ? '0.5' : '1', transition: 'all 0.2s', whiteSpace: 'nowrap',
                 }}
               >
                 {isLoading ? '...' : 'Generar ✨'}
               </button>
             </div>
 
-            {/* Botón para mostrar/ocultar opciones avanzadas */}
-            <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setAdvancedOpen(!advancedOpen)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  fontFamily: 'var(--pf-font-ui)',
-                  fontSize: '11px',
-                  color: 'var(--pf-text-muted)',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: '4px',
-                }}
-              >
-                {advancedOpen ? 'Ocultar ajustes' : 'Ajustes avanzados ▼'}
-              </button>
-            </div>
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--pf-border-subtle)' }}>
+              {activeTab === 'video' && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <DropdownButton options={videoDurations} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + '...'} />
+                  <DropdownButton options={videoResolutions} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
+                  <DropdownButton options={videoAspectRatios} value={videoParams.aspectRatio} onChange={(v: string) => setVideoParams({...videoParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                  <NumberInput label="Guide" value={videoParams.guideScale} onChange={(v: number) => setVideoParams({...videoParams, guideScale: v})} min={1} max={8} step={0.5} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                    <input type="checkbox" checked={videoParams.matchAudioDur} onChange={(e) => setVideoParams({...videoParams, matchAudioDur: e.target.checked})} style={{ marginRight: '4px' }} />
+                    Match Audio
+                  </label>
+                </div>
+              )}
 
-            {/* Panel de opciones avanzadas */}
-            {advancedOpen && (
-              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--pf-border-subtle)' }}>
-                {activeTab === 'video' && (
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <DropdownButton 
-                      options={videoDurations} 
-                      value={videoParams.duration} 
-                      onChange={(v: string) => setVideoParams({...videoParams, duration: v})} 
-                      formatOption={(opt) => opt.split(' ')[0] + '...'}
-                    />
-                    <DropdownButton 
-                      options={videoResolutions} 
-                      value={videoParams.resolution} 
-                      onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} 
-                    />
-                    <DropdownButton 
-                      options={videoAspectRatios} 
-                      value={videoParams.aspectRatio} 
-                      onChange={(v: string) => setVideoParams({...videoParams, aspectRatio: v})} 
-                      formatOption={(opt) => opt.split(' ')[0]}
-                    />
-                    <NumberInput 
-                      label="Guide" 
-                      value={videoParams.guideScale} 
-                      onChange={(v: number) => setVideoParams({...videoParams, guideScale: v})} 
-                      min={1} 
-                      max={8} 
-                      step={0.5} 
-                    />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={videoParams.matchAudioDur} 
-                        onChange={(e) => setVideoParams({...videoParams, matchAudioDur: e.target.checked})} 
-                        style={{ marginRight: '4px' }} 
-                      />
-                      Match Audio
-                    </label>
-                  </div>
-                )}
+              {activeTab === 'image' && !isFluxActive && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <DropdownButton options={kreaStylePresets} value={kreaParams.stylePreset} onChange={(v: string) => setKreaParams({...kreaParams, stylePreset: v})} />
+                  <DropdownButton options={kreaResolutions} value={kreaParams.resolution} onChange={(v: string) => setKreaParams({...kreaParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                  <DropdownButton options={kreaAspectRatios} value={kreaParams.aspectRatio} onChange={(v: string) => setKreaParams({...kreaParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                  <NumberInput label="Steps" value={kreaParams.steps} onChange={(v: number) => setKreaParams({...kreaParams, steps: v})} min={1} max={50} />
+                </div>
+              )}
 
-                {activeTab === 'image' && !isFluxActive && (
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <DropdownButton 
-                      options={kreaStylePresets} 
-                      value={kreaParams.stylePreset} 
-                      onChange={(v: string) => setKreaParams({...kreaParams, stylePreset: v})} 
-                    />
-                    <DropdownButton 
-                      options={kreaResolutions} 
-                      value={kreaParams.resolution} 
-                      onChange={(v: string) => setKreaParams({...kreaParams, resolution: v})} 
-                      formatOption={(opt) => opt.split(' ')[0]}
-                    />
-                    <DropdownButton 
-                      options={kreaAspectRatios} 
-                      value={kreaParams.aspectRatio} 
-                      onChange={(v: string) => setKreaParams({...kreaParams, aspectRatio: v})} 
-                      formatOption={(opt) => opt.split(' ')[0]}
-                    />
-                    <NumberInput 
-                      label="Steps" 
-                      value={kreaParams.steps} 
-                      onChange={(v: number) => setKreaParams({...kreaParams, steps: v})} 
-                      min={1} 
-                      max={50} 
-                    />
-                  </div>
-                )}
-
-                {activeTab === 'image' && isFluxActive && (
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <DropdownButton 
-                      options={fluxResolutions} 
-                      value={fluxParams.resolution} 
-                      onChange={(v: string) => setFluxParams({...fluxParams, resolution: v})} 
-                      formatOption={(opt) => opt.split(' ')[0]}
-                    />
-                    <DropdownButton 
-                      options={fluxAspectRatios} 
-                      value={fluxParams.aspectRatio} 
-                      onChange={(v: string) => setFluxParams({...fluxParams, aspectRatio: v})} 
-                      formatOption={(opt) => opt.split(' ')[0]}
-                    />
-                    <NumberInput 
-                      label="Steps" 
-                      value={fluxParams.steps} 
-                      onChange={(v: number) => setFluxParams({...fluxParams, steps: v})} 
-                      min={1} 
-                      max={50} 
-                    />
-
-                    {/* Botón para mostrar opciones avanzadas específicas de Flux */}
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <button
-                        onClick={() => setFluxAdvancedOpen(!fluxAdvancedOpen)}
-                        style={{
+              {activeTab === 'image' && isFluxActive && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <DropdownButton options={fluxResolutions} value={fluxParams.resolution} onChange={(v: string) => setFluxParams({...fluxParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                  <DropdownButton options={fluxAspectRatios} value={fluxParams.aspectRatio} onChange={(v: string) => setFluxParams({...fluxParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                  <NumberInput label="Steps" value={fluxParams.steps} onChange={(v: number) => setFluxParams({...fluxParams, steps: v})} min={1} max={50} />
+                  
+                  <div style={{ position: 'relative' }}>
+                     <details style={{ display: 'inline-block' }}>
+                        <summary style={{
+                          listStyle: 'none',
                           background: 'transparent',
                           border: '1px solid var(--pf-border-default)',
                           borderRadius: '8px',
@@ -766,48 +643,45 @@ const FloatingCommandCenter: React.FC = () => {
                           fontFamily: 'var(--pf-font-ui)',
                           color: 'var(--pf-text-secondary)',
                           cursor: 'pointer',
-                        }}
-                      >
-                        Opciones Avanzadas ▼
-                      </button>
-                    </div>
-
-                    {fluxAdvancedOpen && (
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--pf-border-subtle)' }}>
-                        <DropdownButton 
-                          options={fluxRefModes} 
-                          value={fluxParams.refModeLabel} 
-                          onChange={(v: string) => setFluxParams({...fluxParams, refModeLabel: v})} 
-                          formatOption={(opt) => opt.split(' ')[0]}
-                        />
-                        <DropdownButton 
-                          options={fluxInpaintModes} 
-                          value={fluxParams.modelModeLabel} 
-                          onChange={(v: string) => setFluxParams({...fluxParams, modelModeLabel: v})} 
-                          formatOption={(opt) => opt.split(' ')[0]}
-                        />
-                        <NumberInput 
-                          label="Guide" 
-                          value={fluxParams.fluxGuideScale} 
-                          onChange={(v: number) => setFluxParams({...fluxParams, fluxGuideScale: v})} 
-                          min={0.5} 
-                          max={10} 
-                          step={0.5} 
-                        />
-                        <NumberInput 
-                          label="Embed" 
-                          value={fluxParams.embeddedGuidance} 
-                          onChange={(v: number) => setFluxParams({...fluxParams, embeddedGuidance: v})} 
-                          min={0} 
-                          max={5} 
-                          step={0.5} 
-                        />
-                      </div>
-                    )}
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          Avanzado ▼
+                        </summary>
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 'calc(100% + 8px)',
+                          left: 0,
+                          background: 'white',
+                          border: '1px solid var(--pf-border-default)',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                          zIndex: 1000,
+                          padding: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          width: '220px'
+                        }}>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--pf-text-muted)', marginBottom: '4px' }}>Reference Mode</div>
+                          <DropdownButton options={fluxRefModes} value={fluxParams.refModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, refModeLabel: v})} />
+                          
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--pf-text-muted)', marginTop: '8px', marginBottom: '4px' }}>Inpaint Mode</div>
+                          <DropdownButton options={fluxInpaintModes} value={fluxParams.modelModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, modelModeLabel: v})} />
+                          
+                          <div style={{ marginTop: '8px', borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '8px' }}>
+                            <NumberInput label="Guide Scale" value={fluxParams.fluxGuideScale} onChange={(v: number) => setFluxParams({...fluxParams, fluxGuideScale: v})} min={0.5} max={10} step={0.5} />
+                          </div>
+                          <div>
+                            <NumberInput label="Embedding" value={fluxParams.embeddedGuidance} onChange={(v: number) => setFluxParams({...fluxParams, embeddedGuidance: v})} min={0} max={5} step={0.5} />
+                          </div>
+                        </div>
+                     </details>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

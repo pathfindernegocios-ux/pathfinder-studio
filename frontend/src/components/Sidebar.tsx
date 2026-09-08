@@ -7,10 +7,26 @@ import { supabase } from '../lib/supabaseClient';
 const Sidebar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { session, profile } = useAuth();
+  
+  // Protección segura para el hook de autenticación
+  let session, profile;
+  try {
+    const auth = useAuth();
+    session = auth?.session;
+    profile = auth?.profile;
+  } catch (error) {
+    console.error("Error en useAuth dentro de Sidebar:", error);
+    // Si falla el contexto, asumimos no logueado localmente sin romper la app
+    session = null;
+    profile = null;
+  }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Error al cerrar sesión:", e);
+    }
   };
 
   const navItems = [
@@ -30,7 +46,7 @@ const Sidebar: React.FC = () => {
         {!collapsed && (
           <span style={{ fontFamily: 'var(--pf-font-display)', fontSize: '1.25rem', fontWeight: 700, color: 'var(--pf-text-primary)', letterSpacing: '-0.03em' }}>Pathfinder</span>
         )}
-        <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pf-text-secondary)' }}>
           {collapsed ? '→' : '←'}
         </button>
       </div>
