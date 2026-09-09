@@ -1,124 +1,101 @@
-import { useEffect, useRef, useState } from "react";
-import type { Creation } from "../types";
+// src/components/CreationThumbnail.tsx
+import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { useCreations } from '../hooks/useCreations';
+import type { Creation } from '../types';
 
 interface CreationThumbnailProps {
   creation: Creation;
-  onClick?: (id: string) => void;
-  getDownloadUrl: (id: string) => Promise<string | null>;
   isHovered?: boolean;
 }
 
-function getMediaType(creation: Creation): "video" | "image" | "audio" {
-  if (creation.media_type) return creation.media_type;
-  const model = (creation.model || creation.engine || "").toLowerCase();
-  if (model.includes("flux") || model.includes("krea") || model.includes("image")) return "image";
-  if (model.includes("voice") || model.includes("audio")) return "audio";
-  return "video";
-}
+export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }) => {
+  const { getDownloadUrl } = useCreations();
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState(true);
+  const [urlError, setUrlError] = useState(false);
+  const isMounted = useRef(true);
 
-export function CreationThumbnail({
-  creation,
-  onClick,
-  getDownloadUrl,
-  isHovered = false,
-}: CreationThumbnailProps) {
-  const mediaType = getMediaType(creation);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Detección robusta de video:
+  // 1. media_type === "video"
+  // 2. Si duration existe, es video (aunque media_type esté mal)
+  const isVideo =
+    creation.media_type === 'video' ||
+    (creation.duration !== undefined && creation.duration !== null && creation.duration !== '');
 
   useEffect(() => {
-    let cancelled = false;
-    const loadUrl = async () => {
-      if (!creation.id) return;
-      const url = await getDownloadUrl(creation.id);
-      if (!cancelled) setPreviewUrl(url);
+    isMounted.current = true;
+    const loadMediaUrl = async () => {
+      if (creation.id && !urlError) {
+        try {
+          setLoadingUrl(true);
+          const url = await getDownloadUrl(creation.id);
+          if (isMounted.current) {
+            if (url) {
+              setMediaUrl(url);
+              setUrlError(false);
+            } else {
+              setUrlError(true);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading media URL:', error);
+          if (isMounted.current) setUrlError(true);
+        } finally {
+          if (isMounted.current) setLoadingUrl(false);
+        }
+      }
     };
-    loadUrl();
-    return () => {
-      cancelled = true;
-    };
-  }, [creation.id, getDownloadUrl]);
+    loadMediaUrl();
+    return () => { isMounted.current = false; };
+  }, [creation.id, getDownloadUrl, urlError]);
 
-  useEffect(() => {
-    if (mediaType !== "video" || !videoRef.current) return;
-    if (isHovered) {
-      videoRef.current.play().catch(() => {});
-    } else {
-      videoRef.current.pause();
-    }
-  }, [isHovered, mediaType]);
+  // Log temporal para diagnóstico (quitar después de confirmar)
+  console.log('🎬 Thumbnail', {
+    id: creation.id,
+    media_type: creation.media_type,
+    duration: creation.duration,
+    mediaUrl,
+    isVideo,
+  });
 
-  const handleClick = () => {
-    if (onClick) onClick(creation.id);
-  };
-
-  if (mediaType === "image") {
+  if (loadingUrl) {
     return (
-      <div
-        onClick={handleClick}
-        style={{
-          cursor: "pointer",
-          width: "100%",
-          height: "100%",
-          borderRadius: 12,
-          overflow: "hidden",
-        }}
-      >
-        {previewUrl ? (
-          <img
-            src={previewUrl}
-            alt={creation.prompt}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-        ) : (
-          <div style={{ width: "100%", height: "100%", background: "#222" }} />
-        )}
+      <div style={{ aspectRatio: '1', background: 'var(--pf-bg-secondary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--pf-text-muted)' }}>Cargando...</span>
       </div>
     );
   }
 
-  if (mediaType === "audio") {
+  if (!mediaUrl || urlError) {
     return (
-      <div
-        onClick={handleClick}
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          padding: 20,
-          borderRadius: 12,
-          background: "#1C1E22",
-        }}
-      >
-        <span style={{ color: "#fff" }}>🎵 Audio</span>
+      <div style={{ aspectRatio: '1', background: 'var(--pf-bg-tertiary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--pf-text-muted)' }}>Sin vista previa</span>
       </div>
     );
   }
 
-  // Video
   return (
-    <div
-      onClick={handleClick}
-      style={{
-        cursor: "pointer",
-        width: "100%",
-        height: "100%",
-        borderRadius: 12,
-        overflow: "hidden",
-      }}
-    >
-      <video
-        ref={videoRef}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        src={previewUrl ?? undefined}
-      />
-    </div>
+    <Link to={`/creations/${creation.id}`} style={{ textDecoration: 'none', display: 'block', borderRadius: '8px', overflow: 'hidden' }}>
+      {isVideo ? (
+        <video
+          src={mediaUrl}
+          muted
+          loop
+          autoPlay
+          preload="metadata"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <img
+          src={mediaUrl}
+          alt={creation.prompt}
+          loading="lazy"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      )}
+    </Link>
   );
-}
+};
+
+export default CreationThumbnail;
