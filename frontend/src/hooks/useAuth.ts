@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+// src/hooks/useAuth.ts
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 export function useAuth() {
@@ -31,41 +32,54 @@ export function useAuth() {
     }
   }, [hasEnteredStudio]);
 
-  async function fetchProfile(userId: string) {
+  // Memoizamos fetchProfile para evitar recreaciones en cada render
+  const fetchProfile = useCallback(async (userId: string) => {
+    // Evitamos hacer la petición si ya estamos cargando el mismo perfil
+    if (profile?.id === userId) return;
+
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .single();
-      if (!error) setProfile(data);
+      
+      if (!error && data) {
+        setProfile(data);
+      } else if (error) {
+        console.error("Error fetching profile:", error);
+        // Opcional: Limpiar perfil si hay error de permisos
+        if (error.code === 'PGRST116') setProfile(null); 
+      }
     } catch (e) {
       console.error("Error fetching profile:", e);
     }
-  }
+  }, [profile?.id]);
 
   useEffect(() => {
     // 1. Obtener sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
+      if (session?.user?.id) {
+        fetchProfile(session.user.id);
+      }
     });
 
     // 2. Escuchar cambios de autenticación
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("[Auth] Event:", event, "Session:", !!session);
+      
       setSession(session);
       
-      // SOLUCIÓN AL BUCLE: Si la sesión es null (logout, expiración, error),
-      // limpiamos inmediatamente hasEnteredStudio para forzar la redirección a /auth
       if (!session) {
+        // Limpieza total al cerrar sesión
         setHasEnteredStudio(false);
         setProfile(null);
-        // Limpieza explícita por seguridad
         try {
           localStorage.removeItem("pathfinder_has_entered_studio");
         } catch (e) {}
-      } else {
-        // Si hay sesión, cargamos el perfil
+      } else if (session.user?.id) {
+        // Solo actualizamos perfil si cambió el usuario
         await fetchProfile(session.user.id);
       }
     });
@@ -73,7 +87,8 @@ export function useAuth() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+    // IMPORTANTE: Añadimos fetchProfile a las dependencias gracias a useCallback
+  }, [fetchProfile]);
 
   async function handleAuth() {
     setAuthError(null);

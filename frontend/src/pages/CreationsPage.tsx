@@ -1,331 +1,274 @@
 // src/pages/CreationsPage.tsx
-import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useCreations } from '../hooks/useCreations';
 import type { Creation } from '../types';
+import { CreationThumbnail } from '../components/CreationThumbnail';
 
 const CreationsPage: React.FC = () => {
-  const { creations } = useCreations();
-  const [filter, setFilter] = useState<'all' | 'processing'>('all');
+  const { getCreations } = useCreations();
+  const [creations, setCreations] = useState<Creation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getCreations();
+        console.log('🏆 Sala de Trofeos: Creaciones cargadas:', data?.length || 0);
+        setCreations(data || []);
+      } catch (err) {
+        console.error('Error loading creations:', err);
+        setError('No se pudieron cargar tus creaciones.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [getCreations]);
+
+  // Filtrado optimizado
   const filteredCreations = useMemo(() => {
-    if (filter === 'processing') {
-      return creations.filter((c: Creation) => c.status === 'processing');
-    }
-    return creations;
+    if (filter === 'all') return creations;
+    return creations.filter(c => {
+      if (filter === 'video') return c.media_type === 'video' || (c.duration && c.duration !== '');
+      return c.media_type === 'image';
+    });
   }, [creations, filter]);
 
-  const sortedCreations = useMemo(() => {
-    return [...filteredCreations].sort(
-      (a: Creation, b: Creation) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  // Conteo para estadísticas
+  const stats = useMemo(() => ({
+    total: creations.length,
+    images: creations.filter(c => c.media_type === 'image').length,
+    videos: creations.filter(c => c.media_type === 'video' || (c.duration && c.duration !== '')).length,
+  }), [creations]);
+
+  if (loading) {
+    return (
+      <div style={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        background: 'var(--pf-bg-primary)',
+        gap: '24px'
+      }}>
+        {/* Skeleton del Header */}
+        <div style={{ width: '200px', height: '32px', background: 'var(--pf-bg-tertiary)', borderRadius: '8px' }} />
+        <div style={{ width: '160px', height: '20px', background: 'var(--pf-bg-secondary)', borderRadius: '6px' }} />
+        
+        {/* Skeletons de la Galería */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+          gap: '32px', 
+          width: '100%', 
+          maxWidth: '1400px',
+          padding: '0 24px'
+        }}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} style={{ 
+              aspectRatio: '1', 
+              background: 'var(--pf-bg-secondary)', 
+              borderRadius: '16px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent)',
+                animation: 'shimmer 1.5s infinite',
+              }} />
+            </div>
+          ))}
+        </div>
+        
+        <style>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
+      </div>
     );
-  }, [filteredCreations]);
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        background: 'var(--pf-bg-primary)',
+        textAlign: 'center',
+        padding: '40px'
+      }}>
+        <div style={{ fontSize: '3rem', marginBottom: '16px', opacity: 0.5 }}>⚠️</div>
+        <h2 style={{ fontFamily: 'var(--pf-font-display)', fontSize: '1.5rem', color: 'var(--pf-text-primary)', marginBottom: '8px' }}>
+          Algo salió mal
+        </h2>
+        <p style={{ fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)', maxWidth: '400px' }}>
+          {error}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: 'var(--pf-bg-primary)',
-        padding: '40px 24px',
-      }}
-    >
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '40px',
-          }}
-        >
+    <div style={{ 
+      height: '100%', 
+      overflowY: 'auto', 
+      background: 'var(--pf-bg-primary)',
+      scrollBehavior: 'smooth'
+    }}>
+      {/* Hero Section: La Bóveda */}
+      <div style={{ 
+        maxWidth: '1400px', 
+        margin: '0 auto', 
+        padding: '60px 24px 40px',
+        borderBottom: '1px solid var(--pf-border-subtle)',
+        marginBottom: '40px'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '16px',
+          alignItems: 'flex-start'
+        }}>
           <div>
-            <h1
-              className="pf-font-prompt"
-              style={{
-                fontSize: '2.5rem',
-                fontWeight: 700,
-                color: 'var(--pf-text-primary)',
-                marginBottom: '8px',
-                letterSpacing: '-0.03em',
-              }}
-            >
-              Mis Creaciones
+            <h1 style={{ 
+              fontFamily: 'var(--pf-font-display)', 
+              fontSize: 'clamp(2rem, 4vw, 3rem)', 
+              fontWeight: 700, 
+              color: 'var(--pf-text-primary)',
+              letterSpacing: '-0.03em',
+              marginBottom: '12px',
+              background: 'linear-gradient(135deg, var(--pf-text-primary) 0%, var(--pf-text-secondary) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              Tu Colección
             </h1>
-            <p
-              style={{
-                fontFamily: 'var(--pf-font-ui)',
-                fontSize: '1rem',
-                color: 'var(--pf-text-secondary)',
-              }}
-            >
-              {sortedCreations.length}{' '}
-              {sortedCreations.length === 1 ? 'creación' : 'creaciones'}
+            <p style={{ 
+              fontFamily: 'var(--pf-font-ui)', 
+              fontSize: '1.1rem', 
+              color: 'var(--pf-text-secondary)',
+              maxWidth: '600px',
+              lineHeight: 1.6
+            }}>
+              {stats.total > 0 
+                ? `Has creado ${stats.total} piezas únicas. ${stats.videos} videos y ${stats.images} imágenes.` 
+                : 'Tu galería está lista para recibir tus primeras obras maestras.'}
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: '8px',
-              background: 'var(--pf-bg-secondary)',
-              padding: '4px',
-              borderRadius: '9999px',
+          {/* Filtros Premium */}
+          {stats.total > 0 && (
+            <div style={{ 
+              display: 'inline-flex', 
+              background: 'var(--pf-bg-secondary)', 
+              padding: '6px', 
+              borderRadius: '12px',
               border: '1px solid var(--pf-border-default)',
-            }}
-          >
-            {(['all', 'processing'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                style={{
-                  background: filter === f ? 'var(--pf-text-primary)' : 'transparent',
-                  color: filter === f ? '#FFFFFF' : 'var(--pf-text-secondary)',
-                  border: 'none',
-                  borderRadius: '9999px',
-                  padding: '10px 20px',
-                  fontFamily: 'var(--pf-font-ui)',
-                  fontSize: '0.875rem',
-                  fontWeight: filter === f ? 600 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {f === 'all' ? 'Todas' : 'Procesando'}
-              </button>
-            ))}
-          </div>
+              gap: '6px'
+            }}>
+              {(['all', 'image', 'video'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  style={{
+                    padding: '10px 20px',
+                    background: filter === f ? '#FFFFFF' : 'transparent',
+                    color: filter === f ? '#000000' : 'var(--pf-text-secondary)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontFamily: 'var(--pf-font-ui)',
+                    fontSize: '0.875rem',
+                    fontWeight: filter === f ? 600 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: filter === f ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                    textTransform: 'capitalize'
+                  }}
+                >
+                  {f === 'all' ? 'Todas' : f === 'image' ? 'Imágenes' : 'Videos'}
+                  {f === 'all' && ` (${stats.total})`}
+                  {f === 'image' && ` (${stats.images})`}
+                  {f === 'video' && ` (${stats.videos})`}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
 
-        {sortedCreations.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <div style={{ fontSize: '4rem', marginBottom: '24px' }}>🎨</div>
-            <h2
-              className="pf-font-prompt"
-              style={{
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                color: 'var(--pf-text-primary)',
-                marginBottom: '12px',
-                letterSpacing: '-0.025em',
-              }}
-            >
-              {filter === 'processing'
-                ? 'No hay creaciones procesándose'
-                : 'No has creado nada todavía'}
-            </h2>
-            <p
-              style={{
-                fontFamily: 'var(--pf-font-ui)',
-                fontSize: '1rem',
-                color: 'var(--pf-text-secondary)',
-                marginBottom: '32px',
-              }}
-            >
-              {filter === 'processing'
-                ? 'Las creaciones en procesamiento aparecerán aquí.'
-                : 'Comienza a crear imágenes increíbles con IA.'}
+      {/* Galería Grid */}
+      <div style={{ 
+        maxWidth: '1400px', 
+        margin: '0 auto', 
+        padding: '0 24px 60px'
+      }}>
+        {filteredCreations.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '100px 20px',
+            background: 'var(--pf-bg-secondary)',
+            borderRadius: '24px',
+            border: '1px dashed var(--pf-border-default)'
+          }}>
+            <div style={{ fontSize: '4rem', marginBottom: '24px', filter: 'grayscale(100%)', opacity: 0.5 }}>🎨</div>
+            <h3 style={{ 
+              fontFamily: 'var(--pf-font-display)', 
+              fontSize: '1.5rem', 
+              color: 'var(--pf-text-primary)',
+              marginBottom: '12px'
+            }}>
+              No hay {filter === 'all' ? 'creaciones' : filter === 'video' ? 'videos' : 'imágenes'} aún
+            </h3>
+            <p style={{ fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+              Explora otras categorías o crea algo nuevo.
             </p>
-            <Link
-              to="/studio"
-              style={{
-                textDecoration: 'none',
-                display: 'inline-block',
-                background: 'var(--pf-text-primary)',
-                color: '#FFFFFF',
-                fontFamily: 'var(--pf-font-ui)',
-                fontSize: '1rem',
-                fontWeight: 600,
-                padding: '14px 28px',
-                borderRadius: '9999px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-            >
-              Ir al Studio
-            </Link>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '24px',
-            }}
-          >
-            {sortedCreations.map((creation: Creation) => (
-              <CreationCard key={creation.id} creation={creation} />
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+            gap: '32px'
+          }}>
+            {filteredCreations.map((creation, index) => (
+              <div
+                key={creation.id}
+                style={{
+                  animation: `fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both`,
+                  animationDelay: `${index * 0.05}s`
+                }}
+              >
+                <CreationThumbnail creation={creation} />
+              </div>
             ))}
           </div>
         )}
       </div>
-    </div>
-  );
-};
 
-const CreationCard: React.FC<{ creation: Creation }> = ({ creation }) => {
-  const { getDownloadUrl } = useCreations();
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const isVideo = creation.media_type === 'video';
-
-  React.useEffect(() => {
-    const loadMediaUrl = async () => {
-      if (creation.id) {
-        try {
-          const url = await getDownloadUrl(creation.id);
-          setMediaUrl(url);
-        } catch (error) {
-          console.error('Error loading media URL:', error);
-          setMediaUrl(null);
-        } finally {
-          setLoading(false);
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-      }
-    };
-    loadMediaUrl();
-  }, [creation.id, getDownloadUrl]);
-
-  return (
-    <Link
-      to={`/creations/${creation.id}`}
-      style={{ textDecoration: 'none', display: 'block' }}
-    >
-      <div
-        className="pf-glass-panel"
-        style={{
-          borderRadius: 'var(--pf-radius-lg)',
-          overflow: 'hidden',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-4px)';
-          e.currentTarget.style.boxShadow = 'var(--pf-shadow-floating)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = 'none';
-        }}
-      >
-        <div
-          style={{
-            aspectRatio: '1',
-            overflow: 'hidden',
-            background: 'var(--pf-bg-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {loading ? (
-            <div
-              style={{
-                color: 'var(--pf-text-muted)',
-                fontFamily: 'var(--pf-font-ui)',
-              }}
-            >
-              Cargando...
-            </div>
-          ) : mediaUrl ? (
-            isVideo ? (
-              <video
-                src={mediaUrl}
-                muted
-                loop
-                autoPlay
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-              />
-            ) : (
-              <img
-                src={mediaUrl}
-                alt={creation.prompt}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  transition: 'transform 0.3s ease',
-                }}
-                onMouseEnter={(e) =>
-                  ((e.target as HTMLImageElement).style.transform = 'scale(1.05)')
-                }
-                onMouseLeave={(e) =>
-                  ((e.target as HTMLImageElement).style.transform = 'scale(1)')
-                }
-              />
-            )
-          ) : (
-            <div
-              style={{
-                color: 'var(--pf-text-muted)',
-                fontFamily: 'var(--pf-font-ui)',
-              }}
-            >
-              Sin vista previa
-            </div>
-          )}
-        </div>
-        <div style={{ padding: '20px' }}>
-          <p
-            className="pf-font-prompt"
-            style={{
-              fontFamily: 'var(--pf-font-display)',
-              fontSize: '1rem',
-              fontWeight: 600,
-              color: 'var(--pf-text-primary)',
-              marginBottom: '8px',
-              letterSpacing: '-0.025em',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-            }}
-          >
-            {creation.prompt}
-          </p>
-          <div
-            style={{
-              fontFamily: 'var(--pf-font-ui)',
-              fontSize: '0.8125rem',
-              color: 'var(--pf-text-muted)',
-            }}
-          >
-            {new Date(creation.created_at).toLocaleDateString('es-ES', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </div>
-          {creation.status === 'processing' && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                marginTop: '12px',
-                background: 'rgba(245, 158, 11, 0.1)',
-                borderRadius: '9999px',
-                padding: '4px 12px',
-                fontFamily: 'var(--pf-font-ui)',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: '#F59E0B',
-              }}
-            >
-              <span>⏳</span>
-              <span>Procesando</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </Link>
+      `}</style>
+    </div>
   );
 };
 

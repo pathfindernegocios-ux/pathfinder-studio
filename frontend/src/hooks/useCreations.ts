@@ -41,7 +41,6 @@ export function useCreations() {
         engine: "Wan2GP",
       };
 
-      // 1. Obtener URL de subida presignada
       const { data: presignData, error: presignError } = await supabase.functions.invoke(
         "save-creation",
         { body: { metadata } }
@@ -54,7 +53,6 @@ export function useCreations() {
 
       const { creationId, uploadUrl, storageKey } = presignData;
 
-      // 2. Descargar el archivo temporal
       const fileRes = await fetch(params.tempUrl);
       if (!fileRes.ok) {
         setSaveError("No se pudo descargar el archivo temporal.");
@@ -62,7 +60,6 @@ export function useCreations() {
       }
       const blob = await fileRes.blob();
 
-      // 3. Subir directo a R2
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
         body: blob,
@@ -76,7 +73,6 @@ export function useCreations() {
         return null;
       }
 
-      // 4. Completar la creación en Supabase
       const { data: completeData, error: completeError } = await supabase.functions.invoke(
         "complete-creation",
         {
