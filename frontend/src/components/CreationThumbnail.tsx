@@ -1,99 +1,194 @@
 // src/components/CreationThumbnail.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useCreations } from '../hooks/useCreations';
+import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Creation } from '../types';
 
 interface CreationThumbnailProps {
   creation: Creation;
-  isHovered?: boolean;
 }
 
 export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }) => {
-  const { getDownloadUrl } = useCreations();
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [loadingUrl, setLoadingUrl] = useState(true);
-  const [urlError, setUrlError] = useState(false);
-  const isMounted = useRef(true);
+  const { url, loading, error } = useSignedUrl(creation.id);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Detección robusta de video:
-  // 1. media_type === "video"
-  // 2. Si duration existe, es video (aunque media_type esté mal)
+  // Detección robusta de video
   const isVideo =
     creation.media_type === 'video' ||
     (creation.duration !== undefined && creation.duration !== null && creation.duration !== '');
 
+  // Intersection Observer: Control de reproducción de video según visibilidad
   useEffect(() => {
-    isMounted.current = true;
-    const loadMediaUrl = async () => {
-      if (creation.id && !urlError) {
-        try {
-          setLoadingUrl(true);
-          const url = await getDownloadUrl(creation.id);
-          if (isMounted.current) {
-            if (url) {
-              setMediaUrl(url);
-              setUrlError(false);
-            } else {
-              setUrlError(true);
+    // Solo necesitamos observar si es un video y ya tenemos URL
+    if (!isVideo || !url) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        
+        if (videoRef.current) {
+          if (entry.isIntersecting) {
+            // Intentar reproducir al entrar en viewport
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(() => {
+                // Ignorar errores de autoplay si el navegador lo bloquea
+              });
             }
+          } else {
+            // Pausar al salir para ahorrar recursos
+            videoRef.current.pause();
           }
-        } catch (error) {
-          console.error('Error loading media URL:', error);
-          if (isMounted.current) setUrlError(true);
-        } finally {
-          if (isMounted.current) setLoadingUrl(false);
         }
+      },
+      {
+        rootMargin: '200px', // Cargar un poco antes de que sea totalmente visible
+        threshold: 0.1,
       }
+    );
+
+    if (videoRef.current) {
+      observer.observe(videoRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
     };
-    loadMediaUrl();
-    return () => { isMounted.current = false; };
-  }, [creation.id, getDownloadUrl, urlError]);
+  }, [isVideo, url]);
 
-  // Log temporal para diagnóstico (quitar después de confirmar)
-  console.log('🎬 Thumbnail', {
-    id: creation.id,
-    media_type: creation.media_type,
-    duration: creation.duration,
-    mediaUrl,
-    isVideo,
-  });
-
-  if (loadingUrl) {
+  // Estados de carga y error
+  if (loading) {
     return (
-      <div style={{ aspectRatio: '1', background: 'var(--pf-bg-secondary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: '0.75rem', color: 'var(--pf-text-muted)' }}>Cargando...</span>
+      <div 
+        id={`thumb-${creation.id}`}
+        style={{ 
+          aspectRatio: '1', 
+          background: 'var(--pf-bg-secondary)', 
+          borderRadius: '16px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+      >
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '2px solid var(--pf-border-default)',
+          borderTopColor: 'var(--pf-text-muted)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
       </div>
     );
   }
 
-  if (!mediaUrl || urlError) {
+  if (error || !url) {
     return (
-      <div style={{ aspectRatio: '1', background: 'var(--pf-bg-tertiary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: '0.75rem', color: 'var(--pf-text-muted)' }}>Sin vista previa</span>
+      <div 
+        id={`thumb-${creation.id}`}
+        style={{ 
+          aspectRatio: '1', 
+          background: 'var(--pf-bg-tertiary)', 
+          borderRadius: '16px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          color: 'var(--pf-text-muted)',
+          fontSize: '0.75rem',
+          fontFamily: 'var(--pf-font-ui)'
+        }}
+      >
+        Sin vista previa
       </div>
     );
   }
 
   return (
-    <Link to={`/creations/${creation.id}`} style={{ textDecoration: 'none', display: 'block', borderRadius: '8px', overflow: 'hidden' }}>
+    <Link 
+      to={`/creations/${creation.id}`} 
+      id={`thumb-${creation.id}`}
+      style={{ 
+        textDecoration: 'none', 
+        display: 'block', 
+        borderRadius: '16px', 
+        overflow: 'hidden', 
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease',
+        background: isVideo ? '#000' : 'var(--pf-bg-secondary)', // Fondo negro solo para videos
+        position: 'relative'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)';
+      }}
+    >
       {isVideo ? (
         <video
-          src={mediaUrl}
+          ref={videoRef}
+          src={url}
           muted
           loop
-          autoPlay
+          playsInline
           preload="metadata"
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'cover', 
+            display: 'block' 
+          }}
         />
       ) : (
         <img
-          src={mediaUrl}
+          src={url}
           alt={creation.prompt}
           loading="lazy"
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'cover', 
+            display: 'block' 
+          }}
         />
       )}
+      
+      {/* Badge de Video (Solo si es video) */}
+      {isVideo && (
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
+          borderRadius: '99px',
+          padding: '4px 8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          border: '1px solid rgba(255,255,255,0.1)',
+          pointerEvents: 'none'
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </div>
+      )}
+
+      {/* Overlay gradual inferior */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '40%',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.5), transparent)',
+        pointerEvents: 'none'
+      }} />
     </Link>
   );
 };
