@@ -1,7 +1,12 @@
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
 
+/* =========================================
+   1. VARIABLES BASE (MÓVIL FIRST)
+   Definimos los valores por defecto para pantallas ≤ 640px
+   ========================================= */
 :root {
+  /* Colores y Tema */
   --pf-bg-primary: #FFFFFF;
   --pf-bg-secondary: #FAFAFA;
   --pf-bg-tertiary: #F5F5F5;
@@ -12,26 +17,71 @@
   --pf-border-subtle: #F4F4F5;
   --pf-accent-primary: #0A0A0A;
   --pf-accent-secondary: #525252;
+  
+  /* Estados */
   --pf-success: #10B981;
   --pf-warning: #F59E0B;
   --pf-error: #EF4444;
+  
+  /* Efectos */
   --pf-glass-surface: rgba(255, 255, 255, 0.75);
   --pf-shadow-floating: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+  
+  /* Espaciados Responsive (Base Móvil) */
+  --pf-spacing-xs: 8px;
+  --pf-spacing-sm: 12px;
+  --pf-spacing-md: 16px;
+  --pf-spacing-lg: 24px;
+  
+  /* Anchos de Sidebar */
+  --pf-sidebar-width-mobile: 280px; /* Ancho cuando se abre en móvil */
+  --pf-sidebar-width-desktop: 260px; /* Ancho fijo en desktop */
 }
 
-.pf-glass-panel {
-  background: var(--pf-glass-surface);
-  backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--pf-border-subtle);
-  border-radius: 12px;
+/* =========================================
+   2. MEDIA QUERIES PARA TABLET Y DESKTOP
+   Sobrescribimos variables específicas según el viewport
+   ========================================= */
+
+/* Tablet: 641px – 1024px */
+@media (min-width: 641px) {
+  :root {
+    --pf-spacing-md: 20px;
+    --pf-spacing-lg: 32px;
+  }
 }
 
-.pf-font-prompt {
-  font-family: 'Satoshi', sans-serif;
-  font-size: 1.125rem;
-  letter-spacing: -0.025em;
+/* Desktop: > 1025px */
+@media (min-width: 1025px) {
+  :root {
+    --pf-spacing-md: 24px; /* Opcional: ajuste fino */
+    --pf-spacing-lg: 40px;
+  }
 }
 
+/* =========================================
+   3. ESTILOS GLOBALES Y RESET
+   ========================================= */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  /* Usamos dvh (dynamic viewport height) para evitar problemas con barras de navegación en móviles */
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden; /* El scroll lo manejan los contenedores internos */
+  font-family: 'Inter Tight', sans-serif;
+  background-color: var(--pf-bg-primary);
+  color: var(--pf-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbars personalizadas */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(163, 163, 163, 0.4) transparent;
@@ -49,4 +99,79 @@
 ::-webkit-scrollbar-thumb {
   background-color: rgba(163, 163, 163, 0.4);
   border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(163, 163, 163, 0.7);
+}
+
+/* =========================================
+   4. CLASES DE UTILIDAD (COMPONENTES)
+   ========================================= */
+
+/* Panel Glassmorphism */
+.pf-glass-panel {
+  background: var(--pf-glass-surface);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--pf-border-subtle);
+  border-radius: 12px;
+}
+
+/* Tipografía para Prompts */
+.pf-font-prompt {
+  font-family: 'Satoshi', sans-serif;
+  font-size: 1.125rem;
+  letter-spacing: -0.025em;
+}
+
+/* =========================================
+   5. ANIMACIONES GLOBALES
+   ========================================= */
+
+/* Animación de estado Pulse (para indicadores de carga/estado) */
+@keyframes pf-status-pulse {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+  50% { 
+    opacity: 0.6; 
+    transform: scale(0.9); 
+  }
+}
+
+.pf-status-pulse {
+  animation: pf-status-pulse 2s ease-in-out infinite;
+}
+
+/* Animación de Spin (para loaders) */
+@keyframes pf-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.pf-spin {
+  animation: pf-spin 1s linear infinite;
+}
+
+/* =========================================
+   6. SAFE AREAS (MÓVILES CON NOTCH)
+   ========================================= */
+
+/* Clases utilitarias para respetar las áreas seguras del dispositivo */
+.pf-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pf-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pf-safe-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.pf-safe-right {
+  padding-right: env(safe-area-inset-right);
 }

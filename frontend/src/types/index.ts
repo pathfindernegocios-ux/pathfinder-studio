@@ -1,3 +1,5 @@
+// src/types/index.ts
+
 export type Status = "STARTING" | "READY" | "BUSY" | "ERROR" | "UNKNOWN";
 
 export type CapabilityId = "image" | "video" | "audio";
