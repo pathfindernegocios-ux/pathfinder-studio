@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { GenerationProvider } from "./context/GenerationContext";
 
 // Componentes principales
@@ -21,14 +22,21 @@ import { AcademyPage } from "./pages/placeholders/AcademyPage";
 import StationPage from "./pages/placeholders/StationPage";
 import SettingsPage from "./pages/placeholders/SettingsPage";
 
+// Iconos
+import { Menu } from 'lucide-react';
+
 function App() {
   const { session, hasEnteredStudio, setHasEnteredStudio } = useAuth();
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   
-  // Estado compartido para el colapso del Sidebar en todo el layout.
-  // Este es el ÚNICO lugar donde vive este estado — ninguna página hija
-  // (StudioPage, etc.) debe volver a montar su propio <Sidebar>.
+  // Estado para colapso del Sidebar en Desktop/Tablet
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Estado para controlar el Drawer en Móvil
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Detección de móvil usando el hook personalizado
+  const isMobile = useMediaQuery('(max-width: 640px)');
 
   // Lógica de carga robusta
   useEffect(() => {
@@ -44,10 +52,17 @@ function App() {
     return () => clearTimeout(fallbackTimer);
   }, [session]);
 
+  // Cerrar sidebar móvil al cambiar de ruta o redimensionar a desktop
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileSidebarOpen(false);
+    }
+  }, [isMobile]);
+
   if (isCheckingSession) {
     return (
       <div style={{ 
-        height: '100vh', 
+        height: '100dvh', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center', 
@@ -66,11 +81,8 @@ function App() {
 
   return (
     <GenerationProvider stationId={session?.user?.id || null}>
-      {/* Reset global: SOLO el contenedor de scroll que cada página define
-          internamente puede hacer scroll. Vive aquí, una vez, para toda la
-          sesión de la app — así ninguna página necesita andar
-          activándolo/desactivándolo al montarse o desmontarse. */}
-      <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
+      {/* Reset global */}
+      <style>{`html, body, #root { height: 100dvh; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>
         <Routes>
           {/* Ruta pública de autenticación */}
@@ -102,33 +114,66 @@ function App() {
             ) : !hasEnteredStudio ? (
               <Navigate to="/welcome" replace />
             ) : (
-              // height FIJO (no minHeight): esto es lo que evita que el layout
-              // crezca con el contenido y desincronice al panel flotante de
-              // las páginas hijas respecto al borde real de la ventana.
-              <div style={{ display: "flex", height: "100vh", background: "#F9FAFB", overflow: "hidden" }}>
-                {/* Sidebar controlado desde App para evitar franjas grises */}
-                <div
-                  style={{
-                    width: `${sidebarCollapsed ? 80 : 260}px`,
-                    flexShrink: 0,
-                    height: '100%',
-                    background: '#FFFFFF',
-                    borderRight: '1px solid #E5E7EB',
-                    zIndex: 40,
-                    transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Sidebar 
-                    collapsed={sidebarCollapsed} 
-                    onToggleCollapsed={() => setSidebarCollapsed(c => !c)} 
-                  />
-                </div>
+              <div className="pf-app-layout">
                 
-                {/* Las páginas hijas (StudioPage, etc.) llenan este espacio.
-                    NO deben montar su propio Sidebar ni preocuparse por su
-                    ancho: ya están correctamente posicionadas aquí. */}
-                <main style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden', position: 'relative' }}>
+                {/* Botón Hamburguesa para Móvil (solo visible cuando el sidebar está cerrado) */}
+                {isMobile && !mobileSidebarOpen && (
+                  <button
+                    onClick={() => setMobileSidebarOpen(true)}
+                    className="pf-mobile-menu-btn"
+                    aria-label="Abrir menú"
+                  >
+                    <Menu size={24} />
+                  </button>
+                )}
+
+                {/* Sidebar: 
+                    - En Móvil: Se renderiza condicionalmente como drawer overlay
+                    - En Desktop/Tablet: Siempre visible, empujando contenido
+                */}
+                {( !isMobile || mobileSidebarOpen ) && (
+                  <div
+                    className={isMobile ? 'pf-sidebar-drawer' : ''}
+                    style={!isMobile ? {
+                      width: `${sidebarCollapsed ? 80 : 260}px`,
+                      flexShrink: 0,
+                      height: '100dvh',
+                      background: '#FFFFFF',
+                      borderRight: '1px solid #E5E7EB',
+                      zIndex: 40,
+                      transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      overflow: 'hidden',
+                    } : undefined}
+                  >
+                    <Sidebar 
+                      collapsed={!isMobile && sidebarCollapsed} 
+                      isMobile={isMobile}
+                      onClose={() => setMobileSidebarOpen(false)}
+                      onToggleCollapsed={() => setSidebarCollapsed(c => !c)} 
+                    />
+                  </div>
+                )}
+
+                {/* Overlay Oscuro para Móvil (solo cuando el drawer está abierto) */}
+                {isMobile && mobileSidebarOpen && (
+                  <div 
+                    className="pf-sidebar-overlay"
+                    onClick={() => setMobileSidebarOpen(false)}
+                    aria-hidden="true"
+                  />
+                )}
+                
+                {/* Contenido Principal */}
+                <main 
+                  className="pf-main-content"
+                  style={!isMobile ? {
+                    flex: 1,
+                    minWidth: 0,
+                    height: '100dvh',
+                    overflow: 'hidden',
+                    position: 'relative',
+                  } : undefined}
+                >
                   <Outlet />
                 </main>
               </div>

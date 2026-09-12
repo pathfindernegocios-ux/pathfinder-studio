@@ -3,7 +3,6 @@
 
 /* =========================================
    1. VARIABLES BASE (MÓVIL FIRST)
-   Definimos los valores por defecto para pantallas ≤ 640px
    ========================================= */
 :root {
   /* Colores y Tema */
@@ -34,13 +33,12 @@
   --pf-spacing-lg: 24px;
   
   /* Anchos de Sidebar */
-  --pf-sidebar-width-mobile: 280px; /* Ancho cuando se abre en móvil */
-  --pf-sidebar-width-desktop: 260px; /* Ancho fijo en desktop */
+  --pf-sidebar-width-mobile: 280px;
+  --pf-sidebar-width-desktop: 260px;
 }
 
 /* =========================================
    2. MEDIA QUERIES PARA TABLET Y DESKTOP
-   Sobrescribimos variables específicas según el viewport
    ========================================= */
 
 /* Tablet: 641px – 1024px */
@@ -54,7 +52,7 @@
 /* Desktop: > 1025px */
 @media (min-width: 1025px) {
   :root {
-    --pf-spacing-md: 24px; /* Opcional: ajuste fino */
+    --pf-spacing-md: 24px;
     --pf-spacing-lg: 40px;
   }
 }
@@ -70,10 +68,9 @@
 }
 
 html, body, #root {
-  /* Usamos dvh (dynamic viewport height) para evitar problemas con barras de navegación en móviles */
   height: 100dvh;
   width: 100%;
-  overflow: hidden; /* El scroll lo manejan los contenedores internos */
+  overflow: hidden;
   font-family: 'Inter Tight', sans-serif;
   background-color: var(--pf-bg-primary);
   color: var(--pf-text-primary);
@@ -110,7 +107,6 @@ html, body, #root {
    4. CLASES DE UTILIDAD (COMPONENTES)
    ========================================= */
 
-/* Panel Glassmorphism */
 .pf-glass-panel {
   background: var(--pf-glass-surface);
   backdrop-filter: blur(24px) saturate(180%);
@@ -118,7 +114,6 @@ html, body, #root {
   border-radius: 12px;
 }
 
-/* Tipografía para Prompts */
 .pf-font-prompt {
   font-family: 'Satoshi', sans-serif;
   font-size: 1.125rem;
@@ -129,7 +124,6 @@ html, body, #root {
    5. ANIMACIONES GLOBALES
    ========================================= */
 
-/* Animación de estado Pulse (para indicadores de carga/estado) */
 @keyframes pf-status-pulse {
   0%, 100% { 
     opacity: 1; 
@@ -145,7 +139,6 @@ html, body, #root {
   animation: pf-status-pulse 2s ease-in-out infinite;
 }
 
-/* Animación de Spin (para loaders) */
 @keyframes pf-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -155,11 +148,26 @@ html, body, #root {
   animation: pf-spin 1s linear infinite;
 }
 
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* =========================================
    6. SAFE AREAS (MÓVILES CON NOTCH)
    ========================================= */
 
-/* Clases utilitarias para respetar las áreas seguras del dispositivo */
 .pf-safe-top {
   padding-top: env(safe-area-inset-top);
 }
@@ -174,4 +182,487 @@ html, body, #root {
 
 .pf-safe-right {
   padding-right: env(safe-area-inset-right);
+}
+
+/* =========================================
+   7. LAYOUT RESPONSIVE + SIDEBAR DRAWER
+   ========================================= */
+
+.pf-app-layout {
+  display: flex;
+  height: 100dvh;
+  width: 100%;
+  background: var(--pf-bg-primary);
+  overflow: hidden;
+  position: relative;
+}
+
+.pf-sidebar-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100dvh;
+  width: var(--pf-sidebar-width-mobile);
+  background: #FFFFFF;
+  border-right: 1px solid var(--pf-border-default);
+  z-index: 60;
+  box-shadow: var(--pf-shadow-floating);
+  animation: slideInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.pf-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 55;
+  cursor: pointer;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pf-mobile-menu-btn {
+  position: fixed;
+  top: var(--pf-spacing-md);
+  left: var(--pf-spacing-md);
+  z-index: 50;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--pf-border-default);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pf-text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pf-mobile-menu-btn:hover {
+  background: var(--pf-bg-secondary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.pf-mobile-menu-btn:active {
+  transform: translateY(0);
+  background: var(--pf-bg-tertiary);
+}
+
+.pf-main-content {
+  flex: 1;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+  background: var(--pf-bg-primary);
+}
+
+/* =========================================
+   8. CREATIONSPAGE RESPONSIVE
+   Estilos específicos para la galería de creaciones
+   ========================================= */
+
+.pf-creations-page {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--pf-bg-primary);
+  scroll-behavior: smooth;
+}
+
+.pf-creations-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--pf-spacing-md) var(--pf-spacing-lg);
+}
+
+.pf-creations-hero {
+  padding: var(--pf-spacing-lg) var(--pf-spacing-md) var(--pf-spacing-md);
+  border-bottom: 1px solid var(--pf-border-subtle);
+  margin-bottom: var(--pf-spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-md);
+  align-items: flex-start;
+}
+
+.pf-creations-title {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  color: var(--pf-text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0;
+  background: linear-gradient(135deg, var(--pf-text-primary) 0%, var(--pf-text-secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.pf-creations-subtitle {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 1rem;
+  color: var(--pf-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.pf-creations-filters {
+  display: inline-flex;
+  background: var(--pf-bg-secondary);
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--pf-border-default);
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pf-creations-filter-btn {
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--pf-text-secondary);
+  border: none;
+  border-radius: 8px;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.pf-creations-filter-btn.active {
+  background: #FFFFFF;
+  color: #000000;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.pf-creations-filter-btn:hover:not(.active) {
+  background: rgba(0,0,0,0.03);
+  color: var(--pf-text-primary);
+}
+
+.pf-creations-grid {
+  display: grid;
+  gap: var(--pf-spacing-md);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+@media (min-width: 480px) {
+  .pf-creations-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@media (min-width: 641px) {
+  .pf-creations-grid {
+    grid-template-columns: repeat(2, 1fr); 
+    gap: var(--pf-spacing-lg);
+  }
+}
+
+@media (min-width: 1025px) {
+  .pf-creations-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 32px;
+  }
+}
+
+.pf-creations-skeleton {
+  aspect-ratio: 1;
+  background: var(--pf-bg-secondary);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pf-creations-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+.pf-creations-empty {
+  text-align: center;
+  padding: calc(var(--pf-spacing-lg) * 2) var(--pf-spacing-md);
+  background: var(--pf-bg-secondary);
+  border-radius: 24px;
+  border: 1px dashed var(--pf-border-default);
+  margin-top: var(--pf-spacing-lg);
+}
+
+.pf-creations-empty-icon {
+  font-size: 3rem;
+  margin-bottom: var(--pf-spacing-md);
+  filter: grayscale(100%);
+  opacity: 0.5;
+  display: block;
+}
+
+.pf-creations-empty-title {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 1.25rem;
+  color: var(--pf-text-primary);
+  margin-bottom: var(--pf-spacing-sm);
+}
+
+.pf-creations-empty-text {
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 0.9375rem;
+  color: var(--pf-text-secondary);
+}
+
+.pf-creations-card-wrapper {
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* =========================================
+   9. STUDIO PAGE & FLOATING COMMAND CENTER
+   Estilos específicos para el panel de generación
+   ========================================= */
+
+/* Contenedor principal del estudio con padding dinámico */
+.pf-studio-content {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--pf-bg-primary);
+  padding: var(--pf-spacing-lg);
+  /* En móvil, agregamos padding inferior extra para no quedar detrás del panel flotante */
+  padding-bottom: calc(var(--pf-spacing-lg) + 180px); 
+}
+
+@media (min-width: 641px) {
+  .pf-studio-content {
+    /* En tablet/desktop el panel flota, así que reducimos el padding inferior */
+    padding-bottom: var(--pf-spacing-lg);
+  }
+}
+
+/* Panel Flotante de Comando (FloatingCommandCenter) */
+.pf-command-center {
+  position: fixed;
+  bottom: var(--pf-spacing-md);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(700px, 90%);
+  background: var(--pf-glass-surface);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--pf-border-subtle);
+  border-radius: 18px;
+  box-shadow: var(--pf-shadow-floating);
+  padding: var(--pf-spacing-md);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+  transition: all 0.3s ease;
+}
+
+/* Ajustes específicos para Móvil */
+@media (max-width: 640px) {
+  .pf-command-center {
+    width: calc(100% - (var(--pf-spacing-sm) * 2)); /* 100% - 24px */
+    left: var(--pf-spacing-sm);
+    bottom: calc(var(--pf-spacing-sm) + env(safe-area-inset-bottom));
+    padding: var(--pf-spacing-sm);
+    border-radius: 16px;
+  }
+}
+
+/* Cabecera del panel (Tabs y Estado) */
+.pf-command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--pf-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.pf-command-tabs {
+  display: flex;
+  gap: var(--pf-spacing-xs);
+  background: var(--pf-bg-secondary);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.pf-command-tab {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--pf-text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.pf-command-tab.active {
+  background: #FFFFFF;
+  color: var(--pf-text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Indicador de estado (punto de color) */
+.pf-command-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pf-command-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--pf-text-muted);
+  transition: background-color 0.3s;
+}
+
+/* Cuerpo del panel (Inputs y Controles) */
+.pf-command-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-spacing-sm);
+}
+
+.pf-command-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--pf-spacing-sm);
+}
+
+.pf-command-textarea {
+  width: 100%;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 48px 10px 12px;
+  background: var(--pf-bg-secondary);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 0.95rem;
+  color: var(--pf-text-primary);
+  resize: none;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.pf-command-textarea:focus {
+  background: #FFFFFF;
+  border-color: var(--pf-border-default);
+}
+
+/* Botón de enviar integrado */
+.pf-command-send-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--pf-text-primary);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pf-command-send-btn:disabled {
+  background: var(--pf-border-default);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Controles adicionales (Selectores, Sliders) */
+.pf-command-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pf-spacing-xs);
+  align-items: center;
+}
+
+/* En móvil, los controles se apilan en una columna si son muchos */
+@media (max-width: 640px) {
+  .pf-command-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--pf-spacing-sm);
+  }
+}
+
+.pf-control-chip {
+  padding: 6px 12px;
+  background: var(--pf-bg-secondary);
+  border: 1px solid var(--pf-border-default);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-family: 'Inter Tight', sans-serif;
+  color: var(--pf-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pf-control-chip.active {
+  background: #FFFFFF;
+  border-color: var(--pf-text-primary);
+  color: var(--pf-text-primary);
+  font-weight: 600;
+}
+
+/* Botón Principal de Generar (si está separado) */
+.pf-command-generate-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--pf-text-primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Inter Tight', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.pf-command-generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (min-width: 641px) {
+  .pf-command-generate-btn {
+    width: auto;
+    padding: 8px 24px;
+  }
 }

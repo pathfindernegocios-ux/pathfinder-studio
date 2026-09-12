@@ -16,7 +16,7 @@ const STATIC_VIDEO_MODELS = [
   { id: 'wan-i2v-video', name: 'Wan I2V', type: 'wan', comingSoon: true },
 ];
 
-// Interfaces para los parámetros
+// Interfaces para los parámetros (sin cambios)
 interface VideoParams {
   imageStartFile: File | null;
   imageEndFile: File | null;
@@ -54,7 +54,7 @@ interface FluxParams {
   embeddedGuidance: number;
 }
 
-// Componente auxiliar para menús desplegables inteligentes
+// Componente auxiliar para menús desplegables inteligentes (sin cambios de lógica)
 const DropdownButton = ({ options, value, onChange, formatOption }: { 
   options: string[]; 
   value: string; 
@@ -100,21 +100,7 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        style={{
-          padding: '5px 10px',
-          background: '#F9FAFB',
-          border: '1px solid #E5E7EB',
-          borderRadius: '8px',
-          fontSize: '12px',
-          fontFamily: 'var(--pf-font-ui)',
-          color: '#374151',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          minWidth: '100px',
-          whiteSpace: 'nowrap'
-        }}
+        className="pf-dropdown-btn"
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80px', display: 'inline-block' }}>{displayValue}</span>
         <span style={{ fontSize: '10px' }}>{isOpen ? '▲' : '▼'}</span>
@@ -200,13 +186,7 @@ const FloatingCommandCenter: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // --- Cache de Object URLs -------------------------------------------------
-  // Antes, cada render de este componente (por ejemplo, cada tecla que se
-  // escribía en el textarea del prompt) volvía a llamar
-  // URL.createObjectURL(file) para los mismos archivos de referencia/video,
-  // generando una URL nueva en cada ocasión. El navegador trataba eso como
-  // una imagen distinta y la recargaba -> parpadeo. Ahora la URL se crea UNA
-  // sola vez por archivo y se reutiliza mientras el archivo siga en uso.
+  // Cache de Object URLs (sin cambios)
   const objectUrlCacheRef = useRef<Map<File, string>>(new Map());
 
   const getObjectUrl = useCallback((file: File): string => {
@@ -225,7 +205,8 @@ const FloatingCommandCenter: React.FC = () => {
     setCapability, 
     imageModels,
     activeImageModelId, 
-    setActiveImageModelId 
+    setActiveImageModelId,
+    status // Nuevo: para el indicador de estado
   } = useGenerationContext();
 
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>('krea-2-turbo');
@@ -284,10 +265,7 @@ const FloatingCommandCenter: React.FC = () => {
     embeddedGuidance: 1,
   });
 
-  // Limpieza de URLs huérfanas: cuando un archivo deja de estar referenciado
-  // en cualquiera de los estados (se quitó como start/end/audio o como
-  // referencia de Flux), se libera su URL. Así no hay fugas de memoria y
-  // tampoco se revoca una URL que todavía se está usando en pantalla.
+  // Limpieza de URLs huérfanas (sin cambios)
   useEffect(() => {
     const activeFiles = new Set<File>([
       ...(videoParams.imageStartFile ? [videoParams.imageStartFile] : []),
@@ -304,7 +282,6 @@ const FloatingCommandCenter: React.FC = () => {
     }
   }, [videoParams.imageStartFile, videoParams.imageEndFile, videoParams.audioFile, fluxParams.refFiles]);
 
-  // Al desmontar el componente, liberar todo lo que quedara en caché.
   useEffect(() => {
     return () => {
       objectUrlCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -450,13 +427,8 @@ const FloatingCommandCenter: React.FC = () => {
     return imageModels.some((m: any) => m.model_id === modelId);
   };
 
-  // Ya NO crea una URL nueva en cada render: usa getObjectUrl, que devuelve
-  // siempre la misma URL para el mismo archivo mientras siga vigente.
   const renderFileThumbnail = (file: File, type: 'ref' | 'video-start' | 'video-end' | 'video-audio') => {
-    if (!file || !(file instanceof File)) {
-      console.warn("Intento de renderizar thumbnail con archivo inválido:", file);
-      return null;
-    }
+    if (!file || !(file instanceof File)) return null;
 
     let url: string | null = null;
     try {
@@ -474,8 +446,6 @@ const FloatingCommandCenter: React.FC = () => {
 
     const handleRemove = (e: React.MouseEvent) => {
       e.stopPropagation();
-      // Solo actualizamos el estado; la URL se revoca sola en el efecto de
-      // limpieza de arriba cuando deja de estar referenciada.
       if (type === 'video-start') setVideoParams(p => ({...p, imageStartFile: null}));
       if (type === 'video-end') setVideoParams(p => ({...p, imageEndFile: null}));
       if (type === 'video-audio') setVideoParams(p => ({...p, audioFile: null}));
@@ -537,6 +507,19 @@ const FloatingCommandCenter: React.FC = () => {
     );
   };
 
+  // Lógica de estado visual para el indicador
+  const getVisualState = () => {
+    if (isLoading) return { color: '#3B82F6', pulse: true, label: 'Generando...' };
+    switch (status) {
+      case 'BUSY': return { color: '#3B82F6', pulse: true, label: 'Ocupado' };
+      case 'READY': return { color: '#10B981', pulse: false, label: 'Listo' };
+      case 'ERROR': return { color: '#EF4444', pulse: true, label: 'Error' };
+      case 'STARTING': return { color: '#F59E0B', pulse: false, label: 'Iniciando' };
+      default: return { color: '#9CA3AF', pulse: false, label: 'Esperando' };
+    }
+  };
+  const visualState = getVisualState();
+
   const renderModelSelector = () => {
     const models = activeTab === 'image' ? STATIC_IMAGE_MODELS : activeTab === 'video' ? STATIC_VIDEO_MODELS : [];
     const currentModelId = activeTab === 'image' ? selectedImageModelId : selectedVideoModelId;
@@ -544,7 +527,7 @@ const FloatingCommandCenter: React.FC = () => {
     if (models.length === 0) return null;
 
     return (
-      <div style={{ display: 'flex', gap: '6px', background: '#F3F4F6', padding: '4px', borderRadius: '8px' }}>
+      <div className="pf-model-selector">
         {models.map((model) => {
           const isActive = currentModelId === model.id;
           const isReady = isModelReady(model.id);
@@ -555,16 +538,7 @@ const FloatingCommandCenter: React.FC = () => {
               key={model.id}
               onClick={() => handleModelChange(model.id, !!model.comingSoon)}
               disabled={isDisabled}
-              style={{
-                padding: '4px 10px', borderRadius: '6px', border: 'none',
-                background: isActive ? '#FFFFFF' : 'transparent',
-                fontFamily: 'var(--pf-font-ui)', fontSize: '11px',
-                fontWeight: isActive ? 600 : 500,
-                color: isDisabled ? '#9CA3AF' : (isActive ? '#111827' : '#4B5563'),
-                cursor: isDisabled ? 'not-allowed' : 'pointer',
-                boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-                opacity: isDisabled ? 0.6 : 1, position: 'relative', transition: 'all 0.2s',
-              }}
+              className={`pf-model-btn ${isActive ? 'active' : ''}`}
               title={model.comingSoon ? 'Próximamente' : (!isReady ? 'Cargando...' : model.name)}
             >
               {model.name}
@@ -586,210 +560,190 @@ const FloatingCommandCenter: React.FC = () => {
   return (
     <>
       {renderLightbox()}
-      <div style={{ width: '100%' }}>
-        <div
-          className="pf-glass-panel"
-          style={{
-            background: '#FFFFFF',
-            backdropFilter: 'none',
-            border: '1px solid #E5E7EB',
-            borderRadius: '18px',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
-            display: 'flex', flexDirection: 'column', overflow: 'visible', transition: 'all 0.3s ease',
-          }}
-        >
-          <div style={{ padding: '10px 14px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {(['video', 'image', 'audio'] as TabType[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    padding: '5px 12px', borderRadius: '8px', border: 'none',
-                    background: activeTab === tab ? '#111827' : 'transparent',
-                    color: activeTab === tab ? '#FFFFFF' : '#4B5563',
-                    fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
-                    cursor: 'pointer', transition: 'all 0.2s',
-                  }}
-                >
-                  {tab === 'video' ? '🎬 Video' : tab === 'image' ? '🖼️ Imagen' : '🎵 Audio'}
-                </button>
-              ))}
+      <div className="pf-command-center">
+        
+        {/* Header: Pestañas y Selector de Modelos */}
+        <div className="pf-command-header">
+          <div className="pf-mode-selector">
+            {(['video', 'image', 'audio'] as TabType[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pf-mode-btn ${activeTab === tab ? 'active' : ''}`}
+              >
+                {tab === 'video' ? '🎬 Video' : tab === 'image' ? '🖼️ Imagen' : '🎵 Audio'}
+              </button>
+            ))}
+          </div>
+          {(activeTab === 'image' || activeTab === 'video') && renderModelSelector()}
+        </div>
+
+        {/* Body: Inputs y Controles */}
+        <div className="pf-command-body">
+          
+          {/* Fila de Archivos Adjuntos (Solo Video/Flux) */}
+          {(activeTab === 'video' || (activeTab === 'image' && isFluxActive)) && (
+            <div className="pf-attachments-row">
+              {activeTab === 'video' && (
+                <>
+                  <label className="pf-file-label">
+                    <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    <span>{videoParams.imageStartFile ? '🖼️ Start' : '+ Start'}</span>
+                  </label>
+                  {videoParams.imageStartFile && renderFileThumbnail(videoParams.imageStartFile, 'video-start')}
+                  
+                  <label className="pf-file-label">
+                    <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    <span>{videoParams.imageEndFile ? '🖼️ End' : '+ End'}</span>
+                  </label>
+                  {videoParams.imageEndFile && renderFileThumbnail(videoParams.imageEndFile, 'video-end')}
+                  
+                  <label className="pf-file-label">
+                    <input type="file" accept="audio/*" onChange={(e) => handleVideoFileChange('audio', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    <span>{videoParams.audioFile ? '🎵 Audio' : '+ Audio'}</span>
+                  </label>
+                  {videoParams.audioFile && renderFileThumbnail(videoParams.audioFile, 'video-audio')}
+                </>
+              )}
+              
+              {activeTab === 'image' && isFluxActive && (
+                <>
+                  <label className="pf-file-label">
+                    <input 
+                      type="file" 
+                      multiple 
+                      accept="image/*" 
+                      onChange={(e) => {
+                        if (e.target.files) handleFluxRefFilesChange(Array.from(e.target.files));
+                      }} 
+                      style={{ display: 'none' }} 
+                    />
+                    <span>{fluxParams.refFiles.length > 0 ? `📎 ${fluxParams.refFiles.length} Refs` : '+ Referencias'}</span>
+                  </label>
+                  {fluxParams.refFiles.slice(0, 4).map((f, idx) => (
+                    <div key={`${f.name}-${f.lastModified}-${idx}`} style={{ position: 'relative' }}>
+                      {renderFileThumbnail(f, 'ref')}
+                      <span style={{ position: 'absolute', bottom: '0', right: '0', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '1px 3px', borderRadius: '4px' }}>{idx + 1}</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
-            {(activeTab === 'image' || activeTab === 'video') && renderModelSelector()}
+          )}
+
+          {/* Input de Prompt y Botón Generar */}
+          <div className="pf-input-wrapper">
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={activeTab === 'video' ? "Describe tu video..." : "Describe tu imagen..."}
+              rows={1}
+              className="pf-prompt-textarea"
+              disabled={isLoading || status === 'ERROR' || status === 'UNKNOWN'}
+            />
+            <button
+              onClick={handleGenerateClick}
+              disabled={!prompt.trim() || isLoading || status === 'ERROR' || status === 'UNKNOWN'}
+              className="pf-generate-btn"
+            >
+              {isLoading ? (
+                <span className="pf-spin" style={{ display: 'inline-block' }}>⏳</span>
+              ) : (
+                <span>Generar ✨</span>
+              )}
+            </button>
           </div>
 
-          <div style={{ padding: '12px 14px' }}>
-            {(activeTab === 'video' || (activeTab === 'image' && isFluxActive)) && (
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                {activeTab === 'video' && (
-                  <>
-                    <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                        <span>{videoParams.imageStartFile ? '🖼️ Start Loaded' : '+ Start'}</span>
-                      </div>
-                    </label>
-                    {videoParams.imageStartFile && renderFileThumbnail(videoParams.imageStartFile, 'video-start')}
-                    
-                    <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                        <span>{videoParams.imageEndFile ? '🖼️ End Loaded' : '+ End'}</span>
-                      </div>
-                    </label>
-                    {videoParams.imageEndFile && renderFileThumbnail(videoParams.imageEndFile, 'video-end')}
-                    
-                    <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input type="file" accept="audio/*" onChange={(e) => handleVideoFileChange('audio', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                        <span>{videoParams.audioFile ? '🎵 Audio Loaded' : '+ Audio'}</span>
-                      </div>
-                    </label>
-                    {videoParams.audioFile && renderFileThumbnail(videoParams.audioFile, 'video-audio')}
-                  </>
-                )}
-                
-                {activeTab === 'image' && isFluxActive && (
-                  <>
-                    <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input 
-                        type="file" 
-                        multiple 
-                        accept="image/*" 
-                        onChange={(e) => {
-                          if (e.target.files) {
-                            handleFluxRefFilesChange(Array.from(e.target.files));
-                          }
-                        }} 
-                        style={{ display: 'none' }} 
-                      />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                        <span>{fluxParams.refFiles.length > 0 ? `📎 ${fluxParams.refFiles.length} Refs` : '+ Referencias'}</span>
-                      </div>
-                    </label>
-                    {fluxParams.refFiles.slice(0, 4).map((f, idx) => (
-                      <div key={`${f.name}-${f.lastModified}-${idx}`} style={{ position: 'relative' }}>
-                        {renderFileThumbnail(f, 'ref')}
-                        <span style={{ position: 'absolute', bottom: '0', right: '0', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '1px 3px', borderRadius: '4px' }}>{idx + 1}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
+          {/* Controles Secundarios (Dropdowns) */}
+          <div className="pf-controls-row">
+            {/* Indicador de Estado (Siempre visible) */}
+            <div className="pf-status-indicator" style={{ marginRight: 'auto' }}>
+              <span 
+                className={`pf-status-dot ${visualState.pulse ? 'pf-status-pulse' : ''}`}
+                style={{ backgroundColor: visualState.color }}
+              />
+              <span className="pf-status-label" style={{ color: visualState.color }}>
+                {visualState.label}
+              </span>
+            </div>
+
+            {activeTab === 'video' && (
+              <>
+                <DropdownButton options={videoDurations} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + '...'} />
+                <DropdownButton options={videoResolutions} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
+                <DropdownButton options={videoAspectRatios} value={videoParams.aspectRatio} onChange={(v: string) => setVideoParams({...videoParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <NumberInput label="Guide" value={videoParams.guideScale} onChange={(v: number) => setVideoParams({...videoParams, guideScale: v})} min={1} max={8} step={0.5} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
+                  <input type="checkbox" checked={videoParams.matchAudioDur} onChange={(e) => setVideoParams({...videoParams, matchAudioDur: e.target.checked})} />
+                  Match Audio
+                </label>
+              </>
             )}
 
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={activeTab === 'video' ? "Describe tu video..." : "Describe tu imagen..."}
-                rows={1}
-                style={{
-                  width: '100%', minHeight: '38px', maxHeight: '110px', background: 'transparent',
-                  border: 'none', outline: 'none', resize: 'vertical',
-                  fontFamily: 'var(--pf-font-display)', fontSize: '15px', color: '#111827',
-                  lineHeight: 1.4, paddingRight: '140px',
-                }}
-                disabled={isLoading}
-              />
-              <button
-                onClick={handleGenerateClick}
-                disabled={!prompt.trim() || isLoading}
-                style={{
-                  position: 'absolute', right: '0', bottom: '0',
-                  background: !prompt.trim() || isLoading ? '#E5E7EB' : '#111827',
-                  color: '#FFFFFF', fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
-                  padding: '7px 18px', borderRadius: '99px', border: 'none',
-                  cursor: !prompt.trim() || isLoading ? 'not-allowed' : 'pointer',
-                  opacity: !prompt.trim() || isLoading ? '0.5' : '1', transition: 'all 0.2s', whiteSpace: 'nowrap',
-                }}
-              >
-                {isLoading ? '...' : 'Generar ✨'}
-              </button>
-            </div>
+            {activeTab === 'image' && !isFluxActive && (
+              <>
+                <DropdownButton options={kreaStylePresets} value={kreaParams.stylePreset} onChange={(v: string) => setKreaParams({...kreaParams, stylePreset: v})} />
+                <DropdownButton options={kreaResolutions} value={kreaParams.resolution} onChange={(v: string) => setKreaParams({...kreaParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <DropdownButton options={kreaAspectRatios} value={kreaParams.aspectRatio} onChange={(v: string) => setKreaParams({...kreaParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <NumberInput label="Steps" value={kreaParams.steps} onChange={(v: number) => setKreaParams({...kreaParams, steps: v})} min={1} max={50} />
+              </>
+            )}
 
-            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #F3F4F6' }}>
-              {activeTab === 'video' && (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <DropdownButton options={videoDurations} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + '...'} />
-                  <DropdownButton options={videoResolutions} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
-                  <DropdownButton options={videoAspectRatios} value={videoParams.aspectRatio} onChange={(v: string) => setVideoParams({...videoParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
-                  <NumberInput label="Guide" value={videoParams.guideScale} onChange={(v: number) => setVideoParams({...videoParams, guideScale: v})} min={1} max={8} step={0.5} />
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                    <input type="checkbox" checked={videoParams.matchAudioDur} onChange={(e) => setVideoParams({...videoParams, matchAudioDur: e.target.checked})} style={{ marginRight: '4px' }} />
-                    Match Audio
-                  </label>
-                </div>
-              )}
-
-              {activeTab === 'image' && !isFluxActive && (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <DropdownButton options={kreaStylePresets} value={kreaParams.stylePreset} onChange={(v: string) => setKreaParams({...kreaParams, stylePreset: v})} />
-                  <DropdownButton options={kreaResolutions} value={kreaParams.resolution} onChange={(v: string) => setKreaParams({...kreaParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
-                  <DropdownButton options={kreaAspectRatios} value={kreaParams.aspectRatio} onChange={(v: string) => setKreaParams({...kreaParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
-                  <NumberInput label="Steps" value={kreaParams.steps} onChange={(v: number) => setKreaParams({...kreaParams, steps: v})} min={1} max={50} />
-                </div>
-              )}
-
-              {activeTab === 'image' && isFluxActive && (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <DropdownButton options={fluxResolutions} value={fluxParams.resolution} onChange={(v: string) => setFluxParams({...fluxParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
-                  <DropdownButton options={fluxAspectRatios} value={fluxParams.aspectRatio} onChange={(v: string) => setFluxParams({...fluxParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
-                  <NumberInput label="Steps" value={fluxParams.steps} onChange={(v: number) => setFluxParams({...fluxParams, steps: v})} min={1} max={50} />
-                  
-                  <div style={{ position: 'relative' }}>
-                     <details style={{ display: 'inline-block' }}>
-                        <summary style={{
-                          listStyle: 'none',
-                          background: '#F9FAFB',
-                          border: '1px solid #E5E7EB',
-                          borderRadius: '8px',
-                          padding: '5px 10px',
-                          fontSize: '12px',
-                          fontFamily: 'var(--pf-font-ui)',
-                          color: '#4B5563',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
-                          Avanzado ▼
-                        </summary>
-                        <div style={{
-                          position: 'absolute',
-                          bottom: 'calc(100% + 8px)',
-                          left: 0,
-                          background: 'white',
-                          border: '1px solid #E5E7EB',
-                          borderRadius: '8px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                          zIndex: 1000,
-                          padding: '12px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '8px',
-                          width: '220px'
-                        }}>
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginBottom: '4px' }}>Reference Mode</div>
-                          <DropdownButton options={fluxRefModes} value={fluxParams.refModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, refModeLabel: v})} />
-                          
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginTop: '8px', marginBottom: '4px' }}>Inpaint Mode</div>
-                          <DropdownButton options={fluxInpaintModes} value={fluxParams.modelModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, modelModeLabel: v})} />
-                          
-                          <div style={{ marginTop: '8px', borderTop: '1px solid #F3F4F6', paddingTop: '8px' }}>
-                            <NumberInput label="Guide Scale" value={fluxParams.fluxGuideScale} onChange={(v: number) => setFluxParams({...fluxParams, fluxGuideScale: v})} min={0.5} max={10} step={0.5} />
-                          </div>
-                          <div>
-                            <NumberInput label="Embedding" value={fluxParams.embeddedGuidance} onChange={(v: number) => setFluxParams({...fluxParams, embeddedGuidance: v})} min={0} max={5} step={0.5} />
-                          </div>
-                        </div>
-                     </details>
+            {activeTab === 'image' && isFluxActive && (
+              <>
+                <DropdownButton options={fluxResolutions} value={fluxParams.resolution} onChange={(v: string) => setFluxParams({...fluxParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <DropdownButton options={fluxAspectRatios} value={fluxParams.aspectRatio} onChange={(v: string) => setFluxParams({...fluxParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <NumberInput label="Steps" value={fluxParams.steps} onChange={(v: number) => setFluxParams({...fluxParams, steps: v})} min={1} max={50} />
+                
+                <details style={{ position: 'relative' }}>
+                  <summary style={{
+                    listStyle: 'none',
+                    background: '#F9FAFB',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    padding: '5px 10px',
+                    fontSize: '12px',
+                    fontFamily: 'var(--pf-font-ui)',
+                    color: '#4B5563',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    Avanzado ▼
+                  </summary>
+                  <div style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 8px)',
+                    right: 0,
+                    background: 'white',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                    zIndex: 1000,
+                    padding: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    width: '220px'
+                  }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginBottom: '4px' }}>Reference Mode</div>
+                    <DropdownButton options={fluxRefModes} value={fluxParams.refModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, refModeLabel: v})} />
+                    
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginTop: '8px', marginBottom: '4px' }}>Inpaint Mode</div>
+                    <DropdownButton options={fluxInpaintModes} value={fluxParams.modelModeLabel} onChange={(v: string) => setFluxParams({...fluxParams, modelModeLabel: v})} />
+                    
+                    <div style={{ marginTop: '8px', borderTop: '1px solid #F3F4F6', paddingTop: '8px' }}>
+                      <NumberInput label="Guide Scale" value={fluxParams.fluxGuideScale} onChange={(v: number) => setFluxParams({...fluxParams, fluxGuideScale: v})} min={0.5} max={10} step={0.5} />
+                    </div>
+                    <div>
+                      <NumberInput label="Embedding" value={fluxParams.embeddedGuidance} onChange={(v: number) => setFluxParams({...fluxParams, embeddedGuidance: v})} min={0} max={5} step={0.5} />
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                </details>
+              </>
+            )}
           </div>
         </div>
       </div>

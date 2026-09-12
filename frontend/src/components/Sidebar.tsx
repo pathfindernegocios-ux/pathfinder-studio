@@ -1,280 +1,262 @@
 // src/components/Sidebar.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabaseClient';
 import { 
-  StudioIcon, 
-  CreationsIcon, 
-  AssetsIcon, 
-  StationIcon, 
-  ProjectsIcon, 
-  AcademyIcon, 
-  SettingsIcon 
-} from './NavIcons';
+  LayoutDashboard, 
+  Image, 
+  FolderOpen, 
+  Box, 
+  GraduationCap, 
+  Radio, 
+  LogOut,
+  X,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
-// El ancho ya NO vive aquí adentro. Lo controla el padre (StudioPage) para que
-// nunca haya un desfase entre "lo que el sidebar mide realmente" y "el espacio
-// que el layout le reserva" (eso era lo que dejaba el rastro/franja gris al
-// colapsar). Este componente solo pinta su contenido al 100% del contenedor
-// que le pasen.
+interface NavItem {
+  path: string;
+  // Permitimos que icon sea un componente o un elemento JSX
+  icon: React.ElementType | React.ReactNode; 
+  label: string;
+  activePaths?: string[];
+}
+
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  // Nuevas props para modo móvil
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
-  const location = useLocation();
-  const { session, profile } = useAuth();
+const NAV_ITEMS: NavItem[] = [
+  { path: '/studio', icon: LayoutDashboard, label: 'Studio', activePaths: ['/studio'] },
+  { path: '/creations', icon: Image, label: 'Mis Creaciones', activePaths: ['/creations'] },
+  { path: '/projects', icon: FolderOpen, label: 'Proyectos', activePaths: ['/projects'] },
+  { path: '/assets', icon: Box, label: 'Assets', activePaths: ['/assets'] },
+  { path: '/academy', icon: GraduationCap, label: 'Academy', activePaths: ['/academy'] },
+  { path: '/station', icon: Radio, label: 'Station', activePaths: ['/station'] },
+];
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  collapsed, 
+  onToggleCollapsed, 
+  isMobile = false,
+  onClose 
+}) => {
+  const location = useLocation();
+  const { setHasEnteredStudio } = useAuth();
+
+  const isActive = (itemPath: string, activePaths?: string[]) => {
+    if (activePaths) {
+      return activePaths.some(p => location.pathname.startsWith(p));
+    }
+    return location.pathname === itemPath;
   };
 
-  // Configuración de navegación
-  // featured: true -> Se muestra siempre (incluso colapsado)
-  // featured: false -> Se oculta al colapsar
-  const navItems = [
-    { path: '/studio', label: 'Studio', icon: StudioIcon, featured: true },
-    { path: '/projects', label: 'Proyectos', icon: ProjectsIcon, featured: false },
-    { path: '/creations', label: 'Mis Creaciones', icon: CreationsIcon, featured: true },
-    { path: '/assets', label: 'Assets', icon: AssetsIcon, featured: true },
-    { path: '/academy', label: 'Academy', icon: AcademyIcon, featured: false },
-    { path: '/station', label: 'Mi Estación', icon: StationIcon, featured: true },
-    { path: '/settings', label: 'Configuración', icon: SettingsIcon, featured: false },
-  ];
+  const handleLogout = () => {
+    // Limpiamos el estado de "entrada al estudio" para volver a la welcome screen
+    setHasEnteredStudio(false);
+    // Recargamos o redirigimos para limpiar sesión si es necesario
+    // En una implementación real con Supabase Auth, aquí llamarías a supabase.auth.signOut()
+    window.location.href = '/auth'; 
+  };
+
+  const renderIcon = (icon: React.ElementType | React.ReactNode, size: number = 20) => {
+    if (typeof icon === 'function') {
+      const IconComponent = icon as React.ElementType;
+      return <IconComponent size={size} />;
+    }
+    return icon;
+  };
 
   return (
     <div 
-      style={{ 
-        width: '100%',
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
         height: '100%',
-        background: 'var(--pf-bg-secondary, #1C1E22)', 
-        borderRight: '1px solid var(--pf-border-subtle, #2A2D31)', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        overflow: 'hidden' 
+        background: '#FFFFFF',
+        borderRight: isMobile ? 'none' : '1px solid #E5E7EB',
+        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        overflow: 'hidden',
+        position: 'relative'
       }}
     >
-      {/* Header */}
+      {/* Header con Logo y Botón de Cierre (Móvil) o Colapso (Desktop) */}
       <div style={{ 
-        height: '64px', 
+        padding: isMobile ? '20px' : '24px 20px', 
         display: 'flex', 
         alignItems: 'center', 
-        justifyContent: 'space-between', 
-        padding: '0 20px',
-        borderBottom: '1px solid var(--pf-border-subtle, #2A2D31)' 
+        justifyContent: 'space-between',
+        borderBottom: isMobile ? '1px solid #F3F4F6' : 'none',
+        marginBottom: isMobile ? '12px' : '0'
       }}>
         <div style={{ 
-          opacity: collapsed ? 0 : 1, 
-          transform: collapsed ? 'translateX(-10px)' : 'translateX(0)',
-          transition: 'all 0.2s ease',
-          fontFamily: 'var(--pf-font-display, system-ui)', 
-          fontSize: '1.25rem', 
-          fontWeight: 800, 
-          color: 'var(--pf-text-primary, #F2F2F2)', 
-          letterSpacing: '-0.03em',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden'
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px',
+          opacity: (isMobile || !collapsed) ? 1 : 0,
+          pointerEvents: (isMobile || !collapsed) ? 'auto' : 'none',
+          transition: 'opacity 0.2s ease'
         }}>
-          Pathfinder
-        </div>
-        
-        <button 
-          onClick={onToggleCollapsed} 
-          style={{ 
-            background: 'transparent', 
-            border: 'none', 
-            cursor: 'pointer', 
-            padding: '8px', 
+          <div style={{ 
+            width: '32px', 
+            height: '32px', 
             borderRadius: '8px', 
+            background: '#111827', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            color: 'var(--pf-text-secondary, #9EA4AA)',
-            transition: 'color 0.2s',
+            color: '#FFFFFF',
+            fontSize: '18px',
+            fontWeight: 700
+          }}>
+            P
+          </div>
+          {(isMobile || !collapsed) && (
+            <span style={{ 
+              fontFamily: 'var(--pf-font-display)', 
+              fontSize: '1.125rem', 
+              fontWeight: 700, 
+              color: '#111827',
+              whiteSpace: 'nowrap'
+            }}>
+              Pathfinder
+            </span>
+          )}
+        </div>
+
+        {/* Botón de Acción Derecha */}
+        <button
+          onClick={isMobile ? onClose : onToggleCollapsed}
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            border: 'none',
+            background: '#F9FAFB',
+            color: '#6B7280',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
             flexShrink: 0
           }}
-          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--pf-text-primary, #F2F2F2)'}
-          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#F3F4F6';
+            e.currentTarget.style.color = '#111827';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#F9FAFB';
+            e.currentTarget.style.color = '#6B7280';
+          }}
+          aria-label={isMobile ? "Cerrar menú" : "Colapsar sidebar"}
         >
-          {collapsed ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-          )}
+          {isMobile ? <X size={18} /> : (collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />)}
         </button>
       </div>
 
-      {/* Navigation List */}
-      <nav style={{ 
-        flex: 1, 
-        padding: '20px 12px', 
-        overflowY: 'auto', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '4px' 
-      }}>
-        {navItems.map((item) => {
-          // Lógica de visibilidad: Si está colapsado, solo muestra los 'featured'
-          if (collapsed && !item.featured) return null;
-
-          const isActive = location.pathname === item.path;
-          const Icon = item.icon;
-
+      {/* Navegación Principal */}
+      <nav style={{ flex: 1, padding: isMobile ? '0 12px' : '0 12px 24px', overflowY: 'auto' }}>
+        {NAV_ITEMS.map((item) => {
+          const active = isActive(item.path, item.activePaths);
+          
           return (
-            <Link 
-              key={item.path} 
-              to={item.path} 
-              style={{ 
-                textDecoration: 'none', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '14px', 
-                padding: '10px 12px', 
-                borderRadius: '10px', 
-                background: isActive ? 'var(--pf-glass-surface, rgba(255,255,255,0.05))' : 'transparent', 
-                border: isActive ? '1px solid var(--pf-border-default, #40454D)' : '1px solid transparent', 
-                transition: 'all 0.2s ease', 
-                color: isActive ? 'var(--pf-text-primary, #F2F2F2)' : 'var(--pf-text-secondary, #9EA4AA)',
-                marginBottom: '2px'
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => {
+                if (isMobile && onClose) onClose();
               }}
-              title={collapsed ? item.label : undefined}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px',
+                marginBottom: '4px',
+                borderRadius: '12px',
+                textDecoration: 'none',
+                background: active ? '#F9FAFB' : 'transparent',
+                color: active ? '#111827' : '#6B7280',
+                transition: 'all 0.2s ease',
+                fontWeight: active ? 600 : 500,
+                fontSize: '0.9375rem',
+                fontFamily: 'var(--pf-font-ui)'
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.background = '#F9FAFB';
+                  e.currentTarget.style.color = '#111827';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#6B7280';
+                }
+              }}
             >
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
-                width: '24px',
-                height: '24px',
-                flexShrink: 0,
-                color: isActive ? 'var(--pf-accent-primary, #D7DADF)' : 'currentColor'
+                width: '20px',
+                height: '20px',
+                color: 'inherit'
               }}>
-                <Icon className={isActive ? "text-accent" : ""} />
+                {renderIcon(item.icon)}
               </div>
               
-              <span style={{ 
-                fontFamily: 'var(--pf-font-ui, system-ui)', 
-                fontSize: '0.9rem', 
-                fontWeight: isActive ? 600 : 500,
-                whiteSpace: 'nowrap',
-                opacity: collapsed ? 0 : 1,
-                transform: collapsed ? 'translateX(-10px)' : 'translateX(0)',
-                transition: 'all 0.2s ease',
-                overflow: 'hidden'
-              }}>
-                {item.label}
-              </span>
+              {(isMobile || !collapsed) && (
+                <span style={{ whiteSpace: 'nowrap', opacity: 1, transition: 'opacity 0.2s' }}>
+                  {item.label}
+                </span>
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {/* User Section */}
+      {/* Footer con Logout */}
       <div style={{ 
-        padding: '16px', 
-        borderTop: '1px solid var(--pf-border-subtle, #2A2D31)', 
-        background: 'var(--pf-glass-surface, rgba(255,255,255,0.02))', 
-        backdropFilter: 'blur(12px)' 
+        padding: isMobile ? '16px 12px' : '16px 12px 24px', 
+        borderTop: '1px solid #F3F4F6' 
       }}>
-        {session && profile ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              width: '36px', 
-              height: '36px', 
-              borderRadius: '50%', 
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', 
-              color: '#FFFFFF', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              fontFamily: 'var(--pf-font-ui)', 
-              fontSize: '0.9rem', 
-              fontWeight: 700,
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-              flexShrink: 0
-            }}>
-              {(profile.email || profile.user_metadata?.email || 'U')[0].toUpperCase()}
-            </div>
-            
-            {!collapsed && (
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ 
-                  fontFamily: 'var(--pf-font-ui)', 
-                  fontSize: '0.85rem', 
-                  fontWeight: 600, 
-                  color: 'var(--pf-text-primary, #F2F2F2)', 
-                  whiteSpace: 'nowrap', 
-                  overflow: 'hidden', 
-                  textOverflow: 'ellipsis' 
-                }}>
-                  {profile.email?.split('@')[0] || 'Usuario'}
-                </div>
-                <div style={{ 
-                  fontFamily: 'var(--pf-font-ui)', 
-                  fontSize: '0.75rem', 
-                  color: 'var(--pf-text-muted, #6E747D)',
-                  marginTop: '2px'
-                }}>
-                  En línea
-                </div>
-              </div>
-            )}
-            
-            {!collapsed && (
-              <button 
-                onClick={handleLogout} 
-                style={{ 
-                  background: 'transparent', 
-                  border: '1px solid var(--pf-border-default, #40454D)', 
-                  borderRadius: '8px', 
-                  padding: '6px 12px', 
-                  fontFamily: 'var(--pf-font-ui)', 
-                  fontSize: '0.75rem', 
-                  fontWeight: 500,
-                  color: 'var(--pf-text-secondary, #9EA4AA)', 
-                  cursor: 'pointer', 
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                  e.currentTarget.style.color = '#ef4444';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.borderColor = 'var(--pf-border-default, #40454D)';
-                  e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)';
-                }}
-              >
-                Salir
-              </button>
-            )}
-          </div>
-        ) : (
-          <Link to="/auth" style={{ textDecoration: 'none' }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              gap: '8px', 
-              padding: '10px', 
-              background: 'var(--pf-text-primary, #F2F2F2)', 
-              color: '#000000', 
-              borderRadius: '10px', 
-              fontFamily: 'var(--pf-font-ui)', 
-              fontSize: '0.85rem', 
-              fontWeight: 600,
-              transition: 'transform 0.2s'
-            }}>
-              <span style={{ width: '18px', height: '18px', flexShrink: 0 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
-              </span>
-              {!collapsed && <span>Iniciar sesión</span>}
-            </div>
-          </Link>
-        )}
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            width: '100%',
+            padding: '12px',
+            borderRadius: '12px',
+            border: 'none',
+            background: 'transparent',
+            color: '#EF4444', // Color rojo para logout
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            fontWeight: 500,
+            fontSize: '0.9375rem',
+            fontFamily: 'var(--pf-font-ui)',
+            textAlign: 'left'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          <LogOut size={20} />
+          {(isMobile || !collapsed) && (
+            <span>Cerrar Sesión</span>
+          )}
+        </button>
       </div>
     </div>
   );
