@@ -1,6 +1,7 @@
 // src/components/FloatingCommandCenter.tsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useGenerationContext } from '../context/GenerationContext';
+import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X } from 'lucide-react';
 
 type TabType = 'video' | 'image' | 'audio';
 
@@ -25,7 +26,7 @@ const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'
 const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High Res)'];
 const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:5 Portrait'];
 
-// Simplificado: Solo modos con referencia (Opción "Ninguna" eliminada)
+// Simplificado: Solo modos con referencia
 const FLUX_REF_MODES = [
   'Sujeto/Escenario + Personas u Objetos (KI)',
   'Solo Personas u Objetos (I)'
@@ -353,7 +354,8 @@ const FloatingCommandCenter: React.FC = () => {
     
     const slicedFiles = validFiles.slice(0, 4);
     
-    // Lógica: Si hay referencias, forzar a KI si no está en modo 'I'
+    // Lógica: Si hay referencias y el modo actual es "Ninguna" (ya eliminado de UI pero posible en estado viejo)
+    // o si es la primera vez que se agregan, forzar a KI.
     setFluxParams(prev => {
       const newMode = slicedFiles.length > 0 && !prev.refModeLabel.includes('(I)') 
         ? 'Sujeto/Escenario + Personas u Objetos (KI)' 
@@ -455,7 +457,9 @@ const FloatingCommandCenter: React.FC = () => {
     return (
       <div style={{ position: 'relative', width: '40px', height: '40px', flexShrink: 0 }}>
         {isAudio ? (
-          <div style={{ width: '100%', height: '100%', background: '#E5E7EB', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🎵</div>
+          <div style={{ width: '100%', height: '100%', background: '#E5E7EB', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280' }}>
+            <Music size={16} />
+          </div>
         ) : (
           <img src={url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E5E7EB' }} />
         )}
@@ -472,7 +476,9 @@ const FloatingCommandCenter: React.FC = () => {
             background: '#EF4444', color: 'white', border: 'none',
             fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
-        >×</button>
+        >
+          <X size={10} />
+        </button>
       </div>
     );
   };
@@ -480,7 +486,7 @@ const FloatingCommandCenter: React.FC = () => {
   const renderModelSelector = () => {
     const models = activeTab === 'image' ? STATIC_IMAGE_MODELS : STATIC_VIDEO_MODELS;
     const selectedId = activeTab === 'image' ? selectedImageModelId : selectedVideoModelId;
-    // Eliminada la variable inutilizada setSelectedId
+    // Eliminada variable no usada setSelectedId
 
     return (
       <div style={{ display: 'flex', gap: '6px' }}>
@@ -532,9 +538,13 @@ const FloatingCommandCenter: React.FC = () => {
                   color: activeTab === tab ? '#FFFFFF' : '#4B5563',
                   fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
                   cursor: 'pointer', transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
                 }}
               >
-                {tab === 'video' ? '🎬 Video' : tab === 'image' ? '🖼️ Imagen' : '🎵 Audio'}
+                {tab === 'video' ? <Video size={14} /> : tab === 'image' ? <ImageIcon size={14} /> : <Music size={14} />}
+                {tab === 'video' ? 'Video' : tab === 'image' ? 'Imagen' : 'Audio'}
               </button>
             ))}
           </div>
@@ -549,7 +559,7 @@ const FloatingCommandCenter: React.FC = () => {
                   <label style={{ position: 'relative', cursor: 'pointer' }}>
                     <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                      <span>{videoParams.imageStartFile ? '🖼️ Start Loaded' : '+ Start'}</span>
+                      <span>{videoParams.imageStartFile ? 'Start Loaded' : '+ Start'}</span>
                     </div>
                   </label>
                   {videoParams.imageStartFile && renderFileThumbnail(videoParams.imageStartFile, 'video-start')}
@@ -557,7 +567,7 @@ const FloatingCommandCenter: React.FC = () => {
                   <label style={{ position: 'relative', cursor: 'pointer' }}>
                     <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                      <span>{videoParams.imageEndFile ? '🖼️ End Loaded' : '+ End'}</span>
+                      <span>{videoParams.imageEndFile ? 'End Loaded' : '+ End'}</span>
                     </div>
                   </label>
                   {videoParams.imageEndFile && renderFileThumbnail(videoParams.imageEndFile, 'video-end')}
@@ -565,7 +575,7 @@ const FloatingCommandCenter: React.FC = () => {
                   <label style={{ position: 'relative', cursor: 'pointer' }}>
                     <input type="file" accept="audio/*" onChange={(e) => handleVideoFileChange('audio', e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                      <span>{videoParams.audioFile ? '🎵 Audio Loaded' : '+ Audio'}</span>
+                      <span>{videoParams.audioFile ? 'Audio Loaded' : '+ Audio'}</span>
                     </div>
                   </label>
                   {videoParams.audioFile && renderFileThumbnail(videoParams.audioFile, 'video-audio')}
@@ -587,7 +597,8 @@ const FloatingCommandCenter: React.FC = () => {
                       style={{ display: 'none' }} 
                     />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
-                      <span>{fluxParams.refFiles.length > 0 ? `📎 ${fluxParams.refFiles.length} Refs` : '+ Referencias'}</span>
+                      <Paperclip size={12} />
+                      <span>{fluxParams.refFiles.length > 0 ? `${fluxParams.refFiles.length} Refs` : 'Referencias'}</span>
                     </div>
                   </label>
                   {fluxParams.refFiles.slice(0, 4).map((f, idx) => (
@@ -637,9 +648,13 @@ const FloatingCommandCenter: React.FC = () => {
                 padding: '7px 18px', borderRadius: '99px', border: 'none',
                 cursor: !prompt.trim() || isLoading ? 'not-allowed' : 'pointer',
                 opacity: !prompt.trim() || isLoading ? '0.5' : '1', transition: 'all 0.2s', whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              {isLoading ? '...' : 'Generar ✨'}
+              Generar
+              <Sparkles size={14} />
             </button>
           </div>
 
