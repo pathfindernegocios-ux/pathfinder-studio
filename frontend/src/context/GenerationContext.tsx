@@ -8,6 +8,21 @@ import { useCreations } from "../hooks/useCreations";
 
 type RecoveryState = "checking" | "idle" | "active";
 
+// ==========================================
+// 1. DEFINICIÓN DE PERSISTENCIA (SESSION STORAGE)
+// ==========================================
+const SESSION_STORAGE_KEY = 'pf_generation_state';
+
+interface PersistedGenerationState {
+  generationId: string | null;
+  prompt: string;
+  capability: 'video' | 'image' | 'audio';
+  activeModelId: string | null;
+  started_at: number | null;
+  status: 'idle' | 'preparing' | 'running' | 'complete' | 'error' | 'cancelled';
+  updatedAt: number;
+}
+
 interface ImageRuntime {
   model_id: string;
   gradio_url: string;
@@ -127,6 +142,28 @@ export function GenerationProvider({
   const generationStartRef = useRef<number>(0);
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
+  // ==========================================
+  // 2. HELPER DE PERSISTENCIA
+  // ==========================================
+  const persistState = useCallback((partial: Partial<PersistedGenerationState>) => {
+    try {
+      const current = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      const parsed: PersistedGenerationState = current ? JSON.parse(current) : {
+        generationId: null,
+        prompt: '',
+        capability: 'image',
+        activeModelId: null,
+        started_at: null,
+        status: 'idle',
+        updatedAt: Date.now(),
+      };
+      const next = { ...parsed, ...partial, updatedAt: Date.now() };
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('[persistState] No se pudo escribir en sessionStorage', e);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoading) return;
     const interval = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -149,8 +186,20 @@ export function GenerationProvider({
         
         if (!cancelled) {
           setGenerationInfo(info ?? null);
+          
+          // 4. Guardar cuando cambia el estado del polling
+          if (info) {
+            persistState({
+              generationId: info.id ?? null,
+              status: info.status ?? 'running',
+            });
+          }
+
           if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
             setIsLoading(false);
+            // 5. Guardar cuando la generación termina (Complete/Error)
+            persistState({ status: info.status as 'complete' | 'error' | 'cancelled' });
+            
             if (info.status === "complete" && capability === "video") {
               const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
               if (storedUrl) setVideoSrc(storedUrl);
@@ -164,7 +213,7 @@ export function GenerationProvider({
     poll();
     const interval = window.setInterval(poll, GENERATION_POLL_MS);
     return () => { cancelled = true; window.clearInterval(interval); };
-  }, [isLoading, gradioUrl, getClient, capability]);
+  }, [isLoading, gradioUrl, getClient, capability, persistState]);
 
   // ===== Polling de logs =====
   useEffect(() => {
@@ -314,14 +363,26 @@ export function GenerationProvider({
         status: 'temporary'
       }]);
 
-      setGenerationInfo({
-        status: "preparing",
+      const initialInfo = {
+        status: "preparing" as const,
         progress: 0,
         stage: "preparing",
         started_at: localStart,
         capability,
         modelId: activeImageModelId ?? undefined,
         prompt: params.prompt,
+      };
+
+      setGenerationInfo(initialInfo);
+
+      // 3. Guardar en handleGenerate (Inicio)
+      persistState({
+        generationId: null, // Aún no tenemos ID del servidor
+        prompt: params.prompt,
+        capability: capability as 'video' | 'image' | 'audio',
+        activeModelId: activeImageModelId,
+        started_at: Math.floor(localStart),
+        status: 'preparing',
       });
 
       try {
@@ -366,9 +427,13 @@ export function GenerationProvider({
             }]);
 
             setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            // 5. Guardar cuando la generación termina (Complete)
+            persistState({ status: 'complete' });
+            
             if (statusText) setStatusMsg(statusText);
           } else {
             setErrorMsg("No se devolvió un video válido.");
+            persistState({ status: 'error' });
           }
         } else if (capability === "image") {
           let absoluteUrls: string[] = [];
@@ -380,7 +445,6 @@ export function GenerationProvider({
               "9:16 Portrait": "9:16 Vertical", 
               "4:3 Standard": "4:3 Estándar", 
               "3:4 Portrait": "3:4 Vertical",
-              // Mapeo inverso por seguridad
               "1:1 Cuadrado": "1:1 Cuadrado",
               "16:9 Horizontal": "16:9 Horizontal",
               "9:16 Vertical": "9:16 Vertical",
@@ -391,7 +455,6 @@ export function GenerationProvider({
               "1024px (Standard)": "1024px (Estándar)", 
               "1536px (High)": "1536px (Alta)", 
               "2048px (2K Ultra)": "2048px (2K Ultra)",
-              // Mapeo inverso
               "1024px (Estándar)": "1024px (Estándar)",
               "1536px (Alta)": "1536px (Alta)",
             };
@@ -403,8 +466,6 @@ export function GenerationProvider({
               .filter((f): f is File => f instanceof File)
               .slice(0, 4);
 
-            // CORRECCIÓN CRÍTICA: Forzar valor en español si es undefined/null
-            // NUNCA enviar "None (Text-to-Image)"
             const safeRefModeLabel = params.refModeLabel && params.refModeLabel.trim() !== "" 
               ? params.refModeLabel 
               : "Ninguna (Texto → Imagen)";
@@ -415,7 +476,7 @@ export function GenerationProvider({
               params.prompt, 
               params.negativePrompt || "", 
               validRefFiles,
-              safeRefModeLabel, // Aquí estaba el error
+              safeRefModeLabel,
               null, 
               safeModelMode,
               fluxAspect, 
@@ -462,19 +523,24 @@ export function GenerationProvider({
               status: 'temporary'
             }]);
             setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            // 5. Guardar cuando la generación termina (Complete)
+            persistState({ status: 'complete' });
           } else {
             setErrorMsg("No se devolvieron imágenes.");
+            persistState({ status: 'error' });
           }
         }
       } catch (err) {
         console.error("Error crítico en generación:", err);
         setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
         setGenerationInfo(prev => ({ ...prev, status: "error", finished_at: Date.now() / 1000 }));
+        // 5. Guardar cuando la generación termina (Error)
+        persistState({ status: 'error' });
       } finally {
         setIsLoading(false);
       }
     },
-    [gradioUrl, getClient, capability, activeImageModelId]
+    [gradioUrl, getClient, capability, activeImageModelId, persistState]
   );
 
   const handleCancel = useCallback(async () => {
@@ -486,12 +552,15 @@ export function GenerationProvider({
       const result = await client.predict("/cancel", []);
       const msg = Array.isArray(result.data) ? result.data[0] : result.data;
       if (typeof msg === "string") setStatusMsg(msg);
+      
+      // 5. Guardar cuando la generación termina (Cancelled)
+      persistState({ status: 'cancelled' });
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "No se pudo cancelar.");
     } finally {
       setIsCancelling(false);
     }
-  }, [gradioUrl, getClient, isCancelling]);
+  }, [gradioUrl, getClient, isCancelling, persistState]);
 
   const nowSec = nowTick / 1000;
   const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
