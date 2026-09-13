@@ -8,21 +8,6 @@ import { useCreations } from "../hooks/useCreations";
 
 type RecoveryState = "checking" | "idle" | "active";
 
-// ==========================================
-// 1. DEFINICIÓN DE PERSISTENCIA (SESSION STORAGE)
-// ==========================================
-const SESSION_STORAGE_KEY = 'pf_generation_state';
-
-interface PersistedGenerationState {
-  generationId: string | null;
-  prompt: string;
-  capability: 'video' | 'image' | 'audio';
-  activeModelId: string | null;
-  started_at: number | null;
-  status: 'idle' | 'preparing' | 'running' | 'complete' | 'error' | 'cancelled';
-  updatedAt: number;
-}
-
 interface ImageRuntime {
   model_id: string;
   gradio_url: string;
@@ -61,6 +46,19 @@ interface GenerateParams {
   modelModeLabel?: string;
   fluxGuideScale?: number;
   embeddedGuidance?: number;
+}
+
+// --- PERSISTENCIA EN SESSION STORAGE ---
+const SESSION_STORAGE_KEY = 'pf_generation_state';
+
+interface PersistedGenerationState {
+  generationId: string | null;
+  prompt: string;
+  capability: 'video' | 'image' | 'audio';
+  activeModelId: string | null;
+  started_at: number | null;
+  status: 'idle' | 'preparing' | 'running' | 'complete' | 'error' | 'cancelled';
+  updatedAt: number;
 }
 
 interface GenerationContextValue {
@@ -142,9 +140,7 @@ export function GenerationProvider({
   const generationStartRef = useRef<number>(0);
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
-  // ==========================================
-  // 2. HELPER DE PERSISTENCIA
-  // ==========================================
+  // Helper para escribir en sessionStorage
   const persistState = useCallback((partial: Partial<PersistedGenerationState>) => {
     try {
       const current = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -187,18 +183,17 @@ export function GenerationProvider({
         if (!cancelled) {
           setGenerationInfo(info ?? null);
           
-          // 4. Guardar cuando cambia el estado del polling
+          // Persistir estado actualizado durante el polling
           if (info) {
             persistState({
               generationId: info.id ?? null,
-              status: info.status ?? 'running',
+              status: info.status as any,
             });
           }
 
           if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
             setIsLoading(false);
-            // 5. Guardar cuando la generación termina (Complete/Error)
-            persistState({ status: info.status as 'complete' | 'error' | 'cancelled' });
+            persistState({ status: info.status as any });
             
             if (info.status === "complete" && capability === "video") {
               const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
@@ -238,39 +233,103 @@ export function GenerationProvider({
     return () => { cancelled = true; window.clearInterval(interval); };
   }, [isLoading, gradioUrl, getClient]);
 
-  // ===== Recuperación =====
+  // ===== RECUPERACIÓN DE ESTADO AL MONTAR =====
   useEffect(() => {
     let cancelled = false;
     const recover = async () => {
-      if (!gradioUrl) { setRecoveryState("idle"); return; }
+      // 1. Leer caché
+      const persisted = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      const cached: PersistedGenerationState | null = persisted ? JSON.parse(persisted) : null;
+
+      if (!gradioUrl) {
+        setRecoveryState('idle');
+        return;
+      }
+
       try {
         const client = await getClient();
-        if (!client || cancelled) return;
-        const result = await client.predict("/generation_status", []);
+        if (!client || cancelled) {
+          setRecoveryState('idle');
+          return;
+        }
+
+        // 2. Consultar backend (Verdad Única)
+        const result = await client.predict('/generation_status', []);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
         const info = raw as GenerationInfo | undefined;
-        if (!cancelled) {
-          if (info && info.status && info.status !== "idle") {
-            setGenerationInfo(info);
-            if (info.status === "preparing" || info.status === "running") {
-              setIsLoading(true);
-              generationStartRef.current = info.started_at ?? Date.now() / 1000;
-              setRecoveryState("active");
-            } else {
-              setRecoveryState("idle");
-              setIsLoading(false);
-              if (info.status === "complete" && capability === "video") {
-                const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
-                if (storedUrl) setVideoSrc(storedUrl);
-              }
+
+        // 3. Comparar y actuar
+        if (info?.status && info.status !== 'idle') {
+          // Hay algo corriendo o terminado en el backend
+          
+          // Restaurar prompt desde caché si el backend no lo devuelve
+          if (cached?.prompt && !info.prompt) {
+            info.prompt = cached.prompt;
+            // Reemitir al input
+            window.dispatchEvent(new CustomEvent('pathfinder-set-prompt', { detail: cached.prompt }));
+          }
+
+          setGenerationInfo(info);
+
+          // Restaurar started_at real para cálculos de tiempo correctos
+          const startAt = info.started_at ?? cached?.started_at ?? Date.now() / 1000;
+          generationStartRef.current = startAt;
+
+          // Restaurar capability y modelo si difieren
+          if (cached?.capability && cached.capability !== capability) {
+            setCapability(cached.capability);
+          }
+          if (cached?.activeModelId && cached.activeModelId !== activeImageModelId) {
+            setActiveImageModelId(cached.activeModelId);
+          }
+
+          if (info.status === 'preparing' || info.status === 'running') {
+            setIsLoading(true);
+            setRecoveryState('active');
+            // El polling se reanudará automáticamente porque isLoading=true
+          } else if (info.status === 'complete') {
+            setIsLoading(false);
+            setRecoveryState('idle');
+            persistState({ status: 'complete' });
+            
+            // Restaurar resultado si el backend lo expone
+            // Nota: Ajustar según lo que devuelva realmente el backend (output_url, images, etc.)
+            if ((info as any).output_url && capability === 'video') {
+              setVideoSrc((info as any).output_url);
             }
-          } else { setRecoveryState("idle"); }
+            // Para imágenes, si el backend devuelve un array de URLs
+            if ((info as any).images && Array.isArray((info as any).images)) {
+               setImageSrcs((info as any).images);
+            }
+          } else if (info.status === 'error') {
+            setIsLoading(false);
+            setRecoveryState('idle');
+            persistState({ status: 'error' });
+          } else if (info.status === 'cancelled') {
+            setIsLoading(false);
+            setRecoveryState('idle');
+            persistState({ status: 'cancelled' });
+          }
+        } else {
+          // Backend dice IDLE: No hay nada corriendo.
+          // Limpiar caché por si quedó basura de una sesión anterior fallida.
+          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+          setRecoveryState('idle');
+          setIsLoading(false);
+          setGenerationInfo(null);
         }
-      } catch { if (!cancelled) setRecoveryState("idle"); }
+      } catch (err) {
+        console.error("Error recovering state:", err);
+        if (!cancelled) {
+          setRecoveryState('idle');
+          // En caso de error de conexión, mantenemos el caché por si acaso, pero marcamos idle
+        }
+      }
     };
+
     recover();
     return () => { cancelled = true; };
-  }, [gradioUrl, getClient, capability]);
+  }, [gradioUrl, getClient, capability, activeImageModelId, setCapability, setActiveImageModelId]);
 
   const parseImagesFromResult = (raw: unknown): string[] => {
     const images: string[] = [];
@@ -363,8 +422,8 @@ export function GenerationProvider({
         status: 'temporary'
       }]);
 
-      const initialInfo = {
-        status: "preparing" as const,
+      const initialInfo: GenerationInfo = {
+        status: "preparing",
         progress: 0,
         stage: "preparing",
         started_at: localStart,
@@ -374,14 +433,14 @@ export function GenerationProvider({
       };
 
       setGenerationInfo(initialInfo);
-
-      // 3. Guardar en handleGenerate (Inicio)
+      
+      // PERSISTIR AL INICIAR
       persistState({
-        generationId: null, // Aún no tenemos ID del servidor
+        generationId: null, // Aún no hay ID del servidor
         prompt: params.prompt,
-        capability: capability as 'video' | 'image' | 'audio',
+        capability,
         activeModelId: activeImageModelId,
-        started_at: Math.floor(localStart),
+        started_at: localStart,
         status: 'preparing',
       });
 
@@ -413,6 +472,7 @@ export function GenerationProvider({
 
           if (tempUrl) {
             setVideoSrc(tempUrl);
+            // Guardar URL temporalmente asociada al timestamp de inicio
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
             
             setSessionHistory(prev => [...prev, {
@@ -426,14 +486,10 @@ export function GenerationProvider({
               status: 'temporary'
             }]);
 
-            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
-            // 5. Guardar cuando la generación termina (Complete)
-            persistState({ status: 'complete' });
-            
+            setGenerationInfo(prev => prev ? ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }) : null);
             if (statusText) setStatusMsg(statusText);
           } else {
             setErrorMsg("No se devolvió un video válido.");
-            persistState({ status: 'error' });
           }
         } else if (capability === "image") {
           let absoluteUrls: string[] = [];
@@ -522,20 +578,15 @@ export function GenerationProvider({
               createdAt: Date.now(),
               status: 'temporary'
             }]);
-            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
-            // 5. Guardar cuando la generación termina (Complete)
-            persistState({ status: 'complete' });
+            setGenerationInfo(prev => prev ? ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }) : null);
           } else {
             setErrorMsg("No se devolvieron imágenes.");
-            persistState({ status: 'error' });
           }
         }
       } catch (err) {
         console.error("Error crítico en generación:", err);
         setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
-        setGenerationInfo(prev => ({ ...prev, status: "error", finished_at: Date.now() / 1000 }));
-        // 5. Guardar cuando la generación termina (Error)
-        persistState({ status: 'error' });
+        setGenerationInfo(prev => prev ? ({ ...prev, status: "error", finished_at: Date.now() / 1000 }) : null);
       } finally {
         setIsLoading(false);
       }
@@ -552,15 +603,12 @@ export function GenerationProvider({
       const result = await client.predict("/cancel", []);
       const msg = Array.isArray(result.data) ? result.data[0] : result.data;
       if (typeof msg === "string") setStatusMsg(msg);
-      
-      // 5. Guardar cuando la generación termina (Cancelled)
-      persistState({ status: 'cancelled' });
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "No se pudo cancelar.");
     } finally {
       setIsCancelling(false);
     }
-  }, [gradioUrl, getClient, isCancelling, persistState]);
+  }, [gradioUrl, getClient, isCancelling]);
 
   const nowSec = nowTick / 1000;
   const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
