@@ -24,7 +24,9 @@ const VIDEO_ASPECT_RATIOS = ['16:9 Landscape', '9:16 Portrait', '1:1 Square'];
 
 const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'];
 const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High Res)'];
-const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:5 Portrait'];
+// Alineado 1:1 con resolve_dimensions() del backend Krea (run_krea_turbo.py).
+// Los 5 labels existen en el backend. Antes había '4:5 Portrait' que caía a 1:1 silenciosamente.
+const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait'];
 
 // Simplificado: Solo modos con referencia
 const FLUX_REF_MODES = [
@@ -234,6 +236,7 @@ const FloatingCommandCenter: React.FC = () => {
   const { 
     handleGenerate, 
     isLoading, 
+    capability,
     setCapability, 
     activeImageModelId, 
     setActiveImageModelId 
@@ -321,11 +324,15 @@ const FloatingCommandCenter: React.FC = () => {
     };
   }, []);
 
+  // Sync capability (contexto) → activeTab (UI).
+  // Cubre el caso B.4 al montar y cualquier cambio externo de capability.
+  // El click del tab hace ambas actualizaciones; este efecto es solo para cambios externos.
   useEffect(() => {
-    if (activeTab === 'video') setCapability('video');
-    else if (activeTab === 'image') setCapability('image');
-    else if (activeTab === 'audio') setCapability('audio');
-  }, [activeTab, setCapability]);
+    if (capability !== activeTab) {
+      setActiveTab(capability);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capability]);
 
   useEffect(() => {
     const handleSetPrompt = (e: Event) => {
@@ -337,6 +344,139 @@ const FloatingCommandCenter: React.FC = () => {
     window.addEventListener('pathfinder-set-prompt', handleSetPrompt as EventListener);
     return () => window.removeEventListener('pathfinder-set-prompt', handleSetPrompt as EventListener);
   }, []);
+
+  // ============================================================
+  // FASE 3: escuchar pathfinder-load-config — repoblar prompt, params y refs
+  // ============================================================
+  useEffect(() => {
+    const handleLoadConfig = async (e: Event) => {
+      const custom = e as CustomEvent<{
+        prompt: string;
+        modelId: string;
+        modelLabel: string;
+        aspectRatio: string;
+        params: Record<string, unknown>;
+        refUrls: string[];
+      }>;
+      const detail = custom.detail;
+      if (!detail) return;
+
+      // 1. Prompt
+      if (typeof detail.prompt === 'string') {
+        setPrompt(detail.prompt);
+      }
+
+      // 2. Determinar si es Flux o Krea por modelId
+      const isFlux = detail.modelId.includes('flux');
+      const isKrea = detail.modelId.includes('krea');
+      const isVideo = detail.modelId.includes('ltx');
+
+      // 3. Cambiar tab según modelo
+      if (isVideo) {
+        setActiveTab('video');
+      } else if (isFlux || isKrea) {
+        setActiveTab('image');
+        setSelectedImageModelId(detail.modelId);
+        if (setActiveImageModelId) setActiveImageModelId(detail.modelId);
+      }
+
+      // 4. Extraer params con fallbacks
+      const p = detail.params || {};
+      const num = (v: unknown, fallback: number): number => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const str = (v: unknown, fallback: string): string => {
+        return typeof v === 'string' && v.length > 0 ? v : fallback;
+      };
+      const bool = (v: unknown, fallback: boolean): boolean => {
+        return typeof v === 'boolean' ? v : fallback;
+      };
+
+      // 5. Reconstruir aspect ratio para el dropdown (de "9/16" a "9:16 Retrato" o similar)
+      // Buscamos en las opciones disponibles la que matchee
+      const cssRatio = detail.aspectRatio || "1/1";
+      const [rwStr, rhStr] = cssRatio.split('/');
+      const rw = parseInt(rwStr, 10);
+      const rh = parseInt(rhStr, 10);
+
+      const findAspect = (opts: string[]): string => {
+        for (const opt of opts) {
+          const m = opt.match(/(\d+):(\d+)/);
+          if (m && parseInt(m[1], 10) === rw && parseInt(m[2], 10) === rh) {
+            return opt;
+          }
+        }
+        return opts[0];
+      };
+
+      if (isFlux) {
+        const aspectOpt = findAspect(FLUX_ASPECT_RATIOS);
+        const resOpt = str(p.resolution, fluxParams.resolution);
+        setFluxParams(prev => ({
+          ...prev,
+          negativePrompt: str(p.negativePrompt, ''),
+          steps: num(p.steps, prev.steps),
+          resolution: resOpt,
+          aspectRatio: aspectOpt,
+          seed: num(p.seed, prev.seed),
+          numImages: num(p.numImages, prev.numImages),
+          refModeLabel: str(p.refModeLabel, prev.refModeLabel),
+          modelModeLabel: str(p.modelModeLabel, prev.modelModeLabel),
+          fluxGuideScale: num(p.fluxGuideScale, prev.fluxGuideScale),
+          embeddedGuidance: num(p.embeddedGuidance, prev.embeddedGuidance),
+        }));
+      } else if (isKrea) {
+        const aspectOpt = findAspect(KREA_ASPECT_RATIOS);
+        const resOpt = str(p.resolution, kreaParams.resolution);
+        setKreaParams(prev => ({
+          ...prev,
+          negativePrompt: str(p.negativePrompt, ''),
+          steps: num(p.steps, prev.steps),
+          resolution: resOpt,
+          aspectRatio: aspectOpt,
+          seed: num(p.seed, prev.seed),
+          numImages: num(p.numImages, prev.numImages),
+          stylePreset: str(p.stylePreset, prev.stylePreset),
+        }));
+      } else if (isVideo) {
+        const aspectOpt = findAspect(VIDEO_ASPECT_RATIOS);
+        setVideoParams(prev => ({
+          ...prev,
+          duration: str(p.duration, prev.duration),
+          resolution: str(p.resolution, prev.resolution),
+          aspectRatio: aspectOpt,
+          guideScale: num(p.guideScale, prev.guideScale),
+          seed: num(p.seed, prev.seed),
+          matchAudioDur: bool(p.matchAudioDur, prev.matchAudioDur),
+        }));
+      }
+
+      // 6. Descargar refs y convertirlas a File objects
+      if (Array.isArray(detail.refUrls) && detail.refUrls.length > 0) {
+        try {
+          const files: File[] = [];
+          for (let i = 0; i < detail.refUrls.length; i++) {
+            const url = detail.refUrls[i];
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const ext = (blob.type.split('/')[1] || 'png').split(';')[0];
+            const f = new File([blob], `ref_${i + 1}.${ext}`, { type: blob.type });
+            files.push(f);
+          }
+          // Aplicar al panel (Krea no usa refs, así que si es Flux las metemos)
+          if (isFlux && files.length > 0) {
+            handleFluxRefFilesChange(files);
+          }
+        } catch (err) {
+          console.error('[Fase 3] Error descargando refs:', err);
+        }
+      }
+    };
+
+    window.addEventListener('pathfinder-load-config', handleLoadConfig as EventListener);
+    return () => window.removeEventListener('pathfinder-load-config', handleLoadConfig as EventListener);
+  }, [fluxParams.resolution, kreaParams.resolution, setActiveImageModelId]);
 
   const handleVideoFileChange = (type: 'start' | 'end' | 'audio', file: File | null) => {
     setVideoParams(prev => ({ ...prev, [type === 'start' ? 'imageStartFile' : type === 'end' ? 'imageEndFile' : 'audioFile']: file }));
@@ -531,7 +671,10 @@ const FloatingCommandCenter: React.FC = () => {
             {(['video', 'image', 'audio'] as TabType[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setCapability(tab);
+                }}
                 style={{
                   padding: '5px 12px', borderRadius: '8px', border: 'none',
                   background: activeTab === tab ? '#111827' : 'transparent',
@@ -658,6 +801,69 @@ const FloatingCommandCenter: React.FC = () => {
             </button>
           </div>
 
+          {/* Negative prompt — visible solo en tab Imagen (Krea / Flux) */}
+          {activeTab === 'image' && (
+            <details style={{ marginTop: '10px' }}>
+              <summary style={{
+                listStyle: 'none',
+                fontSize: '12px',
+                fontFamily: 'var(--pf-font-ui)',
+                color: '#4B5563',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                userSelect: 'none',
+              }}>
+                <span style={{ fontSize: '10px' }}>▸</span>
+                Negative prompt
+                {((isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt) || '').trim() !== '' && (
+                  <span style={{
+                    fontSize: '10px',
+                    color: '#6B7280',
+                    fontStyle: 'italic',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '240px',
+                  }}>
+                    — {(isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt).slice(0, 60)}
+                  </span>
+                )}
+              </summary>
+              <textarea
+                value={isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (isFluxActive) {
+                    setFluxParams(prev => ({ ...prev, negativePrompt: v }));
+                  } else {
+                    setKreaParams(prev => ({ ...prev, negativePrompt: v }));
+                  }
+                }}
+                placeholder="Lo que NO querés que aparezca: low quality, blurry, distorted, extra fingers..."
+                rows={2}
+                style={{
+                  marginTop: '8px',
+                  width: '100%',
+                  minHeight: '50px',
+                  maxHeight: '100px',
+                  padding: '8px 10px',
+                  background: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px',
+                  resize: 'vertical',
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '12px',
+                  color: '#111827',
+                  lineHeight: 1.4,
+                  outline: 'none',
+                }}
+                disabled={isLoading}
+              />
+            </details>
+          )}
+
           <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #F3F4F6' }}>
             {activeTab === 'video' && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -678,6 +884,7 @@ const FloatingCommandCenter: React.FC = () => {
                 <DropdownButton options={KREA_RESOLUTIONS} value={kreaParams.resolution} onChange={(v: string) => setKreaParams({...kreaParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <DropdownButton options={KREA_ASPECT_RATIOS} value={kreaParams.aspectRatio} onChange={(v: string) => setKreaParams({...kreaParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <NumberInput label="Steps" value={kreaParams.steps} onChange={(v: number) => setKreaParams({...kreaParams, steps: v})} min={1} max={50} />
+                <NumberInput label="Imágenes" value={kreaParams.numImages} onChange={(v: number) => setKreaParams({...kreaParams, numImages: v})} min={1} max={4} />
               </div>
             )}
 
@@ -686,6 +893,7 @@ const FloatingCommandCenter: React.FC = () => {
                 <DropdownButton options={FLUX_RESOLUTIONS} value={fluxParams.resolution} onChange={(v: string) => setFluxParams({...fluxParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <DropdownButton options={FLUX_ASPECT_RATIOS} value={fluxParams.aspectRatio} onChange={(v: string) => setFluxParams({...fluxParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <NumberInput label="Steps" value={fluxParams.steps} onChange={(v: number) => setFluxParams({...fluxParams, steps: v})} min={1} max={50} />
+                <NumberInput label="Imágenes" value={fluxParams.numImages} onChange={(v: number) => setFluxParams({...fluxParams, numImages: v})} min={1} max={4} />
                 
                 <div style={{ position: 'relative' }}>
                    <details style={{ display: 'inline-block' }}>

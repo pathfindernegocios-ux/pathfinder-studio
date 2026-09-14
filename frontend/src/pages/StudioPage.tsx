@@ -2,33 +2,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import FloatingCommandCenter from '../components/FloatingCommandCenter';
 import { useCreations } from '../hooks/useCreations';
-import { useGenerationContext } from '../context/GenerationContext';
+import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
 import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, Music } from 'lucide-react';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
 // que App le da (el <main>). Montarlo aquí también fue lo que causaba el
 // sidebar duplicado.
-
-interface SessionItem {
-  id: string;
-  prompt?: string;
-  mediaUrls: string[];
-  mediaType: 'image' | 'video' | 'audio';
-  modelLabel: string;
-  createdAt: number;
-  status: 'temporary' | 'saved';
-  isGenerating?: boolean;
-  aspectRatio?: string; // Formato CSS: "9/16", "16/9", "1/1"
-}
-
-// Metadatos exactos emitidos por el FloatingCommandCenter justo antes de generar.
-interface GenerationMeta {
-  prompt: string;
-  mediaType: 'video' | 'image' | 'audio';
-  aspectRatioCss: string;
-  modelLabel: string;
-}
 
 // Ancho de la tarjeta de entrega (skeleton o resultado final).
 // Compacto a propósito: nunca más ancho que 220px, y respeta el aspect ratio
@@ -43,34 +23,23 @@ const frameWidthStyle = (aspectRatioCss: string): string => {
 
 const StudioPage: React.FC = () => {
   const { saveCreation } = useCreations();
-  const { 
-    imageSrcs, 
-    videoSrc, 
-    generationInfo,
+  const {
+    sessionHistory,
     isLoading,
-    capability
+    updateSessionItem,
+    removeSessionItem,
   } = useGenerationContext();
-  
-  const [sessionHistory, setSessionHistory] = useState<SessionItem[]>([]);
+
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
-  const [isSavingId, setIsSavingId] = useState<string | null>(null);
+  // Índice de la imagen seleccionada por item (para el stack cuando hay >1)
+  const [selectedImageIndexByItem, setSelectedImageIndexByItem] = useState<Record<string, number>>({});
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const pendingMetaRef = useRef<GenerationMeta | null>(null);
 
   // Alto real y dinámico del FloatingCommandCenter, para que el padding-bottom
   // del canvas nunca tape la última entrega, sea cual sea el tamaño del panel.
   const panelWrapperRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState(280);
-
-  useEffect(() => {
-    const handleMeta = (e: Event) => {
-      const custom = e as CustomEvent<GenerationMeta>;
-      if (custom.detail) pendingMetaRef.current = custom.detail;
-    };
-    window.addEventListener('pathfinder-generation-meta', handleMeta as EventListener);
-    return () => window.removeEventListener('pathfinder-generation-meta', handleMeta as EventListener);
-  }, []);
 
   useEffect(() => {
     const el = panelWrapperRef.current;
@@ -84,38 +53,17 @@ const StudioPage: React.FC = () => {
     return () => ro.disconnect();
   }, []);
 
-  // 1. INICIO DE GENERACIÓN: Insertar skeleton AL FINAL (visualmente arriba del input)
-  useEffect(() => {
-    if (isLoading && (generationInfo?.prompt || pendingMetaRef.current)) {
-      setSessionHistory(prev => {
-        if (prev.some(item => item.isGenerating)) return prev;
+  // Helpers para el stack de imágenes
+  const getSelectedIndex = (itemId: string, total: number): number => {
+    const idx = selectedImageIndexByItem[itemId] ?? 0;
+    return idx >= 0 && idx < total ? idx : 0;
+  };
 
-        const meta = pendingMetaRef.current;
-        const mediaType: SessionItem['mediaType'] =
-          meta?.mediaType ?? (capability === 'video' ? 'video' : capability === 'audio' ? 'audio' : 'image');
-        const aspectRatio = meta?.aspectRatioCss ?? (mediaType === 'video' ? '16/9' : '1/1');
-        const modelLabel = meta?.modelLabel ?? generationInfo?.modelId ?? (mediaType === 'video' ? 'LTX-2.3' : 'Flux/Krea');
-        const promptText = meta?.prompt ?? generationInfo?.prompt ?? '';
+  const setSelectedIndex = (itemId: string, idx: number) => {
+    setSelectedImageIndexByItem(prev => ({ ...prev, [itemId]: idx }));
+  };
 
-        const newItem: SessionItem = {
-          id: `gen-${Date.now()}`,
-          prompt: promptText,
-          mediaUrls: [],
-          mediaType,
-          modelLabel,
-          createdAt: Date.now(),
-          status: 'temporary',
-          isGenerating: true,
-          aspectRatio,
-        };
-
-        pendingMetaRef.current = null;
-        return [...prev, newItem];
-      });
-    }
-  }, [isLoading, generationInfo, capability]);
-
-  // 2. SCROLL AUTOMÁTICO
+  // SCROLL AUTOMÁTICO
   useEffect(() => {
     if (isLoading) {
       const timer = setTimeout(() => {
@@ -125,35 +73,20 @@ const StudioPage: React.FC = () => {
     }
   }, [isLoading, sessionHistory.length]);
 
-  // 3. FIN DE GENERACIÓN: Reemplazar skeleton con resultado
-  useEffect(() => {
-    if (!isLoading) {
-      let urls: string[] = [];
-      if (videoSrc) urls = [videoSrc];
-      else if (imageSrcs && imageSrcs.length > 0) urls = imageSrcs;
-
-      if (urls.length > 0) {
-        setSessionHistory(prev => prev.map(item => {
-          if (item.isGenerating) {
-            return { ...item, mediaUrls: urls, isGenerating: false };
-          }
-          return item;
-        }));
-        setTimeout(() => {
-          bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 100);
-      }
-    }
-  }, [isLoading, videoSrc, imageSrcs]);
-
   const handleSave = async (item: SessionItem) => {
-    if (item.status === 'saved' || !item.mediaUrls[0] || isSavingId) return;
-    setIsSavingId(item.id);
+    if (item.status === 'saved' || item.mediaUrls.length === 0) return;
+
+    const currentIdx = getSelectedIndex(item.id, item.mediaUrls.length);
+    const currentUrl = item.mediaUrls[currentIdx] || item.mediaUrls[0];
+    if (!currentUrl) return;
+
     try {
+      updateSessionItem(item.id, { status: 'saving' });
+
       await saveCreation({
-        tempUrl: item.mediaUrls[0],
+        tempUrl: currentUrl,
         prompt: item.prompt || '',
-        seed: -1, 
+        seed: -1,
         duration: item.mediaType === 'video' ? '5s' : '',
         resolution: 'Standard',
         aspectRatio: item.aspectRatio?.replace('/', ':') || '1:1',
@@ -162,15 +95,15 @@ const StudioPage: React.FC = () => {
         mediaType: item.mediaType,
         modelId: item.modelLabel.toLowerCase().replace(/\s/g, '-')
       });
-      setSessionHistory(prev => prev.map(i => i.id === item.id ? { ...i, status: 'saved' } : i));
+
+      updateSessionItem(item.id, { status: 'saved' });
     } catch (error) {
       console.error('Error saving:', error);
-    } finally {
-      setIsSavingId(null);
+      updateSessionItem(item.id, { status: 'temporary' });
     }
   };
 
-  const handleDiscard = (id: string) => setSessionHistory(prev => prev.filter(item => item.id !== id));
+  const handleDiscard = (id: string) => removeSessionItem(id);
 
   const handleDownload = async (url: string, filename: string) => {
     try {
@@ -189,13 +122,23 @@ const StudioPage: React.FC = () => {
     }
   };
 
-  const handleRetry = (prompt: string) => {
-    window.dispatchEvent(new CustomEvent('pathfinder-set-prompt', { detail: prompt }));
+  const handleRetry = (item: SessionItem) => {
+    window.dispatchEvent(new CustomEvent('pathfinder-load-config', {
+      detail: {
+        prompt: item.prompt,
+        modelId: item.modelId,
+        modelLabel: item.modelLabel,
+        aspectRatio: item.aspectRatio,
+        params: item.params || {},
+        refUrls: item.refUrls || [],
+      }
+    }));
   };
 
-  const openLightbox = (item: SessionItem) => {
-    if (!item.mediaUrls[0]) return;
-    setSelectedMedia({ url: item.mediaUrls[0], type: item.mediaType === 'video' ? 'video' : 'image' });
+  const openLightbox = (item: SessionItem, index: number = 0) => {
+    const url = item.mediaUrls[index] || item.mediaUrls[0];
+    if (!url) return;
+    setSelectedMedia({ url, type: item.mediaType === 'video' ? 'video' : 'image' });
   };
 
   return (
@@ -222,10 +165,10 @@ const StudioPage: React.FC = () => {
           transition: 'padding-bottom 0.2s ease',
         }}
       >
-        <div style={{ 
+        <div style={{
           minHeight: '100%',
-          display: 'flex', 
-          flexDirection: 'column', 
+          display: 'flex',
+          flexDirection: 'column',
           justifyContent: sessionHistory.length === 0 && !isLoading ? 'center' : 'flex-end',
           alignItems: 'center',
           width: '100%',
@@ -233,7 +176,7 @@ const StudioPage: React.FC = () => {
           margin: '0 auto',
           gap: '16px'
         }}>
-          
+
           {/* ESTADO VACÍO */}
           {sessionHistory.length === 0 && !isLoading && (
             <div style={{ textAlign: 'center', opacity: 0.6, animation: 'fadeIn 0.8s ease-out' }}>
@@ -250,6 +193,9 @@ const StudioPage: React.FC = () => {
           {/* LISTA DE HISTORIAL */}
           {sessionHistory.map((item) => {
             const frameWidth = frameWidthStyle(item.aspectRatio || '1/1');
+            const currentIdx = getSelectedIndex(item.id, item.mediaUrls.length);
+            const currentUrl = item.mediaUrls[currentIdx] || item.mediaUrls[0];
+            const hasMultiple = item.mediaUrls.length > 1;
 
             return (
               <div
@@ -266,13 +212,13 @@ const StudioPage: React.FC = () => {
                 {/* Prompt Usuario */}
                 {!item.isGenerating && item.prompt && (
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: '6px' }}>
-                    <div style={{ 
-                      background: 'var(--pf-bg-tertiary)', 
-                      padding: '10px 16px', 
-                      borderRadius: '16px', 
-                      borderTopRightRadius: '4px', 
-                      color: 'var(--pf-text-primary)', 
-                      fontFamily: 'var(--pf-font-ui)', 
+                    <div style={{
+                      background: 'var(--pf-bg-tertiary)',
+                      padding: '10px 16px',
+                      borderRadius: '16px',
+                      borderTopRightRadius: '4px',
+                      color: 'var(--pf-text-primary)',
+                      fontFamily: 'var(--pf-font-ui)',
                       fontSize: '0.9rem',
                       lineHeight: '1.4',
                       maxWidth: '85%',
@@ -287,7 +233,7 @@ const StudioPage: React.FC = () => {
                 {/* Respuesta IA */}
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', width: '100%' }}>
                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pf-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#000', fontWeight: 700, flexShrink: 0 }}>IA</div>
-                  
+
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--pf-text-secondary)', fontFamily: 'var(--pf-font-ui)', fontWeight: 500 }}>
                       <span>{item.modelLabel}</span>
@@ -299,14 +245,14 @@ const StudioPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div style={{ 
-                      position: 'relative', 
-                      width: '100%', 
-                      display: 'flex', 
+                    <div style={{
+                      position: 'relative',
+                      width: '100%',
+                      display: 'flex',
                       justifyContent: 'flex-start',
                       overflow: 'visible'
                     }}>
-                      
+
                       {item.isGenerating && item.mediaType !== 'audio' && (
                         <div style={{
                           width: frameWidth,
@@ -346,27 +292,59 @@ const StudioPage: React.FC = () => {
                       )}
 
                       {!item.isGenerating && item.mediaUrls.length > 0 && item.mediaType !== 'audio' && (
-                        <div style={{
-                          position: 'relative',
-                          width: frameWidth,
-                          aspectRatio: item.aspectRatio || '1/1',
-                          borderRadius: '10px',
-                          overflow: 'hidden',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                        }}>
-                          {item.mediaType === 'video' ? (
-                            <video 
-                              src={item.mediaUrls[0]} 
-                              controls 
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} 
-                            />
-                          ) : (
-                            <img 
-                              src={item.mediaUrls[0]} 
-                              alt={item.prompt} 
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-                              onClick={() => openLightbox(item)}
-                            />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{
+                            position: 'relative',
+                            width: frameWidth,
+                            aspectRatio: item.aspectRatio || '1/1',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                          }}>
+                            {item.mediaType === 'video' ? (
+                              <video
+                                src={currentUrl}
+                                controls
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                            ) : (
+                              <img
+                                src={currentUrl}
+                                alt={item.prompt}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+                                onClick={() => openLightbox(item, currentIdx)}
+                              />
+                            )}
+                          </div>
+
+                          {hasMultiple && (
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              {item.mediaUrls.map((url, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => setSelectedIndex(item.id, idx)}
+                                  style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    borderRadius: '6px',
+                                    overflow: 'hidden',
+                                    cursor: 'pointer',
+                                    border: idx === currentIdx
+                                      ? '2px solid var(--pf-text-primary)'
+                                      : '2px solid var(--pf-border-subtle)',
+                                    opacity: idx === currentIdx ? 1 : 0.6,
+                                    transition: 'all 0.15s ease',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`${item.prompt} ${idx + 1}`}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )}
@@ -382,18 +360,24 @@ const StudioPage: React.FC = () => {
                     {!item.isGenerating && (
                       <div style={{ display: 'flex', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                         {item.status === 'temporary' && (
-                          <ActionButton 
-                            onClick={() => handleSave(item)} 
-                            disabled={isSavingId === item.id}
-                            icon={<Save size={14} />} 
-                            label={isSavingId === item.id ? "Guardando..." : "Guardar"} 
+                          <ActionButton
+                            onClick={() => handleSave(item)}
+                            icon={<Save size={14} />}
+                            label="Guardar"
+                          />
+                        )}
+                        {item.status === 'saving' && (
+                          <ActionButton
+                            disabled
+                            icon={<Loader2 size={14} className="animate-spin" />}
+                            label="Guardando..."
                           />
                         )}
                         <ActionButton onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'mp3' : 'png'}`)} icon={<Download size={14} />} label="Descargar" />
-                        <ActionButton onClick={() => handleRetry(item.prompt || "")} icon={<RefreshCw size={14} />} label="Variación" />
+                        <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label="Variación" />
                         <ActionButton onClick={() => handleDiscard(item.id)} icon={<Trash2 size={14} />} label="Eliminar" danger />
                         {item.mediaType !== 'audio' && (
-                          <ActionButton onClick={() => openLightbox(item)} icon={<Maximize2 size={14} />} label="Pantalla Completa" />
+                          <ActionButton onClick={() => openLightbox(item, currentIdx)} icon={<Maximize2 size={14} />} label="Pantalla Completa" />
                         )}
                       </div>
                     )}
@@ -402,7 +386,7 @@ const StudioPage: React.FC = () => {
               </div>
             );
           })}
-          
+
           <div ref={bottomRef} style={{ height: '1px', width: '100%' }} />
         </div>
       </div>
@@ -440,7 +424,7 @@ const StudioPage: React.FC = () => {
           )}
         </div>
       )}
-      
+
       <style>{`
         @keyframes shimmer { to { background-position: -200% 0; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -448,7 +432,7 @@ const StudioPage: React.FC = () => {
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--pf-border-subtle); border-radius: 3px; }
