@@ -17,6 +17,10 @@
   --pf-error: #EF4444;
   --pf-glass-surface: rgba(255, 255, 255, 0.75);
   --pf-shadow-floating: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
+
+  --pf-font-display: 'Satoshi', 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
+  --pf-font-ui: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
+  --pf-font-prompt: 'Satoshi', 'Inter Tight', sans-serif;
 }
 
 .pf-glass-panel {

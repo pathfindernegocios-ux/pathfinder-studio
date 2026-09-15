@@ -239,11 +239,22 @@ const FloatingCommandCenter: React.FC = () => {
     capability,
     setCapability, 
     activeImageModelId, 
-    setActiveImageModelId 
+    setActiveImageModelId,
+    stationStatusMap,
   } = useGenerationContext();
 
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>('krea-2-turbo');
   const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>('ltx-2.3');
+
+  // Estado de la estación activa (badge offline/online)
+  const currentStationModelId = activeTab === 'image'
+    ? (selectedImageModelId || activeImageModelId)
+    : activeTab === 'video'
+      ? (selectedVideoModelId || 'ltx-2.3')
+      : null;
+  const isStationOffline = currentStationModelId
+    ? stationStatusMap[currentStationModelId] !== 'online'
+    : false;
 
   useEffect(() => {
     if (activeTab === 'image') {
@@ -693,6 +704,36 @@ const FloatingCommandCenter: React.FC = () => {
           </div>
           {(activeTab === 'image' || activeTab === 'video') && renderModelSelector()}
         </div>
+
+        {isStationOffline && currentStationModelId && (
+          <div
+            style={{
+              margin: '0 14px 0',
+              marginTop: '6px',
+              padding: '8px 12px',
+              background: 'rgba(245,158,11,0.08)',
+              border: '1px solid rgba(245,158,11,0.4)',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontFamily: 'var(--pf-font-ui)',
+              color: '#B45309',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: '#F59E0B',
+              flexShrink: 0,
+            }} />
+            <span>
+              Tu estación está offline. Descargá tu notebook desde <strong>Mi Estación</strong> y ejecutalo en Kaggle antes de generar.
+            </span>
+          </div>
+        )}
 
         <div style={{ padding: '12px 14px' }}>
           {(activeTab === 'video' || (activeTab === 'image' && isFluxActive)) && (

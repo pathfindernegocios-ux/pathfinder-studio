@@ -116,10 +116,17 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
       try {
         const client = await getClient();
         if (!client || cancelled) return;
-        const result = await client.predict("/status", []);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        const result = await client.predict("/status", [token]);
         if (!cancelled) {
           const value = Array.isArray(result.data) ? result.data[0] : result.data;
-          setStatus((value as Status) ?? "UNKNOWN");
+          if (value === "UNAUTHORIZED") {
+            setStatus("UNKNOWN");
+          } else {
+            setStatus((value as Status) ?? "UNKNOWN");
+          }
         }
       } catch {
         // noop

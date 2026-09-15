@@ -28,7 +28,19 @@ const StudioPage: React.FC = () => {
     isLoading,
     updateSessionItem,
     removeSessionItem,
+    capability,
+    activeImageModelId,
+    stationStatusMap,
   } = useGenerationContext();
+
+  const currentModelId = capability === 'image'
+    ? activeImageModelId
+    : capability === 'video'
+      ? 'ltx-2.3'
+      : null;
+  const isCurrentModelOnline = currentModelId
+    ? stationStatusMap[currentModelId] === 'online'
+    : false;
 
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   // Índice de la imagen seleccionada por item (para el stack cuando hay >1)
@@ -147,6 +159,42 @@ const StudioPage: React.FC = () => {
     // No crece con el contenido (los hijos de abajo son position:absolute),
     // así que el panel flotante nunca se desincroniza del borde real.
     <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden', background: 'var(--pf-bg-primary)' }}>
+
+      {/* ESTACIÓN INDICATOR — pill minimal arriba a la derecha */}
+      {currentModelId && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '14px',
+            right: '20px',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 12px 6px 10px',
+            borderRadius: '9999px',
+            background: 'var(--pf-bg-primary)',
+            border: '1px solid var(--pf-border-subtle)',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            letterSpacing: '-0.01em',
+            color: 'var(--pf-text-secondary)',
+            transition: 'all 0.3s ease',
+          }}
+        >
+          <span style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: isCurrentModelOnline ? 'var(--pf-success)' : 'var(--pf-text-muted)',
+            boxShadow: isCurrentModelOnline ? '0 0 0 3px rgba(16,185,129,0.15)' : 'none',
+            transition: 'all 0.3s ease',
+          }} />
+          {isCurrentModelOnline ? 'Estación lista' : 'Estación offline'}
+        </div>
+      )}
 
       {/* ÁREA DE SCROLL — el único elemento que puede scrollear en esta página */}
       <div

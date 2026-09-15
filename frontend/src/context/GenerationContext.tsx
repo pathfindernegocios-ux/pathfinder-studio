@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
 import { useRuntime } from "../hooks/useRuntime";
+import { useStationStatus } from "../hooks/useStationStatus";
 
 type RecoveryState = "checking" | "idle" | "active";
 
@@ -91,6 +92,9 @@ interface GenerationContextValue {
   removeSessionItem: (id: string) => void;
   discardSessionItem: (id: string) => void;
   clearSessionHistory: () => void;
+  stationStatusMap: Record<string, 'online' | 'offline'>;
+  stationStatusLoading: boolean;
+  refreshStationStatus: () => Promise<void>;
 }
 
 const GenerationContext = createContext<GenerationContextValue | null>(null);
@@ -122,6 +126,24 @@ function mapBackendParams(raw: any): Record<string, unknown> | undefined {
     duration: r.duration,
     matchAudioDur: r.match_audio_dur,
   };
+}
+
+// Estilos de Krea — se aplican concatenando un sufijo al prompt.
+// Krea 2 Turbo no acepta style_preset como input del /generate, así que
+// resolvemos el estilo a nivel de prompt engineering.
+const KREA_STYLE_SUFFIXES: Record<string, string> = {
+  "None": "",
+  "Cinematic": ", cinematic shot, dramatic lighting, 35mm film still, color graded, shallow depth of field, filmic grain, highly detailed",
+  "Anime": ", anime style, cel shaded, vibrant saturated colors, detailed lineart, anime key visual, studio quality illustration",
+  "Photorealistic": ", photorealistic, hyperdetailed, shot on Canon EOS R5 with 85mm f/1.4 lens, natural lighting, sharp focus, 8k uhd, raw photo",
+  "3D Render": ", 3d render, octane render, physically based rendering, subsurface scattering, cinematic volumetric lighting, ultra detailed",
+};
+
+function applyStylePreset(prompt: string, stylePreset?: string): string {
+  if (!stylePreset) return prompt;
+  const suffix = KREA_STYLE_SUFFIXES[stylePreset] ?? "";
+  if (!suffix) return prompt;
+  return `${prompt.trim()}${suffix}`;
 }
 
 function mapBackendItem(raw: any): SessionItem {
@@ -162,6 +184,12 @@ export function GenerationProvider({
     imageModels,
   } = useRuntime({ stationId, capability });
 
+  const {
+    statusMap: stationStatusMap,
+    loading: stationStatusLoading,
+    refresh: refreshStationStatus,
+  } = useStationStatus(stationId);
+
   const [sessionHistory, setSessionHistory] = useState<SessionItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
@@ -191,9 +219,15 @@ export function GenerationProvider({
       try {
         const client = await getClient();
         if (!client || cancelled) return;
-        const result = await client.predict("/generation_status", []);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        const result = await client.predict("/generation_status", [token]);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-        const info = raw as GenerationInfo | undefined;
+        // El backend devuelve {} si el JWT no es válido — tratarlo como null
+        const info = (raw && typeof raw === "object" && Object.keys(raw as object).length > 0)
+          ? raw as GenerationInfo
+          : undefined;
 
         if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) return;
 
@@ -223,9 +257,12 @@ export function GenerationProvider({
       try {
         const client = await getClient();
         if (!client || cancelled) return;
-        const result = await client.predict("/logs", [lastLogSeqRef.current]);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        const result = await client.predict("/logs", [token, lastLogSeqRef.current]);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-        const entries = raw as LogEntry[] | undefined;
+        const entries = Array.isArray(raw) ? (raw as LogEntry[]) : undefined;
         if (!entries?.length || cancelled) return;
         lastLogSeqRef.current = entries[entries.length - 1].seq;
         setLogs((prev) => [...prev, ...entries].slice(-400));
@@ -245,9 +282,14 @@ export function GenerationProvider({
       try {
         const client = await getClient();
         if (!client || cancelled) return;
-        const result = await client.predict("/generation_status", []);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) { if (!cancelled) setRecoveryState("idle"); return; }
+        const result = await client.predict("/generation_status", [token]);
         const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-        const info = raw as GenerationInfo | undefined;
+        const info = (raw && typeof raw === "object" && Object.keys(raw as object).length > 0)
+          ? raw as GenerationInfo
+          : undefined;
         if (!cancelled) {
           if (info && info.status && info.status !== "idle") {
             setGenerationInfo(info);
@@ -372,7 +414,10 @@ export function GenerationProvider({
     try {
       const client = await getClient();
       if (!client) return [];
-      const result = await client.predict("/session_history", []);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return [];
+      const result = await client.predict("/session_history", [token]);
       const raw = Array.isArray(result.data) ? result.data[0] : result.data;
       if (!Array.isArray(raw)) return [];
       return raw
@@ -617,8 +662,12 @@ export function GenerationProvider({
             absoluteUrls = toAbsoluteUrls(images, gradioUrl);
 
           } else {
+            // Krea
+            // Aplicar style preset concatenando un sufijo al prompt
+            const styledPrompt = applyStylePreset(params.prompt, params.stylePreset);
+
             const result = await client.predict("/generate", [
-              params.prompt,
+              styledPrompt,
               params.negativePrompt || "",
               params.steps || 8,
               params.aspectRatio || "1:1 Square",
@@ -704,7 +753,8 @@ export function GenerationProvider({
     handleGenerate, handleCancel, progressFrac, liveElapsedSec, remainingSec,
     completedDurationSec, backendError, canCancel, recoveryState, status,
     sessionUptime, activeImageModelId, setActiveImageModelId, imageModels,
-    sessionHistory, appendSessionItem, updateSessionItem, removeSessionItem, discardSessionItem, clearSessionHistory
+    sessionHistory, appendSessionItem, updateSessionItem, removeSessionItem, discardSessionItem, clearSessionHistory,
+    stationStatusMap, stationStatusLoading, refreshStationStatus
   };
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;
