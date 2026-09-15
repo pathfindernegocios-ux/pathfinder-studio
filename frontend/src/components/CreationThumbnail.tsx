@@ -1,5 +1,5 @@
 // src/components/CreationThumbnail.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Creation } from '../types';
@@ -10,6 +10,7 @@ interface CreationThumbnailProps {
 
 export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }) => {
   const { url, loading, error } = useSignedUrl(creation.id);
+  const [mediaBroken, setMediaBroken] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Detección robusta de video
@@ -84,7 +85,7 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
     );
   }
 
-  if (error || !url) {
+  if (error || !url || mediaBroken) {
     return (
       <div 
         id={`thumb-${creation.id}`}
@@ -97,10 +98,12 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
           justifyContent: 'center',
           color: 'var(--pf-text-muted)',
           fontSize: '0.75rem',
-          fontFamily: 'var(--pf-font-ui)'
+          fontFamily: 'var(--pf-font-ui)',
+          padding: '12px',
+          textAlign: 'center'
         }}
       >
-        Sin vista previa
+        {mediaBroken ? 'Contenido expirado' : 'Sin vista previa'}
       </div>
     );
   }
@@ -136,6 +139,7 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
           loop
           playsInline
           preload="metadata"
+          onError={() => setMediaBroken(true)}
           style={{ 
             width: '100%', 
             height: '100%', 
@@ -148,6 +152,7 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
           src={url}
           alt={creation.prompt}
           loading="lazy"
+          onError={() => setMediaBroken(true)}
           style={{ 
             width: '100%', 
             height: '100%', 

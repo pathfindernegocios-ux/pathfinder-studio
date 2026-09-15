@@ -15,6 +15,8 @@ const CreationDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [mediaBroken, setMediaBroken] = useState(false);
+  const [, setTick] = useState(0);
 
   // Usamos el hook optimizado para la URL del media principal
   const { url: mediaUrl, loading: loadingUrl } = useSignedUrl(id || null);
@@ -39,6 +41,12 @@ const CreationDetailPage: React.FC = () => {
 
     loadCreation();
   }, [id, getCreations]);
+
+  // Refresca el countdown de expiración cada 60s
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
 
   const handleDelete = useCallback(async () => {
     if (!creation) return;
@@ -222,6 +230,10 @@ const CreationDetailPage: React.FC = () => {
                 <div style={{ width: '24px', height: '24px', border: '3px solid var(--pf-border-default)', borderTopColor: 'var(--pf-text-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                 <span>Cargando obra...</span>
               </div>
+            ) : mediaBroken ? (
+              <div style={{ color: 'var(--pf-text-muted)', fontFamily: 'var(--pf-font-ui)', fontSize: '0.9375rem' }}>
+                Contenido expirado
+              </div>
             ) : mediaUrl ? (
               <>
                 {isVideo ? (
@@ -233,6 +245,7 @@ const CreationDetailPage: React.FC = () => {
                     muted
                     playsInline
                     preload="metadata"
+                    onError={() => setMediaBroken(true)}
                     style={{ width: '100%', height: '100%', maxHeight: '70vh', objectFit: 'contain', display: 'block' }}
                   />
                 ) : (
@@ -241,6 +254,7 @@ const CreationDetailPage: React.FC = () => {
                     alt={creation.prompt}
                     loading="lazy"
                     decoding="async"
+                    onError={() => setMediaBroken(true)}
                     style={{ 
                       width: '100%', 
                       height: '100%', 
@@ -356,6 +370,12 @@ const CreationDetailPage: React.FC = () => {
               value={creation.aspect_ratio}
             />
           )}
+
+          <DetailCard 
+            icon={<Clock size={18} />}
+            label="Expiración"
+            value={formatExpiry(creation.expires_at)}
+          />
         </div>
       </div>
 
@@ -424,6 +444,20 @@ const CreationDetailPage: React.FC = () => {
     </div>
   );
 };
+
+// Formatea el tiempo restante hasta expires_at
+function formatExpiry(expiresAt: string): string {
+  const remainingMs = new Date(expiresAt).getTime() - Date.now();
+  if (remainingMs <= 0) return 'Expirado';
+  const hours = remainingMs / 3_600_000;
+  if (hours < 1) return 'Expira en menos de 1 hora';
+  if (hours < 24) {
+    const h = Math.floor(hours);
+    return `Expira en ${h} ${h === 1 ? 'hora' : 'horas'}`;
+  }
+  const days = Math.floor(hours / 24);
+  return `Expira en ${days} ${days === 1 ? 'día' : 'días'}`;
+}
 
 // Sub-componente para tarjetas de metadatos consistente
 const DetailCard = ({ icon, label, value, badge }: { icon: React.ReactNode, label: string, value: string, badge?: string | undefined }) => (

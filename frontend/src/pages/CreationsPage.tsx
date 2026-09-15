@@ -136,75 +136,103 @@ const CreationsPage: React.FC = () => {
         marginBottom: '40px'
       }}>
         <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '16px',
-          alignItems: 'flex-start'
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: '32px',
+          flexWrap: 'wrap'
         }}>
-          <div>
-            <h1 style={{ 
-              fontFamily: 'var(--pf-font-display)', 
-              fontSize: 'clamp(2rem, 4vw, 3rem)', 
-              fontWeight: 700, 
-              color: 'var(--pf-text-primary)',
-              letterSpacing: '-0.03em',
-              marginBottom: '12px',
-              background: 'linear-gradient(135deg, var(--pf-text-primary) 0%, var(--pf-text-secondary) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              Tu Colección
-            </h1>
-            <p style={{ 
-              fontFamily: 'var(--pf-font-ui)', 
-              fontSize: '1.1rem', 
-              color: 'var(--pf-text-secondary)',
-              maxWidth: '600px',
-              lineHeight: 1.6
-            }}>
-              {stats.total > 0 
-                ? `Has creado ${stats.total} piezas únicas. ${stats.videos} videos y ${stats.images} imágenes.` 
-                : 'Tu galería está lista para recibir tus primeras obras maestras.'}
-            </p>
+          {/* Columna izquierda: título + subtítulo + filtros */}
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '16px',
+            alignItems: 'flex-start',
+            flex: 1,
+            minWidth: 0
+          }}>
+            <div>
+              <h1 style={{ 
+                fontFamily: 'var(--pf-font-display)', 
+                fontSize: 'clamp(2rem, 4vw, 3rem)', 
+                fontWeight: 700, 
+                color: 'var(--pf-text-primary)',
+                letterSpacing: '-0.03em',
+                marginBottom: '12px',
+                background: 'linear-gradient(135deg, var(--pf-text-primary) 0%, var(--pf-text-secondary) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>
+                Tu Colección
+              </h1>
+              <p style={{ 
+                fontFamily: 'var(--pf-font-ui)', 
+                fontSize: '1.1rem', 
+                color: 'var(--pf-text-secondary)',
+                maxWidth: '600px',
+                lineHeight: 1.6
+              }}>
+                {stats.total > 0 
+                  ? `Has creado ${stats.total} piezas únicas. ${stats.videos} videos y ${stats.images} imágenes.` 
+                  : 'Tu galería está lista para recibir tus primeras obras maestras.'}
+              </p>
+            </div>
+
+            {/* Filtros Premium */}
+            {stats.total > 0 && (
+              <div style={{ 
+                display: 'inline-flex', 
+                background: 'var(--pf-bg-secondary)', 
+                padding: '6px', 
+                borderRadius: '12px',
+                border: '1px solid var(--pf-border-default)',
+                gap: '6px'
+              }}>
+                {(['all', 'image', 'video'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    style={{
+                      padding: '10px 20px',
+                      background: filter === f ? '#FFFFFF' : 'transparent',
+                      color: filter === f ? '#000000' : 'var(--pf-text-secondary)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      fontSize: '0.875rem',
+                      fontWeight: filter === f ? 600 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: filter === f ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                      textTransform: 'capitalize'
+                    }}
+                  >
+                    {f === 'all' ? 'Todas' : f === 'image' ? 'Imágenes' : 'Videos'}
+                    {f === 'all' && ` (${stats.total})`}
+                    {f === 'image' && ` (${stats.images})`}
+                    {f === 'video' && ` (${stats.videos})`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Filtros Premium */}
-          {stats.total > 0 && (
-            <div style={{ 
-              display: 'inline-flex', 
-              background: 'var(--pf-bg-secondary)', 
-              padding: '6px', 
-              borderRadius: '12px',
-              border: '1px solid var(--pf-border-default)',
-              gap: '6px'
-            }}>
-              {(['all', 'image', 'video'] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  style={{
-                    padding: '10px 20px',
-                    background: filter === f ? '#FFFFFF' : 'transparent',
-                    color: filter === f ? '#000000' : 'var(--pf-text-secondary)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontFamily: 'var(--pf-font-ui)',
-                    fontSize: '0.875rem',
-                    fontWeight: filter === f ? 600 : 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: filter === f ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-                    textTransform: 'capitalize'
-                  }}
-                >
-                  {f === 'all' ? 'Todas' : f === 'image' ? 'Imágenes' : 'Videos'}
-                  {f === 'all' && ` (${stats.total})`}
-                  {f === 'image' && ` (${stats.images})`}
-                  {f === 'video' && ` (${stats.videos})`}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Columna derecha: banner G1 */}
+          <div style={{
+            background: 'var(--pf-bg-secondary)',
+            border: '1px solid var(--pf-border-subtle)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.8125rem',
+            color: 'var(--pf-text-secondary)',
+            maxWidth: '280px',
+            lineHeight: 1.5,
+            flexShrink: 0
+          }}>
+            Tus creaciones desaparecerán 7 días después de que las guardes.
+          </div>
         </div>
       </div>
 

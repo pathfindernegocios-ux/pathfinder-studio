@@ -107,7 +107,13 @@ export function useCreations() {
       return [];
     }
 
-    const list = data as Creation[];
+    // Filtro client-side: oculta las creaciones expiradas del frontend
+    // inmediatamente, sin esperar al cron de Supabase (corre cada 6h).
+    // Cierra la ventana donde R2 ya borró el objeto pero la fila sigue viva.
+    const now = Date.now();
+    const list = (data as Creation[]).filter(
+      (c) => new Date(c.expires_at).getTime() > now
+    );
     setCreations(list);
     return list;
   }, []);
