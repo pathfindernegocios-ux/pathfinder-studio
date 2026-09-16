@@ -18,12 +18,22 @@ const STATIC_VIDEO_MODELS = [
 ];
 
 // Arrays de opciones simplificadas
-const VIDEO_DURATIONS = ['5 Seconds', '10 Seconds'];
-const VIDEO_RESOLUTIONS = ['720p', '1080p'];
-const VIDEO_ASPECT_RATIOS = ['16:9 Landscape', '9:16 Portrait', '1:1 Square'];
+const VIDEO_DURATIONS = [
+  '2 Seconds (49 frames)',
+  '3 Seconds (73 frames)',
+  '5 Seconds (121 frames)',
+  '8 Seconds (193 frames)',
+  '10 Seconds (241 frames)',
+  '15 Seconds (361 frames)',
+  '20 Seconds (481 frames)',
+  '25 Seconds (601 frames)',
+  '30 Seconds (721 frames)',
+];
+const VIDEO_RESOLUTIONS = ['1080p', '720p', '540p', '480p'];
+const VIDEO_ASPECT_RATIOS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
 
 const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'];
-const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High Res)'];
+const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High)', '2048px (2K Ultra)'];
 // Alineado 1:1 con resolve_dimensions() del backend Krea (run_krea_turbo.py).
 // Los 5 labels existen en el backend. Antes había '4:5 Portrait' que caía a 1:1 silenciosamente.
 const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait'];
@@ -276,7 +286,7 @@ const FloatingCommandCenter: React.FC = () => {
     imageStartFile: null,
     imageEndFile: null,
     audioFile: null,
-    duration: '5 Seconds',
+    duration: '5 Seconds (121 frames)',
     resolution: '1080p',
     aspectRatio: '16:9 Landscape',
     guideScale: 4.0,
@@ -908,7 +918,7 @@ const FloatingCommandCenter: React.FC = () => {
           <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #F3F4F6' }}>
             {activeTab === 'video' && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <DropdownButton options={VIDEO_DURATIONS} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + '...'} />
+                <DropdownButton options={VIDEO_DURATIONS} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + 's'} />
                 <DropdownButton options={VIDEO_RESOLUTIONS} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
                 <DropdownButton options={VIDEO_ASPECT_RATIOS} value={videoParams.aspectRatio} onChange={(v: string) => setVideoParams({...videoParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <NumberInput label="Guide" value={videoParams.guideScale} onChange={(v: number) => setVideoParams({...videoParams, guideScale: v})} min={1} max={8} step={0.5} />

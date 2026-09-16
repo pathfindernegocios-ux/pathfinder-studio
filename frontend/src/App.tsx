@@ -18,7 +18,7 @@ import { AssetsPage } from "./pages/placeholders/AssetsPage";
 import { AcademyPage } from "./pages/placeholders/AcademyPage";
 
 // Placeholders (Exportación por Defecto)
-import StationPage from "./pages/placeholders/StationPage";
+import StationPage from "./pages/StationPage";
 import SettingsPage from "./pages/placeholders/SettingsPage";
 
 function App() {
