@@ -22,7 +22,7 @@ const frameWidthStyle = (aspectRatioCss: string): string => {
 };
 
 const StudioPage: React.FC = () => {
-  const { saveCreation, saveError } = useCreations();
+  const { saveCreation } = useCreations();
   const {
     sessionHistory,
     isLoading,
@@ -47,16 +47,6 @@ const StudioPage: React.FC = () => {
   const [selectedImageIndexByItem, setSelectedImageIndexByItem] = useState<Record<string, number>>({});
 
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  // Banner de error de guardado — se auto-limpia a los 8s
-  const [bannerError, setBannerError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!saveError) return;
-    setBannerError(saveError);
-    const t = window.setTimeout(() => setBannerError(null), 8000);
-    return () => window.clearTimeout(t);
-  }, [saveError]);
 
   // Alto real y dinámico del FloatingCommandCenter, para que el padding-bottom
   // del canvas nunca tape la última entrega, sea cual sea el tamaño del panel.
@@ -105,7 +95,7 @@ const StudioPage: React.FC = () => {
     try {
       updateSessionItem(item.id, { status: 'saving' });
 
-      const result = await saveCreation({
+      await saveCreation({
         tempUrl: currentUrl,
         prompt: item.prompt || '',
         seed: -1,
@@ -118,13 +108,7 @@ const StudioPage: React.FC = () => {
         modelId: item.modelLabel.toLowerCase().replace(/\s/g, '-')
       });
 
-      if (result) {
-        updateSessionItem(item.id, { status: 'saved' });
-      } else {
-        // saveCreation devolvió null → no se guardó. Volver a 'temporary'
-        // para que reaparezca el botón "Guardar". El banner ya muestra el motivo.
-        updateSessionItem(item.id, { status: 'temporary' });
-      }
+      updateSessionItem(item.id, { status: 'saved' });
     } catch (error) {
       console.error('Error saving:', error);
       updateSessionItem(item.id, { status: 'temporary' });
@@ -454,58 +438,6 @@ const StudioPage: React.FC = () => {
           <div ref={bottomRef} style={{ height: '1px', width: '100%' }} />
         </div>
       </div>
-
-      {/* BANNER DE ERROR DE GUARDADO — no-blocking, auto-dismiss 8s */}
-      {bannerError && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '56px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 55,
-            background: 'rgba(245,158,11,0.10)',
-            border: '1px solid rgba(245,158,11,0.4)',
-            borderRadius: '8px',
-            padding: '10px 14px',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.8125rem',
-            color: '#B45309',
-            maxWidth: 'min(560px, calc(100% - 32px))',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          }}
-        >
-          <span style={{
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            background: '#F59E0B',
-            flexShrink: 0,
-          }} />
-          <span style={{ flex: 1, lineHeight: 1.4 }}>{bannerError}</span>
-          <button
-            onClick={() => setBannerError(null)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#B45309',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              lineHeight: 1,
-              padding: '0 4px',
-              opacity: 0.7,
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.7')}
-            aria-label="Cerrar"
-          >
-            ×
-          </button>
-        </div>
-      )}
 
       {/* FLOATING COMMAND CENTER — position:absolute DENTRO de este contenedor
           local (no fixed a la ventana). Así queda anclado al fondo del área
