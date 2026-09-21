@@ -22,28 +22,33 @@ const AccountRestorePage: React.FC = () => {
     setIsRestoring(true);
     setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        setError("Sesión expirada. Iniciá sesión de nuevo.");
+      const { data, error } = await supabase.rpc("restore_account");
+
+      if (error) {
+        setError(error.message || "No pudimos recuperar tu cuenta.");
         setIsRestoring(false);
         return;
       }
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-      const res = await fetch(`${supabaseUrl}/functions/v1/restore-account`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body?.error || "No pudimos recuperar tu cuenta.");
+
+      const result = data as {
+        ok: boolean;
+        error?: string;
+        days_since_deletion?: number;
+        status?: string;
+      } | null;
+
+      if (!result?.ok) {
+        if (result?.error === "window_expired") {
+          setError("El plazo de recuperación de 30 días expiró. La cuenta se eliminará permanentemente.");
+        } else if (result?.error === "not_pending_deletion") {
+          setError(`Tu cuenta no está pendiente de eliminación (estado: ${result.status}).`);
+        } else {
+          setError("No pudimos recuperar tu cuenta.");
+        }
         setIsRestoring(false);
         return;
       }
+
       window.location.href = "/studio";
     } catch (err) {
       console.error("[AccountRestore] error:", err);

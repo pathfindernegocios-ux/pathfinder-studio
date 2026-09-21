@@ -225,27 +225,21 @@ const AccountSettingsPage: React.FC = () => {
     setDeleteError(null);
 
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      const token = currentSession?.access_token;
-      if (!token) {
-        setDeleteError("Sesión expirada. Volvé a iniciar sesión.");
+      const { data, error } = await supabase.rpc("soft_delete_account");
+
+      if (error) {
+        setDeleteError(error.message || "No pudimos eliminar tu cuenta.");
         setDeleting(false);
         return;
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-      const res = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ confirm: "ELIMINAR" }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setDeleteError(body?.error || "No pudimos eliminar tu cuenta.");
+      const result = data as { ok: boolean; error?: string; status?: string } | null;
+      if (!result?.ok) {
+        const msg =
+          result?.error === "not_active"
+            ? `Tu cuenta no está activa (estado: ${result.status}).`
+            : "No pudimos eliminar tu cuenta.";
+        setDeleteError(msg);
         setDeleting(false);
         return;
       }
