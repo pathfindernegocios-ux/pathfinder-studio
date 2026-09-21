@@ -27,7 +27,7 @@ import { ProjectsPage } from "./pages/placeholders/ProjectsPage";
 import { AssetsPage } from "./pages/placeholders/AssetsPage";
 import { AcademyPage } from "./pages/placeholders/AcademyPage";
 import StationPage from "./pages/StationPage";
-import SettingsPage from "./pages/placeholders/SettingsPage";
+import AccountSettingsPage from "./pages/AccountSettingsPage";
 
 // ---------------------------------------------------------------------------
 // Loading screen
@@ -281,7 +281,7 @@ function App() {
             <Route path="assets" element={<AssetsPage />} />
             <Route path="academy" element={<AcademyPage />} />
             <Route path="station" element={<StationPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="settings" element={<AccountSettingsPage />} />
           </Route>
 
           {/* ---- Fallback ---- */}
