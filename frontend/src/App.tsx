@@ -9,31 +9,40 @@ import {
 } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { GenerationProvider } from "./context/GenerationContext";
+import type { Profile } from "./types";
 
-// Componentes y páginas
+// Componentes
 import Sidebar from "./components/Sidebar";
 import AuthScreen from "./components/AuthScreen";
+
+// Páginas públicas
+import HomePage from "./pages/HomePage";
+import PricingPage from "./pages/PricingPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
+
+// Onboarding / estados de cuenta
 import OnboardingUsernamePage from "./pages/OnboardingUsernamePage";
 import AccountRestorePage from "./pages/AccountRestorePage";
 import AccountSuspendedPage from "./pages/AccountSuspendedPage";
+
+// App protegida
 import StudioPage from "./pages/StudioPage";
 import CreationsPage from "./pages/CreationsPage";
 import CreationDetailPage from "./pages/CreationDetailPage";
+import StationPage from "./pages/StationPage";
+import AccountSettingsPage from "./pages/AccountSettingsPage";
 
 // Placeholders
 import { ProjectsPage } from "./pages/placeholders/ProjectsPage";
 import { AssetsPage } from "./pages/placeholders/AssetsPage";
 import { AcademyPage } from "./pages/placeholders/AcademyPage";
-import StationPage from "./pages/StationPage";
-import AccountSettingsPage from "./pages/AccountSettingsPage";
 
 // Legal
 import TermsPage from "./pages/legal/TermsPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 
 // ---------------------------------------------------------------------------
-// Loading screen
+// LoadingScreen
 // ---------------------------------------------------------------------------
 const LoadingScreen: React.FC = () => (
   <div
@@ -64,56 +73,81 @@ const LoadingScreen: React.FC = () => (
 );
 
 // ---------------------------------------------------------------------------
-// AppLayout (sidebar + outlet)
+// ProtectedAppLayout — guards + sidebar + outlet
 // ---------------------------------------------------------------------------
-interface AppLayoutProps {
+interface ProtectedAppLayoutProps {
+  session: { user: { id: string } } | null;
+  profile: Profile | null;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const AppLayout: React.FC<AppLayoutProps> = ({
+const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
+  session,
+  profile,
   sidebarCollapsed,
   setSidebarCollapsed,
-}) => (
-  <div
-    style={{
-      display: "flex",
-      height: "100vh",
-      background: "#F9FAFB",
-      overflow: "hidden",
-    }}
-  >
+}) => {
+  if (!session) return <Navigate to="/auth" replace />;
+  if (!profile) return <LoadingScreen />;
+
+  const accountStatus = profile.account_status;
+  const hasUsername = !!profile.username;
+
+  if (accountStatus === "deletion_pending") {
+    return <Navigate to="/account/restore" replace />;
+  }
+  if (accountStatus === "suspended") {
+    return <Navigate to="/account/suspended" replace />;
+  }
+  if (!hasUsername || accountStatus === "provisional") {
+    return <Navigate to="/onboarding/username" replace />;
+  }
+  if (accountStatus !== "active") {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return (
     <div
       style={{
-        width: `${sidebarCollapsed ? 80 : 260}px`,
-        flexShrink: 0,
-        height: "100%",
-        background: "#FFFFFF",
-        borderRight: "1px solid #E5E7EB",
-        zIndex: 40,
-        transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        display: "flex",
+        height: "100vh",
+        background: "#F9FAFB",
         overflow: "hidden",
       }}
     >
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
-      />
-    </div>
+      <div
+        style={{
+          width: `${sidebarCollapsed ? 80 : 260}px`,
+          flexShrink: 0,
+          height: "100%",
+          background: "#FFFFFF",
+          borderRight: "1px solid #E5E7EB",
+          zIndex: 40,
+          transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          overflow: "hidden",
+        }}
+      >
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        />
+      </div>
 
-    <main
-      style={{
-        flex: 1,
-        minWidth: 0,
-        height: "100%",
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      <Outlet />
-    </main>
-  </div>
-);
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: "100%",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <Outlet />
+      </main>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // App
@@ -122,7 +156,6 @@ function App() {
   const { session, profile, isProfileLoading } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Esperar a que useAuth cargue antes de decidir rutas.
   if (isProfileLoading) {
     return <LoadingScreen />;
   }
@@ -135,10 +168,17 @@ function App() {
       <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>
         <Routes>
-          {/* ---- Auth callback (público) ---- */}
+          {/* ============================================================
+              PÚBLICAS
+              ============================================================ */}
+          <Route
+            path="/"
+            element={
+              session ? <Navigate to="/studio" replace /> : <HomePage />
+            }
+          />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
-
-          {/* ---- Auth (público, redirige si hay sesión) ---- */}
           <Route
             path="/auth"
             element={
@@ -160,8 +200,13 @@ function App() {
             }
           />
           <Route path="/login" element={<Navigate to="/auth" replace />} />
+          <Route path="/welcome" element={<Navigate to="/studio" replace />} />
+          <Route path="/legal/terms" element={<TermsPage />} />
+          <Route path="/legal/privacy" element={<PrivacyPage />} />
 
-          {/* ---- Onboarding ---- */}
+          {/* ============================================================
+              ONBOARDING & ESTADOS DE CUENTA
+              ============================================================ */}
           <Route
             path="/onboarding/username"
             element={
@@ -180,8 +225,6 @@ function App() {
               )
             }
           />
-
-          {/* ---- Account states ---- */}
           <Route
             path="/account/restore"
             element={
@@ -211,49 +254,30 @@ function App() {
             }
           />
 
-          {/* ---- Legacy welcome → redirect ---- */}
-          <Route path="/welcome" element={<Navigate to="/studio" replace />} />
-
-          {/* ---- Legal ---- */}
-          <Route path="/legal/terms" element={<TermsPage />} />
-          <Route path="/legal/privacy" element={<PrivacyPage />} />
-
-          {/* ---- App protegida (requiere status=active + username) ---- */}
+          {/* ============================================================
+              APP PROTEGIDA (pathless layout con guards)
+              ============================================================ */}
           <Route
-            path="/"
             element={
-              !session ? (
-                <Navigate to="/auth" replace />
-              ) : !profile ? (
-                <LoadingScreen />
-              ) : accountStatus === "deletion_pending" ? (
-                <Navigate to="/account/restore" replace />
-              ) : accountStatus === "suspended" ? (
-                <Navigate to="/account/suspended" replace />
-              ) : !hasUsername || accountStatus === "provisional" ? (
-                <Navigate to="/onboarding/username" replace />
-              ) : accountStatus === "active" ? (
-                <AppLayout
-                  sidebarCollapsed={sidebarCollapsed}
-                  setSidebarCollapsed={setSidebarCollapsed}
-                />
-              ) : (
-                <Navigate to="/auth" replace />
-              )
+              <ProtectedAppLayout
+                session={session}
+                profile={profile}
+                sidebarCollapsed={sidebarCollapsed}
+                setSidebarCollapsed={setSidebarCollapsed}
+              />
             }
           >
-            <Route index element={<Navigate to="/studio" replace />} />
-            <Route path="studio" element={<StudioPage />} />
-            <Route path="creations" element={<CreationsPage />} />
-            <Route path="creations/:id" element={<CreationDetailPage />} />
-            <Route path="projects" element={<ProjectsPage />} />
-            <Route path="assets" element={<AssetsPage />} />
-            <Route path="academy" element={<AcademyPage />} />
-            <Route path="station" element={<StationPage />} />
-            <Route path="settings" element={<AccountSettingsPage />} />
+            <Route path="/studio" element={<StudioPage />} />
+            <Route path="/creations" element={<CreationsPage />} />
+            <Route path="/creations/:id" element={<CreationDetailPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/assets" element={<AssetsPage />} />
+            <Route path="/academy" element={<AcademyPage />} />
+            <Route path="/station" element={<StationPage />} />
+            <Route path="/settings" element={<AccountSettingsPage />} />
           </Route>
 
-          {/* ---- Fallback ---- */}
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
