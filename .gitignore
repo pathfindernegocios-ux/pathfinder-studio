@@ -30,3 +30,6 @@ frontend/gr
 notebook_*.ipynb
 runtimes/generated/
 __pycache__/
+
+# Backups locales (nunca deben subirse)
+*.bak
