@@ -6,7 +6,6 @@ import {
   Route,
   Navigate,
   Outlet,
-  Link,
 } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { GenerationProvider } from "./context/GenerationContext";
@@ -28,6 +27,10 @@ import { AssetsPage } from "./pages/placeholders/AssetsPage";
 import { AcademyPage } from "./pages/placeholders/AcademyPage";
 import StationPage from "./pages/StationPage";
 import AccountSettingsPage from "./pages/AccountSettingsPage";
+
+// Legal
+import TermsPage from "./pages/legal/TermsPage";
+import PrivacyPage from "./pages/legal/PrivacyPage";
 
 // ---------------------------------------------------------------------------
 // Loading screen
@@ -57,34 +60,6 @@ const LoadingScreen: React.FC = () => (
       <p style={{ fontWeight: 500, fontSize: "0.9rem" }}>Cargando Pathfinder...</p>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
-  </div>
-);
-
-// ---------------------------------------------------------------------------
-// Legal stub temporal (se reemplaza en un bloque posterior)
-// ---------------------------------------------------------------------------
-const LegalStub: React.FC<{ title: string }> = ({ title }) => (
-  <div
-    style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px 20px",
-      fontFamily: "system-ui, sans-serif",
-      textAlign: "center",
-    }}
-  >
-    <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "12px" }}>
-      {title}
-    </h1>
-    <p style={{ color: "#525252", marginBottom: "24px" }}>
-      Este documento estará disponible próximamente.
-    </p>
-    <Link to="/auth" style={{ color: "#0A0A0A", textDecoration: "underline" }}>
-      Volver
-    </Link>
   </div>
 );
 
@@ -239,15 +214,9 @@ function App() {
           {/* ---- Legacy welcome → redirect ---- */}
           <Route path="/welcome" element={<Navigate to="/studio" replace />} />
 
-          {/* ---- Legal (stubs temporales) ---- */}
-          <Route
-            path="/legal/terms"
-            element={<LegalStub title="Términos de Servicio" />}
-          />
-          <Route
-            path="/legal/privacy"
-            element={<LegalStub title="Aviso de Privacidad" />}
-          />
+          {/* ---- Legal ---- */}
+          <Route path="/legal/terms" element={<TermsPage />} />
+          <Route path="/legal/privacy" element={<PrivacyPage />} />
 
           {/* ---- App protegida (requiere status=active + username) ---- */}
           <Route
