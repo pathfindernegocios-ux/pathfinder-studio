@@ -149,13 +149,13 @@ const OnboardingUsernamePage: React.FC = () => {
         if (updateError) {
           // 23505 = unique_violation
           if (updateError.code === "23505") {
-            setError("Ese username acaba de ser tomado. Probá con otro.");
+            setError("Ese nombre de usuario acaba de ser tomado. Prueba con otro.");
           } else if (updateError.code === "23514") {
-            setError("El formato del username no es válido.");
+            setError("El formato del nombre de usuario no es válido.");
           } else {
             setError(
               updateError.message ||
-                "No pudimos guardar tu username. Intentá de nuevo.",
+                "No pudimos guardar tu nombre de usuario. Intenta de nuevo.",
             );
           }
           setIsSubmitting(false);
@@ -170,7 +170,7 @@ const OnboardingUsernamePage: React.FC = () => {
         window.location.href = dest;
       } catch (err) {
         console.error("[Onboarding] update failed:", err);
-        setError("Ocurrió un error inesperado. Intentá de nuevo.");
+        setError("Ocurrió un error inesperado. Intenta de nuevo.");
         setIsSubmitting(false);
       }
     },
@@ -220,7 +220,7 @@ const OnboardingUsernamePage: React.FC = () => {
               lineHeight: 1.5,
             }}
           >
-            Elegí tu nombre de usuario. Lo vas a poder cambiar después.
+            Elige tu nombre de usuario. Podrás cambiarlo después.
           </p>
         </div>
 
@@ -245,7 +245,7 @@ const OnboardingUsernamePage: React.FC = () => {
                 animation: "spin 1s linear infinite",
               }}
             />
-            <span>Preparando tu username...</span>
+            <span>Preparando tu nombre de usuario...</span>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>

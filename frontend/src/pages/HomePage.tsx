@@ -2,6 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/marketing/MarketingLayout";
+import HeroMediaWall from "../components/marketing/HeroMediaWall";
 
 // --- Icons (inline, stroke style) ---
 const IconImage = () => (
@@ -38,14 +39,8 @@ const HomePage: React.FC = () => {
   return (
     <MarketingLayout>
       {/* ============ HERO ============ */}
-      <section
-        style={{
-          padding: "100px 24px 80px",
-          textAlign: "center",
-          background: "radial-gradient(ellipse at top, #FAFAFA 0%, #FFFFFF 60%)",
-        }}
-      >
-        <div style={{ maxWidth: "780px", margin: "0 auto" }}>
+      <HeroMediaWall>
+        <div>
           <div
             style={{
               display: "inline-flex",
@@ -75,7 +70,8 @@ const HomePage: React.FC = () => {
               lineHeight: 1.05,
               margin: 0,
               marginBottom: "24px",
-              color: "var(--pf-text-primary, #0A0A0A)",
+              color: "#FFFFFF",
+              textShadow: "0 2px 24px rgba(0,0,0,0.5)",
             }}
           >
             Crea imágenes y videos
@@ -88,7 +84,7 @@ const HomePage: React.FC = () => {
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "clamp(1.0625rem, 1.5vw, 1.25rem)",
               lineHeight: 1.55,
-              color: "var(--pf-text-secondary, #525252)",
+              color: "rgba(255,255,255,0.85)",
               maxWidth: "620px",
               margin: "0 auto 40px",
             }}
@@ -112,14 +108,15 @@ const HomePage: React.FC = () => {
               style={{
                 textDecoration: "none",
                 padding: "14px 32px",
-                background: "var(--pf-text-primary, #0A0A0A)",
-                color: "#FFFFFF",
+                background: "#FFFFFF",
+                color: "#0A0A0A",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",
                 fontSize: "0.9375rem",
-                fontWeight: 600,
+                fontWeight: 700,
                 transition: "transform 0.15s",
                 display: "inline-block",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
               }}
             >
               Empezar gratis
@@ -129,14 +126,15 @@ const HomePage: React.FC = () => {
               style={{
                 textDecoration: "none",
                 padding: "14px 32px",
-                background: "transparent",
-                color: "var(--pf-text-primary, #0A0A0A)",
-                border: "1px solid var(--pf-border-default, #E5E5E5)",
+                background: "rgba(255,255,255,0.1)",
+                color: "#FFFFFF",
+                border: "1px solid rgba(255,255,255,0.4)",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",
                 fontSize: "0.9375rem",
                 fontWeight: 600,
                 display: "inline-block",
+                backdropFilter: "blur(8px)",
               }}
             >
               Ver precios
@@ -147,14 +145,14 @@ const HomePage: React.FC = () => {
             style={{
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "0.8125rem",
-              color: "var(--pf-text-muted, #A1A1AA)",
+              color: "rgba(255,255,255,0.7)",
               margin: 0,
             }}
           >
             Sin tarjeta · Sin compromiso · Registro en 20 segundos con Google
           </p>
         </div>
-      </section>
+      </HeroMediaWall>
 
       {/* ============ FEATURES ============ */}
       <Section bg="var(--pf-bg-secondary, #FAFAFA)">

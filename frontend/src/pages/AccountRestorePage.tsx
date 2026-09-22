@@ -39,7 +39,7 @@ const AccountRestorePage: React.FC = () => {
 
       if (!result?.ok) {
         if (result?.error === "window_expired") {
-          setError("El plazo de recuperación de 30 días expiró. La cuenta se eliminará permanentemente.");
+          setError("El plazo de recuperación de 30 días ha expirado. La cuenta se eliminará permanentemente.");
         } else if (result?.error === "not_pending_deletion") {
           setError(`Tu cuenta no está pendiente de eliminación (estado: ${result.status}).`);
         } else {
@@ -52,7 +52,7 @@ const AccountRestorePage: React.FC = () => {
       window.location.href = "/studio";
     } catch (err) {
       console.error("[AccountRestore] error:", err);
-      setError("Ocurrió un error. Intentá de nuevo.");
+      setError("Ocurrió un error. Intenta de nuevo.");
       setIsRestoring(false);
     }
   };
@@ -97,7 +97,7 @@ const AccountRestorePage: React.FC = () => {
             marginBottom: "8px",
           }}
         >
-          La eliminación se va a completar en {daysRemaining}{" "}
+          La eliminación se completará en {daysRemaining}{" "}
           {daysRemaining === 1 ? "día" : "días"}.
         </p>
         <p
@@ -108,8 +108,7 @@ const AccountRestorePage: React.FC = () => {
             marginBottom: "32px",
           }}
         >
-          Si querés recuperarla, podés hacerlo ahora. Después de ese plazo, la
-          cuenta y sus datos se eliminarán permanentemente.
+          Si deseas recuperarla, puedes hacerlo ahora. Después de ese plazo, la cuenta y sus datos se eliminarán permanentemente.
         </p>
 
         {error && (

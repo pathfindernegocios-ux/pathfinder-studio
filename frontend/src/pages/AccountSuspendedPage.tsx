@@ -42,8 +42,7 @@ const AccountSuspendedPage: React.FC = () => {
             marginBottom: "32px",
           }}
         >
-          Si creés que esto es un error, contactanos a soporte para revisar tu
-          caso.
+          Si crees que esto es un error, contáctanos a soporte para revisar tu caso.
         </p>
 
         <button

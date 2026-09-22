@@ -187,7 +187,7 @@ const AuthScreen: React.FC = () => {
               fontFamily: 'var(--pf-font-display)',
             }}
           >
-            Empezá ahora
+            Empieza ahora
           </h2>
           <p
             style={{
@@ -196,7 +196,7 @@ const AuthScreen: React.FC = () => {
               lineHeight: 1.5,
             }}
           >
-            Creá tu cuenta y empezá a generar con IA en segundos.
+            Crea tu cuenta y empieza a generar con IA en segundos.
           </p>
         </div>
 

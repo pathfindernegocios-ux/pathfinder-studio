@@ -79,7 +79,7 @@ const AuthCallbackPage: React.FC = () => {
       setState({
         status: "error",
         message:
-          "No pudimos completar el inicio de sesión. Volvé a intentarlo.",
+          "No pudimos completar el inicio de sesión. Vuelve a intentarlo.",
       });
     }, REDIRECT_TIMEOUT_MS);
 
@@ -154,7 +154,7 @@ const AuthCallbackPage: React.FC = () => {
               cursor: "pointer",
             }}
           >
-            Volver al login
+            Volver al inicio de sesión
           </button>
         </>
       )}
