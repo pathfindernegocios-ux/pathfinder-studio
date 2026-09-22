@@ -35,10 +35,12 @@ import AccountSettingsPage from "./pages/AccountSettingsPage";
 // Placeholders
 import { ProjectsPage } from "./pages/placeholders/ProjectsPage";
 import { AssetsPage } from "./pages/placeholders/AssetsPage";
-import { AcademyPage } from "./pages/placeholders/AcademyPage";
+
 
 // Legal
 import TermsPage from "./pages/legal/TermsPage";
+import HowItWorksPage from "./pages/HowItWorksPage";
+import AcademyPage from "./pages/AcademyPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 
 // ---------------------------------------------------------------------------
@@ -203,6 +205,8 @@ function App() {
           <Route path="/welcome" element={<Navigate to="/studio" replace />} />
           <Route path="/legal/terms" element={<TermsPage />} />
           <Route path="/legal/privacy" element={<PrivacyPage />} />
+          <Route path="/how-it-works" element={<HowItWorksPage />} />
+          <Route path="/academy" element={<AcademyPage />} />
 
           {/* ============================================================
               ONBOARDING & ESTADOS DE CUENTA
