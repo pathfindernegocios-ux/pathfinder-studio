@@ -1,9 +1,59 @@
 // src/components/AuthScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-import { consumePostAuthRedirect } from '../lib/postAuthRedirect';
+import { Video, Image as ImageIcon, Music } from 'lucide-react';
+
+// ---------------------------------------------------------------------------
+// Pool de imágenes para el panel izquierdo.
+// Una imagen random por page load — no cambia mientras el usuario está acá.
+// Se reutiliza el mismo set que el HeroMediaWall cuando migremos a Supabase.
+// ---------------------------------------------------------------------------
+const AUTH_IMAGE_POOL = Array.from({ length: 56 }, (_, i) => `auth-pool-${i + 1}`);
+
+// Rotación: 24h. Misma imagen durante el día, cambia al día siguiente.
+// Para cambiar a "por sesión" (sessionStorage), ver toggle abajo.
+const AUTH_SEED_STORAGE_KEY = "pf_auth_hero_seed";
+const AUTH_SEED_TTL_MS = 24 * 60 * 60 * 1000;
+const AUTH_USE_SESSION_STORAGE = false; // ← true para comportamiento "por sesión"
+
+function pickAuthSeed(): string {
+  if (typeof window === "undefined") return AUTH_IMAGE_POOL[0];
+
+  try {
+    const storage = AUTH_USE_SESSION_STORAGE ? sessionStorage : localStorage;
+    const raw = storage.getItem(AUTH_SEED_STORAGE_KEY);
+
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Modo 24h: validar TTL
+      if (
+        !AUTH_USE_SESSION_STORAGE &&
+        parsed.seed &&
+        typeof parsed.ts === "number" &&
+        Date.now() - parsed.ts < AUTH_SEED_TTL_MS
+      ) {
+        return parsed.seed;
+      }
+      // Modo sesión: cualquier valor guardado es válido
+      if (AUTH_USE_SESSION_STORAGE && parsed.seed) {
+        return parsed.seed;
+      }
+    }
+
+    // No hay válido → generar uno nuevo
+    const seed = AUTH_IMAGE_POOL[Math.floor(Math.random() * AUTH_IMAGE_POOL.length)];
+    storage.setItem(
+      AUTH_SEED_STORAGE_KEY,
+      JSON.stringify({ seed, ts: Date.now() }),
+    );
+    return seed;
+  } catch (e) {
+    // Fallback: random sin persistir
+    return AUTH_IMAGE_POOL[Math.floor(Math.random() * AUTH_IMAGE_POOL.length)];
+  }
+}
 
 const GoogleIcon: React.FC = () => (
   <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -21,9 +71,10 @@ const AuthScreen: React.FC = () => {
   const { session, accountStatus, isOnboarded, isProfileLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirigir si ya hay sesión activa.
-  // Vive en un useEffect (no en el render) para evitar el anti-pattern
-  // de llamar navigate() durante el render, que React 19 advierte.
+  // Imagen random — inicializada una sola vez por mount
+  const [heroSeed] = useState(() => pickAuthSeed());
+  const heroUrl = `https://picsum.photos/seed/${heroSeed}/1200/1600`;
+
   useEffect(() => {
     if (!session || isProfileLoading) return;
 
@@ -34,8 +85,7 @@ const AuthScreen: React.FC = () => {
     } else if (!isOnboarded) {
       navigate('/onboarding/username', { replace: true });
     } else {
-      const dest = consumePostAuthRedirect() || '/studio';
-      navigate(dest, { replace: true });
+      navigate('/studio', { replace: true });
     }
   }, [session, isProfileLoading, accountStatus, isOnboarded, navigate]);
 
@@ -56,9 +106,6 @@ const AuthScreen: React.FC = () => {
       });
 
       if (oauthError) throw oauthError;
-
-      // Si no hay error, el browser está siendo redirigido a Google.
-      // No desactivamos loading: la pestaña se va a ir.
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al iniciar sesión con Google';
       setError(msg);
@@ -76,97 +123,162 @@ const AuthScreen: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* Lado Izquierdo: Bienvenida (Marketing) */}
+      {/* ============================================================ */}
+      {/* Lado Izquierdo: imagen random + overlay + contenido         */}
+      {/* ============================================================ */}
       <div
+        className="auth-left-panel"
         style={{
+          position: 'relative',
           flex: '1',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          padding: '80px',
-          background: 'linear-gradient(135deg, #FAFAFA 0%, #FFFFFF 100%)',
+          overflow: 'hidden',
           borderRight: '1px solid var(--pf-border-subtle)',
         }}
       >
+        {/* Imagen de fondo */}
+        <img
+          src={heroUrl}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+
+        {/* Overlay oscuro para legibilidad */}
         <div
           style={{
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            marginBottom: '24px',
-            fontFamily: 'var(--pf-font-display)',
-            letterSpacing: '-0.03em',
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(135deg, rgba(10,10,10,0.80) 0%, rgba(10,10,10,0.55) 50%, rgba(10,10,10,0.85) 100%)',
           }}
-        >
-          Pathfinder
-        </div>
+        />
 
-        <h1
+        {/* Contenido encima de la imagen */}
+        <div
           style={{
-            fontSize: '3.5rem',
-            fontWeight: 700,
-            lineHeight: 1.1,
-            color: 'var(--pf-text-primary)',
-            marginBottom: '24px',
-            fontFamily: 'var(--pf-font-display)',
-            letterSpacing: '-0.04em',
+            position: 'relative',
+            zIndex: 1,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '80px',
+            color: '#FFFFFF',
           }}
         >
-          ¿Qué vamos a <br />
-          <span style={{ color: 'var(--pf-text-secondary)' }}>crear hoy?</span>
-        </h1>
+          {/* Logo clickeable → home */}
+          <Link
+            to="/"
+            style={{
+              textDecoration: 'none',
+              fontSize: '1.5rem',
+              fontWeight: 700,
+              marginBottom: '24px',
+              fontFamily: 'var(--pf-font-display)',
+              letterSpacing: '-0.03em',
+              color: '#FFFFFF',
+              display: 'inline-block',
+              width: 'fit-content',
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+          >
+            Pathfinder
+          </Link>
 
-        <p
-          style={{
-            fontSize: '1.25rem',
-            color: 'var(--pf-text-secondary)',
-            lineHeight: 1.6,
-            maxWidth: '500px',
-            marginBottom: '40px',
-            fontFamily: 'var(--pf-font-ui)',
-          }}
-        >
-          Escribe una idea, agrega una imagen y Pathfinder la convierte en video
-          con sonido utilizando IA de última generación.
-        </p>
+          <h1
+            style={{
+              fontSize: '3.5rem',
+              fontWeight: 700,
+              lineHeight: 1.1,
+              color: '#FFFFFF',
+              marginBottom: '24px',
+              fontFamily: 'var(--pf-font-display)',
+              letterSpacing: '-0.04em',
+              textShadow: '0 2px 24px rgba(0,0,0,0.5)',
+            }}
+          >
+            ¿Qué vamos a <br />
+            <span style={{ color: 'rgba(255,255,255,0.75)' }}>crear hoy?</span>
+          </h1>
 
-        <div style={{ display: 'flex', gap: '16px', marginTop: 'auto' }}>
+          <p
+            style={{
+              fontSize: '1.25rem',
+              color: 'rgba(255,255,255,0.85)',
+              lineHeight: 1.6,
+              maxWidth: '500px',
+              marginBottom: '40px',
+              fontFamily: 'var(--pf-font-ui)',
+            }}
+          >
+            Escribe una idea, agrega una imagen y Pathfinder la convierte en
+            video con sonido utilizando IA de última generación.
+          </p>
+
+          {/* Iconos + texto — sin emojis, con lucide-react */}
           <div
             style={{
               display: 'flex',
+              gap: '20px',
+              marginTop: 'auto',
               alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.875rem',
-              color: 'var(--pf-text-muted)',
             }}
           >
-            <span>🎬 Video</span>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.875rem',
-              color: 'var(--pf-text-muted)',
-            }}
-          >
-            <span>🖼️ Imagen</span>
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.875rem',
-              color: 'var(--pf-text-muted)',
-            }}
-          >
-            <span>🎵 Audio</span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.875rem',
+                color: 'rgba(255,255,255,0.75)',
+                fontFamily: 'var(--pf-font-ui)',
+              }}
+            >
+              <Video size={16} />
+              <span>Video</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.875rem',
+                color: 'rgba(255,255,255,0.75)',
+                fontFamily: 'var(--pf-font-ui)',
+              }}
+            >
+              <ImageIcon size={16} />
+              <span>Imagen</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '0.875rem',
+                color: 'rgba(255,255,255,0.75)',
+                fontFamily: 'var(--pf-font-ui)',
+              }}
+            >
+              <Music size={16} />
+              <span>Audio</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Lado Derecho: Auth */}
+      {/* ============================================================ */}
+      {/* Lado Derecho: formulario de auth                             */}
+      {/* ============================================================ */}
       <div
         style={{
           width: '450px',
@@ -250,7 +362,6 @@ const AuthScreen: React.FC = () => {
           </div>
         )}
 
-        {/* Divisor + nota de email próximamente */}
         <div
           style={{
             display: 'flex',
@@ -260,13 +371,7 @@ const AuthScreen: React.FC = () => {
             marginBottom: '16px',
           }}
         >
-          <div
-            style={{
-              flex: 1,
-              height: '1px',
-              background: 'var(--pf-border-subtle, #F4F4F5)',
-            }}
-          />
+          <div style={{ flex: 1, height: '1px', background: 'var(--pf-border-subtle, #F4F4F5)' }} />
           <span
             style={{
               fontSize: '0.75rem',
@@ -278,13 +383,7 @@ const AuthScreen: React.FC = () => {
           >
             Próximamente
           </span>
-          <div
-            style={{
-              flex: 1,
-              height: '1px',
-              background: 'var(--pf-border-subtle, #F4F4F5)',
-            }}
-          />
+          <div style={{ flex: 1, height: '1px', background: 'var(--pf-border-subtle, #F4F4F5)' }} />
         </div>
 
         <p
@@ -308,23 +407,32 @@ const AuthScreen: React.FC = () => {
             textAlign: 'center',
           }}
         >
-          Al continuar, aceptás nuestros{' '}
-          <a
-            href="/legal/terms"
+          Al continuar, aceptas nuestros{' '}
+          <Link
+            to="/legal/terms"
             style={{ color: 'var(--pf-text-secondary)', textDecoration: 'underline' }}
           >
             Términos de Servicio
-          </a>{' '}
-          y reconocés haber leído el{' '}
-          <a
-            href="/legal/privacy"
+          </Link>{' '}
+          y reconoces haber leído el{' '}
+          <Link
+            to="/legal/privacy"
             style={{ color: 'var(--pf-text-secondary)', textDecoration: 'underline' }}
           >
             Aviso de Privacidad
-          </a>
+          </Link>
           .
         </p>
       </div>
+
+      {/* Mobile: la imagen se oculta o se reduce */}
+      <style>{`
+        @media (max-width: 900px) {
+          .auth-left-panel {
+            display: none;
+          }
+        }
+      `}</style>
     </div>
   );
 };
