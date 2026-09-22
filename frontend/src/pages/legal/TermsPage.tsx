@@ -6,8 +6,8 @@ const TermsPage: React.FC = () => {
   return (
     <LegalLayout
       title="Términos y Condiciones de Servicio"
-      version="v1.0"
-      lastUpdate="21 de septiembre de 2026"
+      version="v1.1"
+      lastUpdate="22 de septiembre de 2026"
     >
       <p>
         El presente documento establece los Términos y Condiciones (en
@@ -150,16 +150,71 @@ const TermsPage: React.FC = () => {
       </p>
 
       <h2 id="planes">8. Planes, precios y pagos</h2>
+
+      <h3>8.1 Plan gratuito</h3>
       <p>
-        Durante la etapa beta, el Servicio se ofrece con un plan gratuito
-        sujeto a límites técnicos razonables (número de generaciones por hora,
-        por día y creaciones activas simultáneas).
+        Durante la etapa beta, Pathfinder ofrece un plan gratuito con acceso
+        al modelo Krea 2 Turbo y funcionalidades básicas del Studio, sujeto a
+        límites técnicos razonables (número de generaciones por hora, por día
+        y creaciones activas simultáneas).
+      </p>
+
+      <h3>8.2 Pathfinder Pro Beta</h3>
+      <p>
+        Pathfinder Pro Beta otorga acceso a los modelos premium de Pathfinder
+        por un período de <strong>seis (6) meses</strong> contados a partir
+        de la fecha efectiva del pago. El precio es de <strong>$399 MXN (IVA
+        incluido)</strong>, pagado en una sola exhibición.
       </p>
       <p>
-        Pathfinder podrá, en el futuro, ofrecer planes de pago con
-        funcionalidades adicionales. Cualquier cambio de precios, planes o
-        funcionalidades será comunicado con antelación razonable y no afectará
-        retroactivamente los derechos adquiridos.
+        El Usuario reconoce que Pathfinder Pro Beta es un producto de pago
+        único y no constituye una suscripción ni genera cargos recurrentes
+        automáticos.
+      </p>
+
+      <h3>8.3 Evolución del catálogo durante Beta</h3>
+      <p>
+        Durante el período de vigencia de Pathfinder Pro Beta, Pathfinder podrá
+        incorporar nuevas capacidades y modelos al catálogo Pro. Los modelos
+        que Pathfinder designe como parte de Pro durante este período estarán
+        disponibles para los usuarios con un acceso Pro Beta activo sin costo
+        adicional. La composición del catálogo podrá evolucionar durante la
+        vigencia del acceso.
+      </p>
+      <p>
+        El Usuario reconoce que el catálogo Pro es dinámico y que los modelos
+        individuales que lo componen pueden variar. Lo que se garantiza es el
+        acceso al catálogo Pro vigente, no a modelos específicos individuales.
+      </p>
+
+      <h3>8.4 Renovación</h3>
+      <p>
+        Al término del período de 6 meses, el acceso a los modelos Pro se
+        revierte automáticamente al plan Free. El Usuario podrá renovar su
+        acceso a través de la Plataforma mediante un nuevo pago, cuyo precio
+        será el vigente al momento de la renovación.
+      </p>
+
+      <h3>8.5 Reembolsos</h3>
+      <p>
+        El Usuario podrá solicitar el reembolso completo de su pago dentro de
+        los primeros <strong>14 (catorce) días naturales</strong> posteriores
+        a la compra, sin necesidad de justificación. El reembolso se procesará
+        al mismo método de pago utilizado en un plazo máximo de 10 días
+        hábiles.
+      </p>
+      <p>
+        Al procesarse un reembolso completo, el acceso a los modelos premium
+        será revocado de inmediato. Las creaciones generadas durante el
+        período de acceso Pro permanecerán disponibles hasta su expiración
+        natural (7 días desde su creación).
+      </p>
+
+      <h3>8.6 Modificaciones de precios</h3>
+      <p>
+        Cualquier cambio de precios o funcionalidades para futuras compras
+        será comunicado con antelación razonable y no afectará retroactivamente
+        los derechos adquiridos por compras previas.
       </p>
 
       <h2 id="limitaciones">9. Limitaciones y ausencia de garantías</h2>
@@ -230,7 +285,16 @@ const TermsPage: React.FC = () => {
         corresponderles.
       </p>
 
-      <h2 id="contacto">14. Contacto</h2>
+      <h2 id="impuestos">14. Impuestos y facturación</h2>
+      <p>
+        El precio de $399 MXN incluye el Impuesto al Valor Agregado (IVA)
+        aplicable en los Estados Unidos Mexicanos. La emisión de Comprobantes
+        Fiscales Digitales por Internet (CFDI) se realizará a solicitud del
+        Usuario a través de los canales de contacto de Pathfinder, dentro de
+        los plazos establecidos por la legislación fiscal aplicable.
+      </p>
+
+      <h2 id="contacto">15. Contacto</h2>
       <p>
         Para cualquier consulta relacionada con estos Términos, el Usuario
         puede contactar a:
@@ -264,7 +328,7 @@ const TermsPage: React.FC = () => {
           textAlign: "center",
         }}
       >
-        Última actualización: 21 de septiembre de 2026 · Versión 1.0
+        Última actualización: 22 de septiembre de 2026 · Versión 1.1
       </p>
     </LegalLayout>
   );

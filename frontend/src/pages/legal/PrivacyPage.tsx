@@ -6,8 +6,8 @@ const PrivacyPage: React.FC = () => {
   return (
     <LegalLayout
       title="Aviso de Privacidad"
-      version="v1.0"
-      lastUpdate="21 de septiembre de 2026"
+      version="v1.1"
+      lastUpdate="22 de septiembre de 2026"
     >
       <p>
         En cumplimiento con la <strong>Ley Federal de Protección de Datos
@@ -152,6 +152,10 @@ const PrivacyPage: React.FC = () => {
             <td>Kaggle (Google)</td>
             <td>Infraestructura de cómputo para modelos de IA</td>
           </tr>
+          <tr>
+            <td>Stripe Inc.</td>
+            <td>Procesamiento de pagos con tarjeta</td>
+          </tr>
         </tbody>
       </table>
       <p>
@@ -277,7 +281,7 @@ const PrivacyPage: React.FC = () => {
           textAlign: "center",
         }}
       >
-        Última actualización: 21 de septiembre de 2026 · Versión 1.0
+        Última actualización: 22 de septiembre de 2026 · Versión 1.1
       </p>
     </LegalLayout>
   );

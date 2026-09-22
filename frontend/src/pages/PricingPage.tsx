@@ -340,6 +340,139 @@ const PricingPage: React.FC = () => {
         </div>
       )}
 
+      {/* Cómo funciona */}
+      <section style={{ padding: "20px 24px 40px" }}>
+        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+          <div
+            style={{
+              background: "var(--pf-bg-secondary, #FAFAFA)",
+              border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+              borderRadius: "20px",
+              padding: "40px 32px",
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: "var(--pf-font-display, system-ui)",
+                fontSize: "clamp(1.25rem, 2vw, 1.5rem)",
+                fontWeight: 700,
+                letterSpacing: "-0.02em",
+                textAlign: "center",
+                margin: 0,
+                marginBottom: "8px",
+              }}
+            >
+              ¿Cómo funciona Pathfinder Pro?
+            </h2>
+            <p
+              style={{
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.9375rem",
+                color: "var(--pf-text-secondary, #525252)",
+                textAlign: "center",
+                maxWidth: "560px",
+                margin: "0 auto 40px",
+                lineHeight: 1.5,
+              }}
+            >
+              Pathfinder combina una interfaz unificada con estaciones de cómputo
+              que corren en tu navegador. Configurás tu estación una vez, y después
+              generás sin fricción.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: "24px",
+              }}
+            >
+              {[
+                {
+                  n: "01",
+                  title: "Comprás Pathfinder Pro",
+                  body: "Pago único de $399 MXN. Desbloqueás Flux y LTX inmediatamente.",
+                },
+                {
+                  n: "02",
+                  title: "Descargás tu notebook",
+                  body: "Un archivo por modelo desde Mi Estación. Sin configuración manual.",
+                },
+                {
+                  n: "03",
+                  title: "Ejecutás \"Run All\" en Kaggle",
+                  body: "Con tu cuenta gratuita de Kaggle. La estación queda lista en ~2 minutos.",
+                },
+                {
+                  n: "04",
+                  title: "Generás desde Pathfinder",
+                  body: "El Studio detecta tu estación y podés usar los modelos Pro.",
+                },
+              ].map((s, i) => (
+                <div key={i} style={{ textAlign: "left" }}>
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-display, system-ui)",
+                      fontSize: "1.75rem",
+                      fontWeight: 800,
+                      color: "var(--pf-text-muted, #A1A1AA)",
+                      letterSpacing: "-0.04em",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    {s.n}
+                  </div>
+                  <h3
+                    style={{
+                      fontFamily: "var(--pf-font-display, system-ui)",
+                      fontSize: "0.9375rem",
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                      margin: 0,
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {s.title}
+                  </h3>
+                  <p
+                    style={{
+                      fontFamily: "var(--pf-font-ui, system-ui)",
+                      fontSize: "0.8125rem",
+                      lineHeight: 1.55,
+                      color: "var(--pf-text-secondary, #525252)",
+                      margin: 0,
+                    }}
+                  >
+                    {s.body}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                marginTop: "32px",
+                paddingTop: "24px",
+                borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.8125rem",
+                lineHeight: 1.6,
+                color: "var(--pf-text-secondary, #525252)",
+              }}
+            >
+              <strong style={{ color: "var(--pf-text-primary, #0A0A0A)" }}>
+                Importante:
+              </strong>{" "}
+              Pathfinder no incluye el cómputo. Los modelos Pro corren sobre tu
+              cuenta gratuita de Kaggle. Esto es lo que nos permite ofrecer
+              acceso a Flux y LTX a $399 MXN en lugar de una suscripción mensual.
+              Cuando termines de crear, apagás tu estación desde Pathfinder y
+              liberás la GPU automáticamente.
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Planes */}
       <section style={{ padding: "40px 24px 80px" }}>
         <div
@@ -411,7 +544,7 @@ const PricingPage: React.FC = () => {
           {/* Plan Pro Beta */}
           <PlanCard
             name="Pathfinder Pro Beta"
-            tagline="Acceso a los modelos premium por 12 meses."
+            tagline="Acceso a los modelos premium por 6 meses."
             price="$399 MXN"
             priceNote="Pago único. Sin cargos recurrentes."
             badge={hasPro ? "Ya activo" : "Disponible"}
@@ -420,7 +553,7 @@ const PricingPage: React.FC = () => {
               "Todo lo de Free, más:",
               "Flux 2 Klein 4B (edición avanzada)",
               "LTX 2.3 (video con audio sincronizado)",
-              "12 meses de acceso desde el pago",
+              "6 meses de acceso desde el pago",
               "Actualizaciones del catálogo Pro incluidas",
               "Renovación disponible al vencimiento",
             ]}
@@ -560,11 +693,11 @@ const PricingPage: React.FC = () => {
               },
               {
                 q: "¿Qué incluye Pathfinder Pro Beta?",
-                a: "Acceso a Flux 2 Klein 4B y LTX 2.3 por 12 meses desde la fecha de pago. Además de Krea 2 Turbo, que ya tenés en Free. Incluye todas las mejoras del catálogo Pro que se incorporen durante ese período.",
+                a: "Acceso a Flux 2 Klein 4B y LTX 2.3 por 6 meses desde la fecha de pago. Además de Krea 2 Turbo, que ya tenés en Free. Incluye todas las mejoras del catálogo Pro que se incorporen durante ese período.",
               },
               {
                 q: "¿Es una suscripción?",
-                a: "No. Es un pago único de $399 MXN que te da acceso a los modelos Pro por 12 meses. Al término, podés renovar o seguir usando el plan Free sin perder nada.",
+                a: "No. Es un pago único de $399 MXN que te da acceso a los modelos Pro por 6 meses. Al término, podés renovar o seguir usando el plan Free sin perder nada.",
               },
               {
                 q: "¿Puedo pedir reembolso?",
