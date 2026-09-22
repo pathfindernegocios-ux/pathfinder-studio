@@ -1,10 +1,23 @@
 // src/pages/PricingPage.tsx
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import MarketingLayout from "../components/marketing/MarketingLayout";
+import { useAuth } from "../hooks/useAuth";
+import { useModels } from "../hooks/useModels";
+import { usePurchase } from "../hooks/usePurchase";
 
 const Check = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#10B981"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ flexShrink: 0 }}
+  >
     <polyline points="20 6 9 17 4 12" />
   </svg>
 );
@@ -20,7 +33,16 @@ interface PlanProps {
   badge?: string;
 }
 
-const PlanCard: React.FC<PlanProps> = ({ name, tagline, price, priceNote, features, cta, highlighted, badge }) => (
+const PlanCard: React.FC<PlanProps> = ({
+  name,
+  tagline,
+  price,
+  priceNote,
+  features,
+  cta,
+  highlighted,
+  badge,
+}) => (
   <div
     style={{
       position: "relative",
@@ -32,7 +54,9 @@ const PlanCard: React.FC<PlanProps> = ({ name, tagline, price, priceNote, featur
       padding: "32px 28px",
       display: "flex",
       flexDirection: "column",
-      boxShadow: highlighted ? "0 20px 40px -12px rgba(0,0,0,0.15)" : "0 2px 8px rgba(0,0,0,0.03)",
+      boxShadow: highlighted
+        ? "0 20px 40px -12px rgba(0,0,0,0.15)"
+        : "0 2px 8px rgba(0,0,0,0.03)",
       transition: "transform 0.2s, box-shadow 0.2s",
     }}
     onMouseEnter={(e) => {
@@ -147,7 +171,9 @@ const PlanCard: React.FC<PlanProps> = ({ name, tagline, price, priceNote, featur
             lineHeight: 1.5,
           }}
         >
-          <span style={{ marginTop: "3px" }}><Check /></span>
+          <span style={{ marginTop: "3px" }}>
+            <Check />
+          </span>
           <span>{f}</span>
         </li>
       ))}
@@ -157,10 +183,108 @@ const PlanCard: React.FC<PlanProps> = ({ name, tagline, price, priceNote, featur
   </div>
 );
 
+// ---------------------------------------------------------------------------
+// Banner de estado post-checkout
+// ---------------------------------------------------------------------------
+const StatusBanner: React.FC<{
+  type: "success" | "cancelled";
+  onDismiss: () => void;
+}> = ({ type, onDismiss }) => {
+  const isSuccess = type === "success";
+  return (
+    <div
+      style={{
+        maxWidth: "1100px",
+        margin: "0 auto 24px",
+        padding: "16px 20px",
+        background: isSuccess ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)",
+        border: `1px solid ${isSuccess ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.4)"}`,
+        borderRadius: "12px",
+        fontFamily: "var(--pf-font-ui, system-ui)",
+        fontSize: "0.9375rem",
+        color: isSuccess ? "#059669" : "#B45309",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        lineHeight: 1.5,
+      }}
+    >
+      <span
+        style={{
+          width: "8px",
+          height: "8px",
+          borderRadius: "50%",
+          background: isSuccess ? "#10B981" : "#F59E0B",
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ flex: 1 }}>
+        {isSuccess
+          ? "¡Pago confirmado! Estamos activando tu acceso a Flux y LTX. Puede tardar unos segundos."
+          : "Cancelaste el proceso de pago. Podés intentarlo de nuevo cuando quieras."}
+      </span>
+      <button
+        onClick={onDismiss}
+        style={{
+          background: "transparent",
+          border: "none",
+          color: "inherit",
+          cursor: "pointer",
+          fontSize: "1rem",
+          padding: "0 4px",
+          opacity: 0.6,
+        }}
+        aria-label="Cerrar"
+      >
+        ×
+      </button>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// PricingPage
+// ---------------------------------------------------------------------------
 const PricingPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { session } = useAuth();
+  const { unlockedIds, refresh: refreshModels } = useModels();
+  const { state: purchaseState, error: purchaseError, startCheckout } = usePurchase();
+
+  const status = searchParams.get("status");
+  const [showBanner, setShowBanner] = useState(false);
+
+  const hasPro = unlockedIds.has("flux-2-klein-4b") || unlockedIds.has("ltx-2.3");
+
+  // Detectar ?status=success o ?status=cancelled
+  useEffect(() => {
+    if (status === "success" || status === "cancelled") {
+      setShowBanner(true);
+
+      if (status === "success") {
+        // Refrescar modelos varias veces: el webhook puede tardar unos segundos
+        const delays = [1000, 3000, 6000, 10000];
+        const timers = delays.map((d) =>
+          window.setTimeout(() => {
+            refreshModels();
+          }, d),
+        );
+        return () => timers.forEach((t) => window.clearTimeout(t));
+      }
+    }
+  }, [status, refreshModels]);
+
+  const handleDismissBanner = () => {
+    setShowBanner(false);
+    // Limpiar query params
+    const next = new URLSearchParams(searchParams);
+    next.delete("status");
+    setSearchParams(next, { replace: true });
+  };
+
   return (
     <MarketingLayout>
-      {/* ============ HERO ============ */}
+      {/* Hero */}
       <section style={{ padding: "80px 24px 40px", textAlign: "center" }}>
         <div style={{ maxWidth: "680px", margin: "0 auto" }}>
           <h1
@@ -185,13 +309,38 @@ const PricingPage: React.FC = () => {
               margin: 0,
             }}
           >
-            Empezá gratis. Sin tarjeta, sin compromiso. Cuando estés listo para
-            más, tenemos planes para vos.
+            Empezá gratis con Krea. Desbloqueá Flux y LTX con Pathfinder Pro
+            Beta. Sin suscripciones, sin cargos recurrentes.
           </p>
         </div>
       </section>
 
-      {/* ============ PLANS ============ */}
+      {/* Banner post-checkout */}
+      {showBanner && status && (status === "success" || status === "cancelled") && (
+        <StatusBanner type={status} onDismiss={handleDismissBanner} />
+      )}
+
+      {/* Error de checkout */}
+      {purchaseError && (
+        <div
+          style={{
+            maxWidth: "1100px",
+            margin: "0 auto 24px",
+            padding: "16px 20px",
+            background: "#FEF2F2",
+            border: "1px solid #FEE2E2",
+            borderRadius: "12px",
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.9375rem",
+            color: "#EF4444",
+            lineHeight: 1.5,
+          }}
+        >
+          {purchaseError}
+        </div>
+      )}
+
+      {/* Planes */}
       <section style={{ padding: "40px 24px 80px" }}>
         <div
           style={{
@@ -203,12 +352,12 @@ const PricingPage: React.FC = () => {
             alignItems: "stretch",
           }}
         >
+          {/* Plan Free */}
           <PlanCard
             name="Free"
             tagline="Para empezar y experimentar."
             price="$0"
             priceNote="Sin tarjeta. Sin fecha de vencimiento."
-            highlighted
             badge="Disponible"
             features={[
               "Krea 2 Turbo (generación de imágenes)",
@@ -219,67 +368,138 @@ const PricingPage: React.FC = () => {
               "Retención de archivos: 7 días",
             ]}
             cta={
-              <Link
-                to="/auth"
-                style={{
-                  display: "block",
-                  textAlign: "center",
-                  textDecoration: "none",
-                  padding: "12px 24px",
-                  background: "var(--pf-text-primary, #0A0A0A)",
-                  color: "#FFFFFF",
-                  borderRadius: "10px",
-                  fontFamily: "var(--pf-font-ui, system-ui)",
-                  fontSize: "0.9375rem",
-                  fontWeight: 600,
-                }}
-              >
-                Empezar gratis
-              </Link>
+              session ? (
+                <Link
+                  to="/studio"
+                  style={{
+                    display: "block",
+                    textAlign: "center",
+                    textDecoration: "none",
+                    padding: "12px 24px",
+                    background: "var(--pf-text-primary, #0A0A0A)",
+                    color: "#FFFFFF",
+                    borderRadius: "10px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Ir al Studio
+                </Link>
+              ) : (
+                <Link
+                  to="/auth"
+                  style={{
+                    display: "block",
+                    textAlign: "center",
+                    textDecoration: "none",
+                    padding: "12px 24px",
+                    background: "var(--pf-text-primary, #0A0A0A)",
+                    color: "#FFFFFF",
+                    borderRadius: "10px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Empezar gratis
+                </Link>
+              )
             }
           />
 
+          {/* Plan Pro Beta */}
           <PlanCard
-            name="Premium"
-            tagline="Para creadores que necesitan más."
-            price="Próximamente"
-            priceNote="Estamos trabajando en los planes de pago."
+            name="Pathfinder Pro Beta"
+            tagline="Acceso a los modelos premium por 12 meses."
+            price="$399 MXN"
+            priceNote="Pago único. Sin cargos recurrentes."
+            badge={hasPro ? "Ya activo" : "Disponible"}
+            highlighted
             features={[
               "Todo lo de Free, más:",
-              "Flux 2 Klein 4B (edición avanzada de imágenes)",
+              "Flux 2 Klein 4B (edición avanzada)",
               "LTX 2.3 (video con audio sincronizado)",
-              "Límites ampliados de generación",
-              "Mayor retención de archivos",
-              "Soporte prioritario",
+              "12 meses de acceso desde el pago",
+              "Actualizaciones del catálogo Pro incluidas",
+              "Renovación disponible al vencimiento",
             ]}
             cta={
-              <button
-                disabled
-                style={{
-                  width: "100%",
-                  padding: "12px 24px",
-                  background: "var(--pf-bg-secondary, #FAFAFA)",
-                  color: "var(--pf-text-muted, #A1A1AA)",
-                  border: "1px solid var(--pf-border-default, #E5E5E5)",
-                  borderRadius: "10px",
-                  fontFamily: "var(--pf-font-ui, system-ui)",
-                  fontSize: "0.9375rem",
-                  fontWeight: 600,
-                  cursor: "not-allowed",
-                }}
-              >
-                Próximamente
-              </button>
+              !session ? (
+                <Link
+                  to="/auth"
+                  style={{
+                    display: "block",
+                    textAlign: "center",
+                    textDecoration: "none",
+                    padding: "12px 24px",
+                    background: "var(--pf-text-primary, #0A0A0A)",
+                    color: "#FFFFFF",
+                    borderRadius: "10px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Iniciar sesión para pagar
+                </Link>
+              ) : hasPro ? (
+                <div
+                  style={{
+                    width: "100%",
+                    padding: "12px 24px",
+                    background: "rgba(16,185,129,0.1)",
+                    color: "#059669",
+                    border: "1px solid rgba(16,185,129,0.4)",
+                    borderRadius: "10px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    textAlign: "center",
+                  }}
+                >
+                  ✓ Ya tenés Pro activo
+                </div>
+              ) : (
+                <button
+                  onClick={startCheckout}
+                  disabled={purchaseState === "loading"}
+                  style={{
+                    width: "100%",
+                    padding: "12px 24px",
+                    background:
+                      purchaseState === "loading"
+                        ? "var(--pf-bg-tertiary, #F5F5F5)"
+                        : "var(--pf-text-primary, #0A0A0A)",
+                    color:
+                      purchaseState === "loading"
+                        ? "var(--pf-text-muted, #A1A1AA)"
+                        : "#FFFFFF",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    cursor: purchaseState === "loading" ? "wait" : "pointer",
+                    transition: "opacity 0.15s",
+                  }}
+                >
+                  {purchaseState === "loading"
+                    ? "Redirigiendo a Stripe..."
+                    : "Desbloquear Pro — $399"}
+                </button>
+              )
             }
           />
 
+          {/* Plan Ultra */}
           <PlanCard
             name="Ultra"
             tagline="Para equipos y uso intensivo."
             price="A medida"
             priceNote="Hablemos de tu caso."
             features={[
-              "Todo lo de Premium, más:",
+              "Todo lo de Pro, más:",
               "Sin límites de generación",
               "Acceso anticipado a nuevos modelos",
               "Onboarding y soporte dedicados",
@@ -309,7 +529,7 @@ const PricingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* ============ FAQ ============ */}
+      {/* FAQ */}
       <section
         style={{
           padding: "80px 24px",
@@ -336,15 +556,19 @@ const PricingPage: React.FC = () => {
             {[
               {
                 q: "¿Es realmente gratis?",
-                a: "Sí. El plan Free no tiene costo, no requiere tarjeta y no tiene fecha de vencimiento. Podés usarlo todo el tiempo que quieras dentro de los límites indicados.",
+                a: "Sí. El plan Free no tiene costo, no requiere tarjeta y no tiene fecha de vencimiento. Podés usar Krea todo el tiempo que quieras dentro de los límites indicados.",
               },
               {
-                q: "¿Cómo me registro?",
-                a: "Con tu cuenta de Google. El proceso completo tarda menos de 30 segundos: elegís tu cuenta, elegís un nombre de usuario y ya podés empezar a crear.",
+                q: "¿Qué incluye Pathfinder Pro Beta?",
+                a: "Acceso a Flux 2 Klein 4B y LTX 2.3 por 12 meses desde la fecha de pago. Además de Krea 2 Turbo, que ya tenés en Free. Incluye todas las mejoras del catálogo Pro que se incorporen durante ese período.",
               },
               {
-                q: "¿Qué puedo crear?",
-                a: "Con el plan Free, imágenes usando Krea 2 Turbo. Los planes de pago desbloquean Flux 2 (edición avanzada de imágenes) y LTX 2.3 (generación de video con audio).",
+                q: "¿Es una suscripción?",
+                a: "No. Es un pago único de $399 MXN que te da acceso a los modelos Pro por 12 meses. Al término, podés renovar o seguir usando el plan Free sin perder nada.",
+              },
+              {
+                q: "¿Puedo pedir reembolso?",
+                a: "Sí. Dentro de los primeros 14 días naturales después de tu compra, podés solicitar el reembolso completo sin necesidad de justificación, escribiéndonos a pathfinder.contacto@gmail.com.",
               },
               {
                 q: "¿Necesito instalar algo?",
@@ -352,11 +576,11 @@ const PricingPage: React.FC = () => {
               },
               {
                 q: "¿Cuánto tiempo duran mis creaciones?",
-                a: "En el plan Free, las creaciones se almacenan por 7 días. Si querés conservarlas, podés descargarlas en cualquier momento. Los planes de pago tendrán mayor retención.",
+                a: "En ambos planes, las creaciones se almacenan por 7 días. Si querés conservarlas, podés descargarlas en cualquier momento.",
               },
               {
-                q: "¿Cuándo llegan los planes de pago?",
-                a: "Estamos trabajando en ellos. Si querés que te avisemos cuando estén disponibles, escribinos a pathfinder.contacto@gmail.com.",
+                q: "¿Qué métodos de pago aceptan?",
+                a: "Tarjetas de crédito y débito (Visa, Mastercard, American Express), Apple Pay y Google Pay. El pago se procesa de forma segura a través de Stripe.",
               },
             ].map((f, i) => (
               <details
@@ -399,7 +623,7 @@ const PricingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* ============ FINAL CTA ============ */}
+      {/* CTA final */}
       <section
         style={{
           padding: "100px 24px",
@@ -435,7 +659,7 @@ const PricingPage: React.FC = () => {
             para hacerla realidad.
           </p>
           <Link
-            to="/auth"
+            to={session ? "/studio" : "/auth"}
             style={{
               textDecoration: "none",
               display: "inline-block",
@@ -448,7 +672,7 @@ const PricingPage: React.FC = () => {
               fontWeight: 700,
             }}
           >
-            Crear cuenta gratis
+            {session ? "Ir al Studio" : "Crear cuenta gratis"}
           </Link>
         </div>
       </section>
