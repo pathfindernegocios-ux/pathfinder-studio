@@ -147,10 +147,35 @@ const HomePage: React.FC = () => {
               fontSize: "0.8125rem",
               color: "rgba(255,255,255,0.7)",
               margin: 0,
+              marginBottom: "16px",
             }}
           >
             Sin tarjeta · Sin compromiso · Registro en 20 segundos con Google
           </p>
+
+          <Link
+            to="/how-it-works"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              textDecoration: "none",
+              padding: "8px 16px",
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "9999px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.8125rem",
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.9)",
+              backdropFilter: "blur(8px)",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
+          >
+            ¿Cómo funciona? →
+          </Link>
         </div>
       </HeroMediaWall>
 

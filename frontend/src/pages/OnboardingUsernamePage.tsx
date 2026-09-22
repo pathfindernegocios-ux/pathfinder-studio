@@ -166,8 +166,14 @@ const OnboardingUsernamePage: React.FC = () => {
         // Full reload porque useAuth de App.tsx mantiene el profile stale
         // (no refetchea al UPDATE). Sin reload, el guard de "/" vería
         // username=null y devolvería al usuario a /onboarding → loop.
-        const dest = consumePostAuthRedirect() || "/studio";
-        window.location.href = dest;
+        // Primera vez: enviar a /how-it-works.
+        // Si ya tenía un redirect pendiente (ej: venía de /pricing), respetarlo.
+        const pending = consumePostAuthRedirect();
+        if (pending) {
+          window.location.href = pending;
+        } else {
+          window.location.href = "/how-it-works";
+        }
       } catch (err) {
         console.error("[Onboarding] update failed:", err);
         setError("Ocurrió un error inesperado. Intenta de nuevo.");

@@ -6,12 +6,19 @@ import { supabase } from '../lib/supabaseClient';
 import { 
   StudioIcon, 
   CreationsIcon, 
-  AssetsIcon, 
   StationIcon, 
-  ProjectsIcon, 
   AcademyIcon, 
   SettingsIcon 
 } from './NavIcons';
+
+// Ícono para "Cómo funciona" — agregado localmente para no tocar NavIcons
+const HowItWorksIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+    <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-1 2-2 2.5-.6.3-1 .7-1 1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <circle cx="12" cy="17" r="0.8" fill="currentColor" />
+  </svg>
+);
 
 // El ancho ya NO vive aquí adentro. Lo controla el padre (StudioPage) para que
 // nunca haya un desfase entre "lo que el sidebar mide realmente" y "el espacio
@@ -36,11 +43,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
   // featured: false -> Se oculta al colapsar
   const navItems = [
     { path: '/studio', label: 'Studio', icon: StudioIcon, featured: true },
-    { path: '/projects', label: 'Proyectos', icon: ProjectsIcon, featured: false },
     { path: '/creations', label: 'Mis Creaciones', icon: CreationsIcon, featured: true },
-    { path: '/assets', label: 'Assets', icon: AssetsIcon, featured: true },
-    { path: '/academy', label: 'Academy', icon: AcademyIcon, featured: false },
     { path: '/station', label: 'Mi Estación', icon: StationIcon, featured: true },
+    { path: '/how-it-works', label: 'Cómo funciona', icon: HowItWorksIcon, featured: true },
+    { path: '/academy', label: 'Academy', icon: AcademyIcon, featured: false },
     { path: '/settings', label: 'Configuración', icon: SettingsIcon, featured: false },
   ];
 
@@ -65,20 +71,25 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
         padding: '0 20px',
         borderBottom: '1px solid var(--pf-border-subtle, #2A2D31)' 
       }}>
-        <div style={{ 
-          opacity: collapsed ? 0 : 1, 
-          transform: collapsed ? 'translateX(-10px)' : 'translateX(0)',
-          transition: 'all 0.2s ease',
-          fontFamily: 'var(--pf-font-display, system-ui)', 
-          fontSize: '1.25rem', 
-          fontWeight: 800, 
-          color: 'var(--pf-text-primary, #F2F2F2)', 
-          letterSpacing: '-0.03em',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden'
-        }}>
+        <Link 
+          to="/"
+          style={{ 
+            opacity: collapsed ? 0 : 1, 
+            transform: collapsed ? 'translateX(-10px)' : 'translateX(0)',
+            transition: 'all 0.2s ease',
+            fontFamily: 'var(--pf-font-display, system-ui)', 
+            fontSize: '1.25rem', 
+            fontWeight: 800, 
+            color: 'var(--pf-text-primary, #F2F2F2)', 
+            letterSpacing: '-0.03em',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textDecoration: 'none',
+            pointerEvents: collapsed ? 'none' : 'auto'
+          }}
+        >
           Pathfinder
-        </div>
+        </Link>
         
         <button 
           onClick={onToggleCollapsed} 

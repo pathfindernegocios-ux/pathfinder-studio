@@ -1,5 +1,6 @@
 // src/components/FloatingCommandCenter.tsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useGenerationContext } from '../context/GenerationContext';
 import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X } from 'lucide-react';
 
@@ -739,8 +740,9 @@ const FloatingCommandCenter: React.FC = () => {
               background: '#F59E0B',
               flexShrink: 0,
             }} />
-            <span>
-              Tu estación está offline. Descargá tu notebook desde <strong>Mi Estación</strong> y ejecutalo en Kaggle antes de generar.
+            <span style={{ flex: 1 }}>
+              Tu estación está offline. <Link to="/station" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Descarga tu notebook</Link> y ejecútalo en Kaggle antes de generar.{" "}
+              <Link to="/how-it-works" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Ver guía paso a paso →</Link>
             </span>
           </div>
         )}

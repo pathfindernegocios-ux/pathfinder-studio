@@ -1,9 +1,10 @@
 // src/pages/StudioPage.tsx
 import React, { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import FloatingCommandCenter from '../components/FloatingCommandCenter';
 import { useCreations } from '../hooks/useCreations';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
-import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, Music } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, Music, HelpCircle } from 'lucide-react';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -540,6 +541,44 @@ const StudioPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* BOTÓN FLOTANTE — Cómo funciona */}
+      <Link
+        to="/how-it-works"
+        title="¿Cómo funciona Pathfinder?"
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 45,
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          background: '#FFFFFF',
+          border: '1px solid var(--pf-border-default, #E5E5E5)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--pf-text-secondary, #525252)',
+          textDecoration: 'none',
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--pf-bg-secondary, #FAFAFA)';
+          e.currentTarget.style.borderColor = 'var(--pf-text-primary, #0A0A0A)';
+          e.currentTarget.style.color = 'var(--pf-text-primary, #0A0A0A)';
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = '#FFFFFF';
+          e.currentTarget.style.borderColor = 'var(--pf-border-default, #E5E5E5)';
+          e.currentTarget.style.color = 'var(--pf-text-secondary, #525252)';
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+      >
+        <HelpCircle size={18} />
+      </Link>
 
       <style>{`
         @keyframes shimmer { to { background-position: -200% 0; } }

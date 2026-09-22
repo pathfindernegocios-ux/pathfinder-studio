@@ -1,6 +1,7 @@
 // src/pages/StationPage.tsx
 import React, { useState } from 'react';
-import { Download, Lock, Sparkles, Clock, CheckCircle2, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Download, Lock, Sparkles, Clock, CheckCircle2, Loader2, ExternalLink, HelpCircle } from 'lucide-react';
 import { useModels } from '../hooks/useModels';
 import type { ModelCatalogEntry } from '../hooks/useModels';
 import { supabase } from '../lib/supabaseClient';
@@ -468,6 +469,69 @@ const StationPage: React.FC = () => {
           >
             Descarga tus notebooks para correrlos en Kaggle. Cada modelo requiere un runtime activo.
           </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+              marginTop: "20px",
+            }}
+          >
+            <a
+              href="https://www.kaggle.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                background: "var(--pf-text-primary, #0A0A0A)",
+                color: "#FFFFFF",
+                borderRadius: "10px",
+                textDecoration: "none",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            >
+              Abrir Kaggle
+              <ExternalLink size={14} />
+            </a>
+            <Link
+              to="/how-it-works"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                background: "transparent",
+                color: "var(--pf-text-primary, #0A0A0A)",
+                border: "1px solid var(--pf-border-default, #E5E5E5)",
+                borderRadius: "10px",
+                textDecoration: "none",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--pf-bg-secondary, #FAFAFA)";
+                e.currentTarget.style.borderColor = "var(--pf-text-primary, #0A0A0A)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.borderColor = "var(--pf-border-default, #E5E5E5)";
+              }}
+            >
+              <HelpCircle size={14} />
+              ¿Cómo enciendo mi estación?
+            </Link>
+          </div>
         </div>
 
         {/* Loading / Error */}
