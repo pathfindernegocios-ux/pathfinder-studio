@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
+import { consumePostAuthRedirect } from '../lib/postAuthRedirect';
 
 const GoogleIcon: React.FC = () => (
   <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -33,7 +34,8 @@ const AuthScreen: React.FC = () => {
     } else if (!isOnboarded) {
       navigate('/onboarding/username', { replace: true });
     } else {
-      navigate('/studio', { replace: true });
+      const dest = consumePostAuthRedirect() || '/studio';
+      navigate(dest, { replace: true });
     }
   }, [session, isProfileLoading, accountStatus, isOnboarded, navigate]);
 

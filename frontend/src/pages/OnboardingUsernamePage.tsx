@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabaseClient";
+import { consumePostAuthRedirect } from "../lib/postAuthRedirect";
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,24}$/;
 
@@ -165,7 +166,8 @@ const OnboardingUsernamePage: React.FC = () => {
         // Full reload porque useAuth de App.tsx mantiene el profile stale
         // (no refetchea al UPDATE). Sin reload, el guard de "/" vería
         // username=null y devolvería al usuario a /onboarding → loop.
-        window.location.href = "/studio";
+        const dest = consumePostAuthRedirect() || "/studio";
+        window.location.href = dest;
       } catch (err) {
         console.error("[Onboarding] update failed:", err);
         setError("Ocurrió un error inesperado. Intentá de nuevo.");

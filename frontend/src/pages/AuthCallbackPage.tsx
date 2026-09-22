@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import type { Profile } from "../types";
+import { consumePostAuthRedirect } from "../lib/postAuthRedirect";
 
 type CallbackState =
   | { status: "waiting" }
@@ -36,7 +37,8 @@ const AuthCallbackPage: React.FC = () => {
       if (p.account_status === "suspended") return "/account/suspended";
       if (p.account_status === "purged") return "/login";
       if (!p.username || p.account_status === "provisional") return "/onboarding/username";
-      return "/studio";
+      // Preservar la intención de redirect (ej: venía de /pricing)
+      return consumePostAuthRedirect() || "/studio";
     };
 
     const handleSignedIn = async (userId: string) => {

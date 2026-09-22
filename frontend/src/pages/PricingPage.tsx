@@ -5,6 +5,7 @@ import MarketingLayout from "../components/marketing/MarketingLayout";
 import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
 import { usePurchase } from "../hooks/usePurchase";
+import { setPostAuthRedirect } from "../lib/postAuthRedirect";
 
 const Check = () => (
   <svg
@@ -561,6 +562,7 @@ const PricingPage: React.FC = () => {
               !session ? (
                 <Link
                   to="/auth"
+                  onClick={() => setPostAuthRedirect("/pricing")}
                   style={{
                     display: "block",
                     textAlign: "center",
