@@ -276,7 +276,6 @@ function App() {
             <Route path="/creations/:id" element={<CreationDetailPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/assets" element={<AssetsPage />} />
-            <Route path="/academy" element={<AcademyPage />} />
             <Route path="/station" element={<StationPage />} />
             <Route path="/settings" element={<AccountSettingsPage />} />
           </Route>

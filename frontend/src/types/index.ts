@@ -35,6 +35,7 @@ export interface Profile {
   tos_version: string | null;
   privacy_version: string | null;
   onboarding_completed_at: string | null;
+  how_it_works_viewed_at: string | null;
   last_seen_at: string | null;
   deleted_at: string | null;
   created_at: string;
