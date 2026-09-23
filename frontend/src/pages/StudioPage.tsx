@@ -244,8 +244,7 @@ const StudioPage: React.FC = () => {
 
           {/* ESTADO VACÍO */}
           {sessionHistory.length === 0 && !isLoading && (
-            <div style={{ textAlign: 'center', opacity: 0.6, animation: 'fadeIn 0.8s ease-out' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '24px', filter: 'grayscale(100%)', animation: 'float 3s ease-in-out infinite' }}>✨</div>
+            <div style={{ textAlign: 'center', opacity: 0.7, animation: 'fadeIn 0.8s ease-out' }}>
               <h2 className="pf-font-prompt" style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--pf-text-primary)', marginBottom: '12px' }}>
                 ¿Qué quieres crear hoy?
               </h2>
