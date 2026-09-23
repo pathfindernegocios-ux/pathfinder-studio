@@ -3,8 +3,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import FloatingCommandCenter from '../components/FloatingCommandCenter';
 import { useCreations } from '../hooks/useCreations';
+import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
-import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, Music, HelpCircle } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, Music, HelpCircle, Sparkles } from 'lucide-react';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -24,6 +25,16 @@ const frameWidthStyle = (aspectRatioCss: string): string => {
 
 const StudioPage: React.FC = () => {
   const { saveCreation, saveError } = useCreations();
+  const { profile } = useAuth();
+
+  // Datos del usuario para avatares del chat
+  const userAvatarUrl = profile?.avatar_url || null;
+  const userInitial = (
+    profile?.username?.[0] ||
+    profile?.full_name?.[0] ||
+    profile?.email?.[0] ||
+    'U'
+  ).toUpperCase();
   const {
     sessionHistory,
     isLoading,
@@ -290,13 +301,21 @@ const StudioPage: React.FC = () => {
                     }}>
                       {item.prompt}
                     </div>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pf-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#fff', fontWeight: 600, flexShrink: 0 }}>Tú</div>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#FFFFFF', fontWeight: 700, flexShrink: 0, overflow: 'hidden', fontFamily: 'var(--pf-font-ui)' }}>
+                      {userAvatarUrl ? (
+                        <img src={userAvatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        userInitial
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {/* Respuesta IA */}
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', width: '100%' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pf-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#000', fontWeight: 700, flexShrink: 0 }}>IA</div>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pf-text-primary, #0A0A0A)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#FFFFFF' }}>
+                    <Sparkles size={16} />
+                  </div>
 
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--pf-text-secondary)', fontFamily: 'var(--pf-font-ui)', fontWeight: 500 }}>
