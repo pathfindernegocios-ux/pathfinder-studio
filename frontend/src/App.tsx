@@ -189,12 +189,7 @@ function App() {
           {/* ============================================================
               PÚBLICAS
               ============================================================ */}
-          <Route
-            path="/"
-            element={
-              session ? <Navigate to="/studio" replace /> : <HomePage />
-            }
-          />
+          <Route path="/" element={<HomePage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route

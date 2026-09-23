@@ -3,6 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import HeroMediaWall from "../components/marketing/HeroMediaWall";
+import { useAuth } from "../hooks/useAuth";
 
 // --- Icons (inline, stroke style) ---
 const IconImage = () => (
@@ -36,30 +37,13 @@ const Section: React.FC<{ children: React.ReactNode; bg?: string }> = ({ childre
 );
 
 const HomePage: React.FC = () => {
+  const { session } = useAuth();
+
   return (
     <MarketingLayout>
       {/* ============ HERO ============ */}
       <HeroMediaWall>
         <div>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 14px",
-              background: "rgba(16,185,129,0.08)",
-              border: "1px solid rgba(16,185,129,0.3)",
-              borderRadius: "9999px",
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              color: "#059669",
-              marginBottom: "24px",
-            }}
-          >
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10B981" }} />
-            Beta pública ya disponible
-          </div>
 
           <h1
             style={{
@@ -70,7 +54,7 @@ const HomePage: React.FC = () => {
               lineHeight: 1.05,
               margin: 0,
               marginBottom: "24px",
-              color: "var(--pf-bg-elevated)",
+              color: "#FFFFFF",
               textShadow: "0 2px 24px rgba(0,0,0,0.5)",
             }}
           >
@@ -104,12 +88,12 @@ const HomePage: React.FC = () => {
             }}
           >
             <Link
-              to="/auth"
+              to={session ? "/studio" : "/auth"}
               style={{
                 textDecoration: "none",
                 padding: "14px 32px",
-                background: "var(--pf-bg-elevated)",
-                color: "var(--pf-text-primary)",
+                background: "#FFFFFF",
+                color: "#0A0A0A",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",
                 fontSize: "0.9375rem",
@@ -119,7 +103,7 @@ const HomePage: React.FC = () => {
                 boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
               }}
             >
-              Empezar gratis
+              {session ? "Ir al Studio" : "Empezar gratis"}
             </Link>
             <Link
               to="/pricing"
@@ -127,7 +111,7 @@ const HomePage: React.FC = () => {
                 textDecoration: "none",
                 padding: "14px 32px",
                 background: "rgba(255,255,255,0.1)",
-                color: "var(--pf-bg-elevated)",
+                color: "#FFFFFF",
                 border: "1px solid rgba(255,255,255,0.4)",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",

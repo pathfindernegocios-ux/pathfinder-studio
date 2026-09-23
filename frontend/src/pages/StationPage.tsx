@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Client } from '@gradio/client';
 import { Power } from 'lucide-react';
 import { useGenerationContext } from '../context/GenerationContext';
+import { usePurchase } from '../hooks/usePurchase';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -106,6 +107,8 @@ interface ModelCardProps {
   isOnline?: boolean;
   onShutdown?: (modelId: string) => void;
   isShuttingDown?: boolean;
+  onUnlock?: () => void;
+  isUnlocking?: boolean;
 }
 
 const CAPABILITY_LABEL: Record<string, string> = {
@@ -114,7 +117,7 @@ const CAPABILITY_LABEL: Record<string, string> = {
   audio: 'Audio',
 };
 
-const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDownloading, isOnline, onShutdown, isShuttingDown }) => {
+const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDownloading, isOnline, onShutdown, isShuttingDown, onUnlock, isUnlocking }) => {
   const badge = (() => {
     if (variant === 'owned') return { text: 'Disponible', color: '#10B981', bg: 'rgba(16,185,129,0.1)', Icon: CheckCircle2 };
     if (variant === 'coming_soon') return { text: 'Próximamente', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', Icon: Clock };
@@ -332,7 +335,42 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
         </button>
       )}
 
-      {variant === 'locked' && (
+      {variant === 'locked' && onUnlock && (
+        <button
+          onClick={onUnlock}
+          disabled={isUnlocking}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '10px 16px',
+            background: isUnlocking ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)',
+            color: isUnlocking ? 'var(--pf-text-muted)' : 'var(--pf-text-inverse, #FFFFFF)',
+            border: 'none',
+            borderRadius: '10px',
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            cursor: isUnlocking ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          {isUnlocking ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Redirigiendo...
+            </>
+          ) : (
+            <>
+              <Sparkles size={14} />
+              Desbloquear — $399
+            </>
+          )}
+        </button>
+      )}
+
+      {variant === 'locked' && !onUnlock && (
         <button
           disabled
           style={{
@@ -389,6 +427,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
 const StationPage: React.FC = () => {
   const { ownedModels, lockedModels, comingSoonModels, loading, error, refresh } = useModels();
   const { stationStatusMap, refreshStationStatus } = useGenerationContext();
+  const { startCheckout, state: purchaseState } = usePurchase();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [shuttingDownId, setShuttingDownId] = useState<string | null>(null);
 
@@ -649,13 +688,19 @@ const StationPage: React.FC = () => {
                 gap: '20px',
               }}
             >
-              {[...lockedModels, ...comingSoonModels].map((model) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  variant={model.coming_soon ? 'coming_soon' : 'locked'}
-                />
-              ))}
+              {[...lockedModels, ...comingSoonModels].map((model) => {
+                const isPro =
+                  model.id === 'flux-2-klein-4b' || model.id === 'ltx-2.3';
+                return (
+                  <ModelCard
+                    key={model.id}
+                    model={model}
+                    variant={model.coming_soon ? 'coming_soon' : 'locked'}
+                    onUnlock={isPro && !model.coming_soon ? () => startCheckout() : undefined}
+                    isUnlocking={purchaseState === 'loading'}
+                  />
+                );
+              })}
             </div>
           </section>
         )}
