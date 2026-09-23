@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
+import { useTheme } from "../hooks/useTheme";
 import { supabase } from "../lib/supabaseClient";
+import { Monitor, Sun, Moon } from "lucide-react";
 
 type Tab = "profile" | "account" | "security";
 
@@ -104,6 +106,7 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
 const AccountSettingsPage: React.FC = () => {
   const { profile, session } = useAuth();
   const { allModels, unlockedIds } = useModels();
+  const { preference, setPreference } = useTheme();
 
   const [tab, setTab] = useState<Tab>("profile");
 
@@ -324,15 +327,110 @@ const AccountSettingsPage: React.FC = () => {
 
         {/* ============ TAB: PERFIL ============ */}
         {tab === "profile" && (
-          <div
-            style={{
-              background: "var(--pf-bg-elevated)",
-              border: "1px solid var(--pf-border-subtle, #F4F4F5)",
-              borderRadius: "16px",
-              padding: "32px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-            }}
-          >
+          <div>
+            {/* Apariencia */}
+            <div
+              style={{
+                background: "var(--pf-bg-elevated)",
+                border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                borderRadius: "16px",
+                padding: "32px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                marginBottom: "24px",
+              }}
+            >
+              <h3
+                style={{
+                  fontFamily: "var(--pf-font-display, system-ui)",
+                  fontSize: "1.0625rem",
+                  fontWeight: 600,
+                  color: "var(--pf-text-primary)",
+                  letterSpacing: "-0.02em",
+                  margin: 0,
+                  marginBottom: "6px",
+                }}
+              >
+                Apariencia
+              </h3>
+              <p
+                style={{
+                  fontFamily: "var(--pf-font-ui, system-ui)",
+                  fontSize: "0.875rem",
+                  color: "var(--pf-text-secondary)",
+                  margin: 0,
+                  marginBottom: "20px",
+                  lineHeight: 1.5,
+                }}
+              >
+                Elige cómo se ve Pathfinder. La preferencia se guarda en este dispositivo.
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                {[
+                  { id: "light" as const, Icon: Sun, label: "Claro" },
+                  { id: "system" as const, Icon: Monitor, label: "Sistema" },
+                  { id: "dark" as const, Icon: Moon, label: "Oscuro" },
+                ].map((opt) => {
+                  const isActive = preference === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setPreference(opt.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        padding: "12px 14px",
+                        background: isActive ? "var(--pf-bg-tertiary)" : "var(--pf-bg-secondary)",
+                        border: isActive
+                          ? "1px solid var(--pf-text-primary)"
+                          : "1px solid var(--pf-border-default)",
+                        borderRadius: "10px",
+                        fontFamily: "var(--pf-font-ui, system-ui)",
+                        fontSize: "0.875rem",
+                        fontWeight: isActive ? 600 : 500,
+                        color: "var(--pf-text-primary)",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        textAlign: "left",
+                      }}
+                    >
+                      <opt.Icon size={16} />
+                      {opt.label}
+                      {isActive && (
+                        <span
+                          style={{
+                            marginLeft: "auto",
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            background: "var(--pf-text-primary)",
+                          }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Card de Perfil existente */}
+            <div
+              style={{
+                background: "var(--pf-bg-elevated)",
+                border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                borderRadius: "16px",
+                padding: "32px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+              }}
+            >
             {/* Avatar */}
             <div
               style={{
@@ -601,6 +699,7 @@ const AccountSettingsPage: React.FC = () => {
             >
               {savingProfile ? "Guardando..." : "Guardar cambios"}
             </button>
+            </div>
           </div>
         )}
 
