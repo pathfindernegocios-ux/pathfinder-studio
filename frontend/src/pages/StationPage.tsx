@@ -527,7 +527,7 @@ const StationPage: React.FC = () => {
                 gap: "8px",
                 padding: "10px 18px",
                 background: "var(--pf-text-primary, #0A0A0A)",
-                color: "var(--pf-bg-elevated)",
+                color: "var(--pf-text-inverse, #FFFFFF)",
                 borderRadius: "10px",
                 textDecoration: "none",
                 fontFamily: "var(--pf-font-ui, system-ui)",

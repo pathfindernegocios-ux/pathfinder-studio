@@ -81,7 +81,7 @@ const PlanCard: React.FC<PlanProps> = ({
           right: "24px",
           padding: "4px 12px",
           background: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-bg-elevated)",
+          color: "var(--pf-text-inverse, #FFFFFF)",
           borderRadius: "9999px",
           fontFamily: "var(--pf-font-ui, system-ui)",
           fontSize: "0.6875rem",
@@ -511,7 +511,7 @@ const PricingPage: React.FC = () => {
                     textDecoration: "none",
                     padding: "12px 24px",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "var(--pf-bg-elevated)",
+                    color: "var(--pf-text-inverse, #FFFFFF)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -529,7 +529,7 @@ const PricingPage: React.FC = () => {
                     textDecoration: "none",
                     padding: "12px 24px",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "var(--pf-bg-elevated)",
+                    color: "var(--pf-text-inverse, #FFFFFF)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -569,7 +569,7 @@ const PricingPage: React.FC = () => {
                     textDecoration: "none",
                     padding: "12px 24px",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "var(--pf-bg-elevated)",
+                    color: "var(--pf-text-inverse, #FFFFFF)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -610,7 +610,7 @@ const PricingPage: React.FC = () => {
                     color:
                       purchaseState === "loading"
                         ? "var(--pf-text-muted, #A1A1AA)"
-                        : "var(--pf-bg-elevated)",
+                        : "var(--pf-text-inverse, #FFFFFF)",
                     border: "none",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
@@ -764,7 +764,7 @@ const PricingPage: React.FC = () => {
         style={{
           padding: "100px 24px",
           background: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-bg-elevated)",
+          color: "var(--pf-text-inverse, #FFFFFF)",
           textAlign: "center",
         }}
       >
@@ -777,7 +777,7 @@ const PricingPage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "var(--pf-bg-elevated)",
+              color: "var(--pf-text-inverse, #FFFFFF)",
             }}
           >
             Empieza ahora, gratis

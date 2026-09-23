@@ -369,7 +369,7 @@ const HomePage: React.FC = () => {
         style={{
           padding: "100px 24px",
           background: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-bg-elevated)",
+          color: "var(--pf-text-inverse, #FFFFFF)",
           textAlign: "center",
         }}
       >
@@ -382,7 +382,7 @@ const HomePage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "var(--pf-bg-elevated)",
+              color: "var(--pf-text-inverse, #FFFFFF)",
             }}
           >
             ¿Listo para empezar?

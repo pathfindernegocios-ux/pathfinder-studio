@@ -311,7 +311,7 @@ export const HowItWorksContent: React.FC = () => {
                     height: "32px",
                     borderRadius: "50%",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "var(--pf-bg-elevated)",
+                    color: "var(--pf-text-inverse, #FFFFFF)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -776,7 +776,7 @@ export const HowItWorksContent: React.FC = () => {
             marginTop: "60px",
             padding: "40px 32px",
             background: "var(--pf-text-primary, #0A0A0A)",
-            color: "var(--pf-bg-elevated)",
+            color: "var(--pf-text-inverse, #FFFFFF)",
             borderRadius: "20px",
             textAlign: "center",
           }}
@@ -789,7 +789,7 @@ export const HowItWorksContent: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "var(--pf-bg-elevated)",
+              color: "var(--pf-text-inverse, #FFFFFF)",
             }}
           >
             {hasViewedBefore ? "¿Listo para seguir creando?" : "¿Listo para empezar?"}

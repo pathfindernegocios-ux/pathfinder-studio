@@ -1008,7 +1008,7 @@ const AccountSettingsPage: React.FC = () => {
               style={{
                 padding: "12px 24px",
                 background: "var(--pf-text-primary, #0A0A0A)",
-                color: "var(--pf-bg-elevated)",
+                color: "var(--pf-text-inverse, #FFFFFF)",
                 border: "none",
                 borderRadius: "8px",
                 fontSize: "0.875rem",
@@ -1162,7 +1162,7 @@ const AccountSettingsPage: React.FC = () => {
                     deleteConfirm === "ELIMINAR" && !deleting
                       ? "#EF4444"
                       : "rgba(239,68,68,0.4)",
-                  color: "var(--pf-bg-elevated)",
+                  color: "var(--pf-text-inverse, #FFFFFF)",
                   border: "none",
                   borderRadius: "8px",
                   fontSize: "0.9375rem",
