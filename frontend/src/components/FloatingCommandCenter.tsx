@@ -134,12 +134,12 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
         onClick={() => setIsOpen(!isOpen)}
         style={{
           padding: '5px 10px',
-          background: '#F9FAFB',
-          border: '1px solid #E5E7EB',
+          background: 'var(--pf-bg-secondary)',
+          border: '1px solid var(--pf-border-default)',
           borderRadius: '8px',
           fontSize: '12px',
           fontFamily: 'var(--pf-font-ui)',
-          color: '#374151',
+          color: 'var(--pf-text-secondary)',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -158,7 +158,7 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
           top: openUp ? 'auto' : 'calc(100% + 4px)',
           left: 0,
           background: 'white',
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--pf-border-default)',
           borderRadius: '8px',
           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
           zIndex: 1000,
@@ -180,10 +180,10 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
                 fontFamily: 'var(--pf-font-ui)',
                 cursor: 'pointer',
                 borderRadius: '6px',
-                color: value === option ? '#111827' : '#4B5563',
+                color: value === option ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)',
                 whiteSpace: 'nowrap'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--pf-bg-tertiary)'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               {formatOption ? formatOption(option) : option}
@@ -205,7 +205,7 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
   step?: number;
 }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-    <span style={{ fontSize: '10px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>{label}</span>
+    <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase' }}>{label}</span>
     <input
       type="number"
       value={value}
@@ -216,12 +216,12 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
       style={{
         width: '50px',
         padding: '4px 8px',
-        background: '#F9FAFB',
-        border: '1px solid #E5E7EB',
+        background: 'var(--pf-bg-secondary)',
+        border: '1px solid var(--pf-border-default)',
         borderRadius: '8px',
         fontSize: '12px',
         fontFamily: 'var(--pf-font-ui)',
-        color: '#111827'
+        color: 'var(--pf-text-primary)'
       }}
     />
   </div>
@@ -619,11 +619,11 @@ const FloatingCommandCenter: React.FC = () => {
     return (
       <div style={{ position: 'relative', width: '40px', height: '40px', flexShrink: 0 }}>
         {isAudio ? (
-          <div style={{ width: '100%', height: '100%', background: '#E5E7EB', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280' }}>
+          <div style={{ width: '100%', height: '100%', background: 'var(--pf-border-default)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pf-text-muted)' }}>
             <Music size={16} />
           </div>
         ) : (
-          <img src={url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid #E5E7EB' }} />
+          <img src={url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--pf-border-default)' }} />
         )}
         <button
           onClick={() => {
@@ -659,8 +659,8 @@ const FloatingCommandCenter: React.FC = () => {
             disabled={!!model.comingSoon}
             style={{
               padding: '6px 12px',
-              background: selectedId === model.id ? '#111827' : '#F3F4F6',
-              color: selectedId === model.id ? '#FFFFFF' : (model.comingSoon ? '#9CA3AF' : '#4B5563'),
+              background: selectedId === model.id ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
+              color: selectedId === model.id ? 'var(--pf-bg-elevated)' : (model.comingSoon ? 'var(--pf-text-muted)' : 'var(--pf-text-secondary)'),
               border: 'none', borderRadius: '8px',
               fontFamily: 'var(--pf-font-ui)', fontSize: '12px', fontWeight: 600,
               cursor: model.comingSoon ? 'not-allowed' : 'pointer',
@@ -680,9 +680,9 @@ const FloatingCommandCenter: React.FC = () => {
       <div
         className="pf-glass-panel"
         style={{
-          background: '#FFFFFF',
+          background: 'var(--pf-bg-elevated)',
           backdropFilter: 'none',
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--pf-border-default)',
           borderRadius: '18px',
           boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
           display: 'flex', flexDirection: 'column', overflow: 'visible', transition: 'all 0.3s ease',
@@ -699,8 +699,8 @@ const FloatingCommandCenter: React.FC = () => {
                 }}
                 style={{
                   padding: '5px 12px', borderRadius: '8px', border: 'none',
-                  background: activeTab === tab ? '#111827' : 'transparent',
-                  color: activeTab === tab ? '#FFFFFF' : '#4B5563',
+                  background: activeTab === tab ? 'var(--pf-text-primary)' : 'transparent',
+                  color: activeTab === tab ? 'var(--pf-bg-elevated)' : 'var(--pf-text-secondary)',
                   fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
                   cursor: 'pointer', transition: 'all 0.2s',
                   display: 'flex',
@@ -754,7 +754,7 @@ const FloatingCommandCenter: React.FC = () => {
                 <>
                   <label style={{ position: 'relative', cursor: 'pointer' }}>
                     <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
                       <span>{videoParams.imageStartFile ? 'Start Loaded' : '+ Start'}</span>
                     </div>
                   </label>
@@ -762,7 +762,7 @@ const FloatingCommandCenter: React.FC = () => {
                   
                   <label style={{ position: 'relative', cursor: 'pointer' }}>
                     <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
                       <span>{videoParams.imageEndFile ? 'End Loaded' : '+ End'}</span>
                     </div>
                   </label>
@@ -770,7 +770,7 @@ const FloatingCommandCenter: React.FC = () => {
                   
                   <label style={{ position: 'relative', cursor: 'pointer' }}>
                     <input type="file" accept="audio/*" onChange={(e) => handleVideoFileChange('audio', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
                       <span>{videoParams.audioFile ? 'Audio Loaded' : '+ Audio'}</span>
                     </div>
                   </label>
@@ -792,7 +792,7 @@ const FloatingCommandCenter: React.FC = () => {
                       }} 
                       style={{ display: 'none' }} 
                     />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? '#F3F4F6' : '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
                       <Paperclip size={12} />
                       <span>{fluxParams.refFiles.length > 0 ? `${fluxParams.refFiles.length} Refs` : 'Referencias'}</span>
                     </div>
@@ -829,7 +829,7 @@ const FloatingCommandCenter: React.FC = () => {
               style={{
                 width: '100%', minHeight: '38px', maxHeight: '110px', background: 'transparent',
                 border: 'none', outline: 'none', resize: 'vertical',
-                fontFamily: 'var(--pf-font-display)', fontSize: '15px', color: '#111827',
+                fontFamily: 'var(--pf-font-display)', fontSize: '15px', color: 'var(--pf-text-primary)',
                 lineHeight: 1.4, paddingRight: '140px',
               }}
               disabled={isLoading}
@@ -839,8 +839,8 @@ const FloatingCommandCenter: React.FC = () => {
               disabled={!prompt.trim() || isLoading}
               style={{
                 position: 'absolute', right: '0', bottom: '0',
-                background: !prompt.trim() || isLoading ? '#E5E7EB' : '#111827',
-                color: '#FFFFFF', fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
+                background: !prompt.trim() || isLoading ? 'var(--pf-border-default)' : 'var(--pf-text-primary)',
+                color: 'var(--pf-bg-elevated)', fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
                 padding: '7px 18px', borderRadius: '99px', border: 'none',
                 cursor: !prompt.trim() || isLoading ? 'not-allowed' : 'pointer',
                 opacity: !prompt.trim() || isLoading ? '0.5' : '1', transition: 'all 0.2s', whiteSpace: 'nowrap',
@@ -861,7 +861,7 @@ const FloatingCommandCenter: React.FC = () => {
                 listStyle: 'none',
                 fontSize: '12px',
                 fontFamily: 'var(--pf-font-ui)',
-                color: '#4B5563',
+                color: 'var(--pf-text-secondary)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -873,7 +873,7 @@ const FloatingCommandCenter: React.FC = () => {
                 {((isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt) || '').trim() !== '' && (
                   <span style={{
                     fontSize: '10px',
-                    color: '#6B7280',
+                    color: 'var(--pf-text-muted)',
                     fontStyle: 'italic',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -902,13 +902,13 @@ const FloatingCommandCenter: React.FC = () => {
                   minHeight: '50px',
                   maxHeight: '100px',
                   padding: '8px 10px',
-                  background: '#F9FAFB',
-                  border: '1px solid #E5E7EB',
+                  background: 'var(--pf-bg-secondary)',
+                  border: '1px solid var(--pf-border-default)',
                   borderRadius: '8px',
                   resize: 'vertical',
                   fontFamily: 'var(--pf-font-ui)',
                   fontSize: '12px',
-                  color: '#111827',
+                  color: 'var(--pf-text-primary)',
                   lineHeight: 1.4,
                   outline: 'none',
                 }}
@@ -917,14 +917,14 @@ const FloatingCommandCenter: React.FC = () => {
             </details>
           )}
 
-          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #F3F4F6' }}>
+          <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--pf-border-subtle)' }}>
             {activeTab === 'video' && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <DropdownButton options={VIDEO_DURATIONS} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + 's'} />
                 <DropdownButton options={VIDEO_RESOLUTIONS} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
                 <DropdownButton options={VIDEO_ASPECT_RATIOS} value={videoParams.aspectRatio} onChange={(v: string) => setVideoParams({...videoParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <NumberInput label="Guide" value={videoParams.guideScale} onChange={(v: number) => setVideoParams({...videoParams, guideScale: v})} min={1} max={8} step={0.5} />
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: '#4B5563' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
                   <input type="checkbox" checked={videoParams.matchAudioDur} onChange={(e) => setVideoParams({...videoParams, matchAudioDur: e.target.checked})} style={{ marginRight: '4px' }} />
                   Match Audio
                 </label>
@@ -952,13 +952,13 @@ const FloatingCommandCenter: React.FC = () => {
                    <details style={{ display: 'inline-block' }}>
                       <summary style={{
                         listStyle: 'none',
-                        background: '#F9FAFB',
-                        border: '1px solid #E5E7EB',
+                        background: 'var(--pf-bg-secondary)',
+                        border: '1px solid var(--pf-border-default)',
                         borderRadius: '8px',
                         padding: '5px 10px',
                         fontSize: '12px',
                         fontFamily: 'var(--pf-font-ui)',
-                        color: '#4B5563',
+                        color: 'var(--pf-text-secondary)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -971,7 +971,7 @@ const FloatingCommandCenter: React.FC = () => {
                         bottom: 'calc(100% + 8px)',
                         left: 0,
                         background: 'white',
-                        border: '1px solid #E5E7EB',
+                        border: '1px solid var(--pf-border-default)',
                         borderRadius: '8px',
                         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                         zIndex: 1000,

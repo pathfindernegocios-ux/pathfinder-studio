@@ -82,7 +82,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                   textDecoration: "none",
                   padding: "8px 16px",
                   background: "var(--pf-text-primary, #0A0A0A)",
-                  color: "#FFFFFF",
+                  color: "var(--pf-bg-elevated)",
                   borderRadius: "9999px",
                   fontWeight: 600,
                 }}
@@ -96,7 +96,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                   textDecoration: "none",
                   padding: "8px 16px",
                   background: "var(--pf-text-primary, #0A0A0A)",
-                  color: "#FFFFFF",
+                  color: "var(--pf-bg-elevated)",
                   borderRadius: "9999px",
                   fontWeight: 600,
                 }}

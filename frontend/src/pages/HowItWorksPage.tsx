@@ -33,7 +33,7 @@ const MediaPlaceholder: React.FC<{
 }> = ({ type, label, url }) => {
   if (url && url.length > 0) {
     return (
-      <div style={{ borderRadius: "12px", overflow: "hidden", margin: "24px 0", background: "#0A0A0A" }}>
+      <div style={{ borderRadius: "12px", overflow: "hidden", margin: "24px 0", background: "var(--pf-text-primary)" }}>
         {type === "video" ? (
           <video
             src={url}
@@ -311,7 +311,7 @@ export const HowItWorksContent: React.FC = () => {
                     height: "32px",
                     borderRadius: "50%",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "#FFFFFF",
+                    color: "var(--pf-bg-elevated)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -734,7 +734,7 @@ export const HowItWorksContent: React.FC = () => {
               <details
                 key={i}
                 style={{
-                  background: "#FFFFFF",
+                  background: "var(--pf-bg-elevated)",
                   border: "1px solid var(--pf-border-subtle, #F4F4F5)",
                   borderRadius: "12px",
                   padding: "20px 24px",
@@ -776,7 +776,7 @@ export const HowItWorksContent: React.FC = () => {
             marginTop: "60px",
             padding: "40px 32px",
             background: "var(--pf-text-primary, #0A0A0A)",
-            color: "#FFFFFF",
+            color: "var(--pf-bg-elevated)",
             borderRadius: "20px",
             textAlign: "center",
           }}
@@ -789,7 +789,7 @@ export const HowItWorksContent: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "#FFFFFF",
+              color: "var(--pf-bg-elevated)",
             }}
           >
             {hasViewedBefore ? "¿Listo para seguir creando?" : "¿Listo para empezar?"}
@@ -816,7 +816,7 @@ export const HowItWorksContent: React.FC = () => {
               disabled={isMarking}
               style={{
                 padding: "16px 40px",
-                background: "#FFFFFF",
+                background: "var(--pf-bg-elevated)",
                 color: "var(--pf-text-primary, #0A0A0A)",
                 border: "none",
                 borderRadius: "9999px",
@@ -836,7 +836,7 @@ export const HowItWorksContent: React.FC = () => {
                 display: "inline-block",
                 textDecoration: "none",
                 padding: "16px 40px",
-                background: "#FFFFFF",
+                background: "var(--pf-bg-elevated)",
                 color: "var(--pf-text-primary, #0A0A0A)",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",

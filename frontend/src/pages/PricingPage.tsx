@@ -47,7 +47,7 @@ const PlanCard: React.FC<PlanProps> = ({
   <div
     style={{
       position: "relative",
-      background: "#FFFFFF",
+      background: "var(--pf-bg-elevated)",
       border: highlighted
         ? "2px solid var(--pf-text-primary, #0A0A0A)"
         : "1px solid var(--pf-border-default, #E5E5E5)",
@@ -81,7 +81,7 @@ const PlanCard: React.FC<PlanProps> = ({
           right: "24px",
           padding: "4px 12px",
           background: "var(--pf-text-primary, #0A0A0A)",
-          color: "#FFFFFF",
+          color: "var(--pf-bg-elevated)",
           borderRadius: "9999px",
           fontFamily: "var(--pf-font-ui, system-ui)",
           fontSize: "0.6875rem",
@@ -511,7 +511,7 @@ const PricingPage: React.FC = () => {
                     textDecoration: "none",
                     padding: "12px 24px",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "#FFFFFF",
+                    color: "var(--pf-bg-elevated)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -529,7 +529,7 @@ const PricingPage: React.FC = () => {
                     textDecoration: "none",
                     padding: "12px 24px",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "#FFFFFF",
+                    color: "var(--pf-bg-elevated)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -569,7 +569,7 @@ const PricingPage: React.FC = () => {
                     textDecoration: "none",
                     padding: "12px 24px",
                     background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "#FFFFFF",
+                    color: "var(--pf-bg-elevated)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -609,7 +609,7 @@ const PricingPage: React.FC = () => {
                     color:
                       purchaseState === "loading"
                         ? "var(--pf-text-muted, #A1A1AA)"
-                        : "#FFFFFF",
+                        : "var(--pf-bg-elevated)",
                     border: "none",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
@@ -721,7 +721,7 @@ const PricingPage: React.FC = () => {
               <details
                 key={i}
                 style={{
-                  background: "#FFFFFF",
+                  background: "var(--pf-bg-elevated)",
                   border: "1px solid var(--pf-border-subtle, #F4F4F5)",
                   borderRadius: "12px",
                   padding: "20px 24px",
@@ -763,7 +763,7 @@ const PricingPage: React.FC = () => {
         style={{
           padding: "100px 24px",
           background: "var(--pf-text-primary, #0A0A0A)",
-          color: "#FFFFFF",
+          color: "var(--pf-bg-elevated)",
           textAlign: "center",
         }}
       >
@@ -776,7 +776,7 @@ const PricingPage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "#FFFFFF",
+              color: "var(--pf-bg-elevated)",
             }}
           >
             Empezá ahora, gratis
@@ -799,7 +799,7 @@ const PricingPage: React.FC = () => {
               textDecoration: "none",
               display: "inline-block",
               padding: "16px 40px",
-              background: "#FFFFFF",
+              background: "var(--pf-bg-elevated)",
               color: "var(--pf-text-primary, #0A0A0A)",
               borderRadius: "9999px",
               fontFamily: "var(--pf-font-ui, system-ui)",

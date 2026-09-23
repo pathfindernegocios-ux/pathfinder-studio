@@ -70,7 +70,7 @@ const HomePage: React.FC = () => {
               lineHeight: 1.05,
               margin: 0,
               marginBottom: "24px",
-              color: "#FFFFFF",
+              color: "var(--pf-bg-elevated)",
               textShadow: "0 2px 24px rgba(0,0,0,0.5)",
             }}
           >
@@ -108,8 +108,8 @@ const HomePage: React.FC = () => {
               style={{
                 textDecoration: "none",
                 padding: "14px 32px",
-                background: "#FFFFFF",
-                color: "#0A0A0A",
+                background: "var(--pf-bg-elevated)",
+                color: "var(--pf-text-primary)",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",
                 fontSize: "0.9375rem",
@@ -127,7 +127,7 @@ const HomePage: React.FC = () => {
                 textDecoration: "none",
                 padding: "14px 32px",
                 background: "rgba(255,255,255,0.1)",
-                color: "#FFFFFF",
+                color: "var(--pf-bg-elevated)",
                 border: "1px solid rgba(255,255,255,0.4)",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",
@@ -240,7 +240,7 @@ const HomePage: React.FC = () => {
             <div
               key={i}
               style={{
-                background: "#FFFFFF",
+                background: "var(--pf-bg-elevated)",
                 border: "1px solid var(--pf-border-subtle, #F4F4F5)",
                 borderRadius: "16px",
                 padding: "28px",
@@ -385,7 +385,7 @@ const HomePage: React.FC = () => {
         style={{
           padding: "100px 24px",
           background: "var(--pf-text-primary, #0A0A0A)",
-          color: "#FFFFFF",
+          color: "var(--pf-bg-elevated)",
           textAlign: "center",
         }}
       >
@@ -398,7 +398,7 @@ const HomePage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "#FFFFFF",
+              color: "var(--pf-bg-elevated)",
             }}
           >
             ¿Listo para empezar?
@@ -421,7 +421,7 @@ const HomePage: React.FC = () => {
               textDecoration: "none",
               display: "inline-block",
               padding: "16px 40px",
-              background: "#FFFFFF",
+              background: "var(--pf-bg-elevated)",
               color: "var(--pf-text-primary, #0A0A0A)",
               borderRadius: "9999px",
               fontFamily: "var(--pf-font-ui, system-ui)",

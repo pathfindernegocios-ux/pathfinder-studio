@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { GenerationProvider } from "./context/GenerationContext";
+import { ThemeProvider } from "./hooks/useTheme";
 import type { Profile } from "./types";
 
 // Componentes
@@ -53,8 +54,8 @@ const LoadingScreen: React.FC = () => (
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "#F9FAFB",
-      color: "#111827",
+      background: "var(--pf-bg-primary)",
+      color: "var(--pf-text-primary)",
       fontFamily: "system-ui, sans-serif",
     }}
   >
@@ -116,7 +117,7 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
       style={{
         display: "flex",
         height: "100vh",
-        background: "#F9FAFB",
+        background: "var(--pf-bg-primary)",
         overflow: "hidden",
       }}
     >
@@ -125,8 +126,8 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
           width: `${sidebarCollapsed ? 80 : 260}px`,
           flexShrink: 0,
           height: "100%",
-          background: "#FFFFFF",
-          borderRight: "1px solid #E5E7EB",
+          background: "var(--pf-bg-secondary)",
+          borderRight: "1px solid var(--pf-border-subtle)",
           zIndex: 40,
           transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           overflow: "hidden",
@@ -180,8 +181,9 @@ function App() {
   const hasUsername = !!profile?.username;
 
   return (
-    <GenerationProvider stationId={session?.user?.id || null}>
-      <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
+    <ThemeProvider>
+      <GenerationProvider stationId={session?.user?.id || null}>
+        <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>
         <Routes>
           {/* ============================================================
@@ -329,8 +331,9 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </GenerationProvider>
+        </BrowserRouter>
+      </GenerationProvider>
+    </ThemeProvider>
   );
 }
 

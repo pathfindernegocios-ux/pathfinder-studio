@@ -195,8 +195,8 @@ const CreationsPage: React.FC = () => {
                     onClick={() => setFilter(f)}
                     style={{
                       padding: '10px 20px',
-                      background: filter === f ? '#FFFFFF' : 'transparent',
-                      color: filter === f ? '#000000' : 'var(--pf-text-secondary)',
+                      background: filter === f ? 'var(--pf-bg-elevated)' : 'transparent',
+                      color: filter === f ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)',
                       border: 'none',
                       borderRadius: '8px',
                       fontFamily: 'var(--pf-font-ui)',

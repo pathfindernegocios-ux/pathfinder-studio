@@ -93,7 +93,7 @@ const GenerationResult: React.FC<GenerationResultProps> = ({
               fontSize: '0.875rem',
               fontWeight: 500,
               color: isFavorite
-                ? '#FFFFFF'
+                ? 'var(--pf-bg-elevated)'
                 : 'var(--pf-text-secondary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease',

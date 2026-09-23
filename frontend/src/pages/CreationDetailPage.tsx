@@ -122,7 +122,7 @@ const CreationDetailPage: React.FC = () => {
             alignItems: 'center',
             gap: '8px',
             background: 'var(--pf-text-primary)',
-            color: '#FFFFFF',
+            color: 'var(--pf-bg-elevated)',
             fontFamily: 'var(--pf-font-ui)',
             fontSize: '1rem',
             fontWeight: 600,
@@ -187,7 +187,7 @@ const CreationDetailPage: React.FC = () => {
               fontFamily: 'var(--pf-font-ui)',
               fontSize: '0.875rem',
               fontWeight: 600,
-              color: isDeleting ? '#FFFFFF' : '#EF4444',
+              color: isDeleting ? 'var(--pf-bg-elevated)' : '#EF4444',
               cursor: isDeleting ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
             }}
@@ -201,7 +201,7 @@ const CreationDetailPage: React.FC = () => {
 
         {/* Main Media Card - Premium Immersive Style */}
         <div style={{
-          background: '#FFFFFF',
+          background: 'var(--pf-bg-elevated)',
           borderRadius: '24px',
           overflow: 'visible', // Cambiado para evitar recortes en sombras
           boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1)',
@@ -212,7 +212,7 @@ const CreationDetailPage: React.FC = () => {
           <div 
             onClick={!isVideo ? toggleLightbox : undefined}
             style={{ 
-              background: '#FAFAFA', // Fondo gris muy suave en lugar de negro
+              background: 'var(--pf-bg-secondary)', // Fondo gris muy suave en lugar de negro
               width: '100%', 
               minHeight: '400px', 
               maxHeight: '70vh',
@@ -462,7 +462,7 @@ function formatExpiry(expiresAt: string): string {
 // Sub-componente para tarjetas de metadatos consistente
 const DetailCard = ({ icon, label, value, badge }: { icon: React.ReactNode, label: string, value: string, badge?: string | undefined }) => (
   <div style={{
-    background: '#FFFFFF',
+    background: 'var(--pf-bg-elevated)',
     padding: '24px',
     borderRadius: '16px',
     border: '1px solid var(--pf-border-subtle)',

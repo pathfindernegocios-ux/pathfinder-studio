@@ -118,7 +118,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
   const badge = (() => {
     if (variant === 'owned') return { text: 'Disponible', color: '#10B981', bg: 'rgba(16,185,129,0.1)', Icon: CheckCircle2 };
     if (variant === 'coming_soon') return { text: 'Próximamente', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', Icon: Clock };
-    return { text: 'Bloqueado', color: '#6B7280', bg: 'rgba(107,114,128,0.1)', Icon: Lock };
+    return { text: 'Bloqueado', color: 'var(--pf-text-muted)', bg: 'rgba(107,114,128,0.1)', Icon: Lock };
   })();
 
   return (
@@ -200,14 +200,14 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
                   fontWeight: 600,
                   textTransform: 'none',
                   letterSpacing: '0',
-                  color: isOnline ? '#10B981' : '#9CA3AF',
+                  color: isOnline ? '#10B981' : 'var(--pf-text-muted)',
                 }}
               >
                 <span style={{
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  background: isOnline ? '#10B981' : '#9CA3AF',
+                  background: isOnline ? '#10B981' : 'var(--pf-text-muted)',
                 }} />
                 {isOnline ? 'Estación ON' : 'Estación OFF'}
               </span>
@@ -261,7 +261,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
             gap: '8px',
             padding: '10px 16px',
             background: isDownloading ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)',
-            color: isDownloading ? 'var(--pf-text-muted)' : '#FFFFFF',
+            color: isDownloading ? 'var(--pf-text-muted)' : 'var(--pf-bg-elevated)',
             border: 'none',
             borderRadius: '10px',
             fontFamily: 'var(--pf-font-ui)',
@@ -488,7 +488,7 @@ const StationPage: React.FC = () => {
                 gap: "8px",
                 padding: "10px 18px",
                 background: "var(--pf-text-primary, #0A0A0A)",
-                color: "#FFFFFF",
+                color: "var(--pf-bg-elevated)",
                 borderRadius: "10px",
                 textDecoration: "none",
                 fontFamily: "var(--pf-font-ui, system-ui)",

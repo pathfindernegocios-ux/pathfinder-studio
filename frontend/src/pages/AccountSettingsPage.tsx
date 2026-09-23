@@ -43,8 +43,8 @@ const TabButton: React.FC<{
     onClick={onClick}
     style={{
       padding: "10px 20px",
-      background: active ? "#FFFFFF" : "transparent",
-      color: active ? "#0A0A0A" : "var(--pf-text-secondary, #525252)",
+      background: active ? "var(--pf-bg-elevated)" : "transparent",
+      color: active ? "var(--pf-text-primary)" : "var(--pf-text-secondary, #525252)",
       border: "none",
       borderRadius: "8px",
       fontFamily: "var(--pf-font-ui, system-ui)",
@@ -326,7 +326,7 @@ const AccountSettingsPage: React.FC = () => {
         {tab === "profile" && (
           <div
             style={{
-              background: "#FFFFFF",
+              background: "var(--pf-bg-elevated)",
               border: "1px solid var(--pf-border-subtle, #F4F4F5)",
               borderRadius: "16px",
               padding: "32px",
@@ -363,7 +363,7 @@ const AccountSettingsPage: React.FC = () => {
                     height: "72px",
                     borderRadius: "50%",
                     background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                    color: "#FFFFFF",
+                    color: "var(--pf-bg-elevated)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -467,7 +467,7 @@ const AccountSettingsPage: React.FC = () => {
                   }`,
                   borderRadius: "8px",
                   overflow: "hidden",
-                  background: "#FFFFFF",
+                  background: "var(--pf-bg-elevated)",
                 }}
               >
                 <span
@@ -547,7 +547,7 @@ const AccountSettingsPage: React.FC = () => {
                 style={{
                   width: "100%",
                   padding: "12px 16px",
-                  background: "#FFFFFF",
+                  background: "var(--pf-bg-elevated)",
                   border: "1px solid var(--pf-border-default, #E5E5E5)",
                   borderRadius: "8px",
                   fontSize: "0.9375rem",
@@ -590,7 +590,7 @@ const AccountSettingsPage: React.FC = () => {
                   : "var(--pf-text-primary, #0A0A0A)",
                 color: !canSaveProfile
                   ? "var(--pf-text-muted, #A1A1AA)"
-                  : "#FFFFFF",
+                  : "var(--pf-bg-elevated)",
                 border: "none",
                 borderRadius: "8px",
                 fontSize: "0.9375rem",
@@ -610,7 +610,7 @@ const AccountSettingsPage: React.FC = () => {
             {/* Plan + Modelos */}
             <div
               style={{
-                background: "#FFFFFF",
+                background: "var(--pf-bg-elevated)",
                 border: "1px solid var(--pf-border-subtle, #F4F4F5)",
                 borderRadius: "16px",
                 padding: "32px",
@@ -643,7 +643,7 @@ const AccountSettingsPage: React.FC = () => {
                           ? "rgba(107,114,128,0.1)"
                           : "rgba(16,185,129,0.1)",
                       color:
-                        profile.plan === "free" ? "#6B7280" : "#10B981",
+                        profile.plan === "free" ? "var(--pf-text-muted)" : "#10B981",
                       borderRadius: "9999px",
                       fontSize: "0.75rem",
                       fontWeight: 600,
@@ -725,7 +725,7 @@ const AccountSettingsPage: React.FC = () => {
             {/* Uso */}
             <div
               style={{
-                background: "#FFFFFF",
+                background: "var(--pf-bg-elevated)",
                 border: "1px solid var(--pf-border-subtle, #F4F4F5)",
                 borderRadius: "16px",
                 padding: "32px",
@@ -759,7 +759,7 @@ const AccountSettingsPage: React.FC = () => {
             {/* Danger zone */}
             <div
               style={{
-                background: "#FFFFFF",
+                background: "var(--pf-bg-elevated)",
                 border: "1px solid rgba(239,68,68,0.2)",
                 borderRadius: "16px",
                 padding: "32px",
@@ -816,7 +816,7 @@ const AccountSettingsPage: React.FC = () => {
         {tab === "security" && (
           <div
             style={{
-              background: "#FFFFFF",
+              background: "var(--pf-bg-elevated)",
               border: "1px solid var(--pf-border-subtle, #F4F4F5)",
               borderRadius: "16px",
               padding: "32px",
@@ -891,7 +891,7 @@ const AccountSettingsPage: React.FC = () => {
               style={{
                 padding: "12px 24px",
                 background: "var(--pf-text-primary, #0A0A0A)",
-                color: "#FFFFFF",
+                color: "var(--pf-bg-elevated)",
                 border: "none",
                 borderRadius: "8px",
                 fontSize: "0.875rem",
@@ -926,7 +926,7 @@ const AccountSettingsPage: React.FC = () => {
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "#FFFFFF",
+              background: "var(--pf-bg-elevated)",
               borderRadius: "16px",
               padding: "32px",
               maxWidth: "440px",
@@ -972,7 +972,7 @@ const AccountSettingsPage: React.FC = () => {
               style={{
                 width: "100%",
                 padding: "12px 16px",
-                background: "#FFFFFF",
+                background: "var(--pf-bg-elevated)",
                 border: "1px solid var(--pf-border-default, #E5E5E5)",
                 borderRadius: "8px",
                 fontSize: "0.9375rem",
@@ -1034,7 +1034,7 @@ const AccountSettingsPage: React.FC = () => {
                     deleteConfirm === "ELIMINAR" && !deleting
                       ? "#EF4444"
                       : "rgba(239,68,68,0.4)",
-                  color: "#FFFFFF",
+                  color: "var(--pf-bg-elevated)",
                   border: "none",
                   borderRadius: "8px",
                   fontSize: "0.9375rem",

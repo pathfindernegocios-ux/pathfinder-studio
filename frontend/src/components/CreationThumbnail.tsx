@@ -119,7 +119,7 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
         overflow: 'hidden', 
         boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease',
-        background: isVideo ? '#000' : 'var(--pf-bg-secondary)', // Fondo negro solo para videos
+        background: isVideo ? 'var(--pf-text-primary)' : 'var(--pf-bg-secondary)', // Fondo negro solo para videos
         position: 'relative'
       }}
       onMouseEnter={(e) => {

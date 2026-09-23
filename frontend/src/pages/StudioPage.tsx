@@ -301,7 +301,7 @@ const StudioPage: React.FC = () => {
                     }}>
                       {item.prompt}
                     </div>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#FFFFFF', fontWeight: 700, flexShrink: 0, overflow: 'hidden', fontFamily: 'var(--pf-font-ui)' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: 'var(--pf-bg-elevated)', fontWeight: 700, flexShrink: 0, overflow: 'hidden', fontFamily: 'var(--pf-font-ui)' }}>
                       {userAvatarUrl ? (
                         <img src={userAvatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
@@ -313,7 +313,7 @@ const StudioPage: React.FC = () => {
 
                 {/* Respuesta IA */}
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', width: '100%' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pf-text-primary, #0A0A0A)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#FFFFFF' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pf-text-primary, #0A0A0A)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--pf-bg-elevated)' }}>
                     <Sparkles size={16} />
                   </div>
 
@@ -572,7 +572,7 @@ const StudioPage: React.FC = () => {
           width: '40px',
           height: '40px',
           borderRadius: '50%',
-          background: '#FFFFFF',
+          background: 'var(--pf-bg-elevated)',
           border: '1px solid var(--pf-border-default, #E5E5E5)',
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
           display: 'flex',
@@ -589,7 +589,7 @@ const StudioPage: React.FC = () => {
           e.currentTarget.style.transform = 'scale(1.05)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = '#FFFFFF';
+          e.currentTarget.style.background = 'var(--pf-bg-elevated)';
           e.currentTarget.style.borderColor = 'var(--pf-border-default, #E5E5E5)';
           e.currentTarget.style.color = 'var(--pf-text-secondary, #525252)';
           e.currentTarget.style.transform = 'scale(1)';

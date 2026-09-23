@@ -18,9 +18,67 @@
   --pf-glass-surface: rgba(255, 255, 255, 0.75);
   --pf-shadow-floating: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
 
+  /* Superficies específicas para dark theme */
+  --pf-bg-input: #FFFFFF;
+  --pf-bg-elevated: #FFFFFF;
+  --pf-overlay-backdrop: rgba(0, 0, 0, 0.5);
+  --pf-text-inverse: #FFFFFF;
+  --pf-chip-bg: #F9FAFB;
+  --pf-chip-bg-hover: #F3F4F6;
+  --pf-chip-border: #E5E7EB;
+  --pf-skeleton-base: #1a1a1a;
+  --pf-skeleton-highlight: #2a2a2a;
+
   --pf-font-display: 'Satoshi', 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
   --pf-font-ui: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
   --pf-font-prompt: 'Satoshi', 'Inter Tight', sans-serif;
+}
+
+/* ============================================================
+   DARK THEME
+   Solo aplica a la App (logueado). El marketing siempre usa light.
+   Se activa con: document.documentElement.dataset.theme = "dark"
+   ============================================================ */
+:root[data-theme="dark"] {
+  --pf-bg-primary: #0A0A0A;
+  --pf-bg-secondary: #141414;
+  --pf-bg-tertiary: #1F1F1F;
+
+  --pf-text-primary: #F5F5F5;
+  --pf-text-secondary: #A1A1AA;
+  --pf-text-muted: #6E747D;
+
+  --pf-border-default: #2A2A2A;
+  --pf-border-subtle: #1F1F1F;
+
+  --pf-accent-primary: #F5F5F5;
+  --pf-accent-secondary: #A1A1AA;
+
+  /* Estados mantienen su color (funcionan en ambos temas) */
+  --pf-success: #10B981;
+  --pf-warning: #F59E0B;
+  --pf-error: #EF4444;
+
+  --pf-glass-surface: rgba(20, 20, 20, 0.75);
+  --pf-shadow-floating: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
+
+  /* Superficies específicas para dark theme */
+  --pf-bg-input: #1F1F1F;
+  --pf-bg-elevated: #1A1A1A;
+  --pf-overlay-backdrop: rgba(0, 0, 0, 0.75);
+  --pf-text-inverse: #0A0A0A;
+  --pf-chip-bg: #1F1F1F;
+  --pf-chip-bg-hover: #2A2A2A;
+  --pf-chip-border: #2A2A2A;
+  --pf-skeleton-base: #1a1a1a;
+  --pf-skeleton-highlight: #2a2a2a;
+
+  color-scheme: dark;
+}
+
+/* Suavizar transición cuando cambia el tema */
+html {
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .pf-glass-panel {
