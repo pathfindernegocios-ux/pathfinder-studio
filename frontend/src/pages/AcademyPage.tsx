@@ -229,12 +229,11 @@ const ContentBlock: React.FC<{
 );
 
 // ---------------------------------------------------------------------------
-// AcademyPage
+// AcademyContent — contenido sin wrapper
 // ---------------------------------------------------------------------------
-const AcademyPage: React.FC = () => {
+export const AcademyContent: React.FC = () => {
   return (
-    <MarketingLayout>
-      <div style={{ maxWidth: "880px", margin: "0 auto", padding: "60px 24px 120px" }}>
+    <div style={{ maxWidth: "880px", margin: "0 auto", padding: "60px 24px 120px" }}>
         {/* Hero */}
         <div style={{ marginBottom: "48px" }}>
           <div
@@ -408,9 +407,17 @@ const AcademyPage: React.FC = () => {
           distintos puede requerir mayor capacidad de hardware o provocar inestabilidad. Si tienes
           dudas sobre cuál usar, empieza por Krea 2 Turbo para imágenes y LTX 2.3 para video.
         </div>
-      </div>
-    </MarketingLayout>
+    </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// AcademyPage — wrapper público con MarketingLayout
+// ---------------------------------------------------------------------------
+const AcademyPage: React.FC = () => (
+  <MarketingLayout>
+    <AcademyContent />
+  </MarketingLayout>
+);
 
 export default AcademyPage;

@@ -39,8 +39,8 @@ import { AssetsPage } from "./pages/placeholders/AssetsPage";
 
 // Legal
 import TermsPage from "./pages/legal/TermsPage";
-import HowItWorksPage from "./pages/HowItWorksPage";
-import AcademyPage from "./pages/AcademyPage";
+import HowItWorksPage, { HowItWorksContent } from "./pages/HowItWorksPage";
+import AcademyPage, { AcademyContent } from "./pages/AcademyPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 
 // ---------------------------------------------------------------------------
@@ -82,6 +82,7 @@ interface ProtectedAppLayoutProps {
   profile: Profile | null;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  children?: React.ReactNode;
 }
 
 const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
@@ -89,6 +90,7 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
   profile,
   sidebarCollapsed,
   setSidebarCollapsed,
+  children,
 }) => {
   if (!session) return <Navigate to="/auth" replace />;
   if (!profile) return <LoadingScreen />;
@@ -145,7 +147,19 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
           position: "relative",
         }}
       >
-        <Outlet />
+        {children ? (
+          <div
+            style={{
+              height: "100%",
+              overflowY: "auto",
+              overflowX: "hidden",
+            }}
+          >
+            {children}
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
     </div>
   );
@@ -205,8 +219,40 @@ function App() {
           <Route path="/welcome" element={<Navigate to="/studio" replace />} />
           <Route path="/legal/terms" element={<TermsPage />} />
           <Route path="/legal/privacy" element={<PrivacyPage />} />
-          <Route path="/how-it-works" element={<HowItWorksPage />} />
-          <Route path="/academy" element={<AcademyPage />} />
+          <Route
+            path="/how-it-works"
+            element={
+              session && profile ? (
+                <ProtectedAppLayout
+                  session={session}
+                  profile={profile}
+                  sidebarCollapsed={sidebarCollapsed}
+                  setSidebarCollapsed={setSidebarCollapsed}
+                >
+                  <HowItWorksContent />
+                </ProtectedAppLayout>
+              ) : (
+                <HowItWorksPage />
+              )
+            }
+          />
+          <Route
+            path="/academy"
+            element={
+              session && profile ? (
+                <ProtectedAppLayout
+                  session={session}
+                  profile={profile}
+                  sidebarCollapsed={sidebarCollapsed}
+                  setSidebarCollapsed={setSidebarCollapsed}
+                >
+                  <AcademyContent />
+                </ProtectedAppLayout>
+              ) : (
+                <AcademyPage />
+              )
+            }
+          />
 
           {/* ============================================================
               ONBOARDING & ESTADOS DE CUENTA

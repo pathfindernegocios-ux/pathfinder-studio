@@ -188,9 +188,10 @@ const Step: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 // ---------------------------------------------------------------------------
-// HowItWorksPage
+// HowItWorksContent — contenido sin wrapper de layout
+// Se usa tanto desde MarketingLayout (anon) como desde SidebarShell (logueado)
 // ---------------------------------------------------------------------------
-const HowItWorksPage: React.FC = () => {
+export const HowItWorksContent: React.FC = () => {
   const { session, profile } = useAuth();
   const [isMarking, setIsMarking] = useState(false);
 
@@ -214,8 +215,7 @@ const HowItWorksPage: React.FC = () => {
   };
 
   return (
-    <MarketingLayout>
-      <div style={{ maxWidth: "880px", margin: "0 auto", padding: "60px 24px 120px" }}>
+    <div style={{ maxWidth: "880px", margin: "0 auto", padding: "60px 24px 120px" }}>
         {/* ==================== HERO ==================== */}
         <div style={{ marginBottom: "48px" }}>
           <div
@@ -848,9 +848,18 @@ const HowItWorksPage: React.FC = () => {
             </Link>
           )}
         </section>
-      </div>
-    </MarketingLayout>
+    </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// HowItWorksPage — wrapper público con MarketingLayout
+// Solo se usa cuando NO hay sesión activa
+// ---------------------------------------------------------------------------
+const HowItWorksPage: React.FC = () => (
+  <MarketingLayout>
+    <HowItWorksContent />
+  </MarketingLayout>
+);
 
 export default HowItWorksPage;
