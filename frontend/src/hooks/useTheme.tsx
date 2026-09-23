@@ -11,32 +11,50 @@ import {
 } from "../lib/theme";
 
 interface ThemeContextValue {
-  /** Preferencia del usuario: 'light' | 'dark' | 'system' */
   preference: ThemePreference;
-  /** Tema aplicado actualmente: 'light' | 'dark' */
   resolved: ResolvedTheme;
-  /** Cambiar la preferencia */
   setPreference: (pref: ThemePreference) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  /**
+   * Si es false, el dark theme NO se aplica (siempre light).
+   * Se usa para páginas públicas (landing, pricing, auth, etc.).
+   * Default: true (para compatibilidad).
+   */
+  enabled?: boolean;
+}
+
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({
+  children,
+  enabled = true,
+}) => {
   const [preference, setPreferenceState] = useState<ThemePreference>(() =>
     getStoredThemePreference(),
   );
-  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(preference));
+  const [resolved, setResolved] = useState<ResolvedTheme>(() =>
+    enabled ? resolveTheme(getStoredThemePreference()) : "light",
+  );
 
-  // Aplicar tema cuando cambia la preferencia
+  // Aplicar tema cuando cambia la preferencia o el flag enabled
   useEffect(() => {
+    if (!enabled) {
+      applyTheme("light");
+      setResolved("light");
+      return;
+    }
     const next = resolveTheme(preference);
     setResolved(next);
     applyTheme(next);
-  }, [preference]);
+  }, [preference, enabled]);
 
-  // Si la preferencia es 'system', escuchar cambios del OS
+  // Si la preferencia es 'system' Y el tema está habilitado,
+  // escuchar cambios del OS
   useEffect(() => {
-    if (preference !== "system") return;
+    if (!enabled || preference !== "system") return;
     if (typeof window === "undefined" || !window.matchMedia) return;
 
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
@@ -46,7 +64,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       applyTheme(next);
     };
 
-    // Compatibilidad Safari < 14
     if (mql.addEventListener) {
       mql.addEventListener("change", handleChange);
       return () => mql.removeEventListener("change", handleChange);
@@ -54,7 +71,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       (mql as any).addListener(handleChange);
       return () => (mql as any).removeListener(handleChange);
     }
-  }, [preference]);
+  }, [preference, enabled]);
 
   const setPreference = useCallback((pref: ThemePreference) => {
     setStoredThemePreference(pref);
