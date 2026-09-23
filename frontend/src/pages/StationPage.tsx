@@ -394,7 +394,7 @@ const StationPage: React.FC = () => {
 
   const handleShutdown = async (modelId: string) => {
     const confirmed = window.confirm(
-      `¿Seguro que querés apagar tu estación? Se perderán todos tus datos.\n\n` +
+      `¿Seguro que quieres apagar tu estación? Se perderán todos tus datos.\n\n` +
       `Asegurate de guardar tus creaciones antes de continuar.`
     );
     if (!confirmed) return;

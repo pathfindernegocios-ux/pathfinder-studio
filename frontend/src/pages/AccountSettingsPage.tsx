@@ -199,7 +199,7 @@ const AccountSettingsPage: React.FC = () => {
       setSavingProfile(false);
     } catch (err) {
       console.error("[Settings] save profile error:", err);
-      setProfileMsg({ type: "err", text: "Ocurrió un error. Intentá de nuevo." });
+      setProfileMsg({ type: "err", text: "Ocurrió un error. Intenta de nuevo." });
       setSavingProfile(false);
     }
   }, [canSaveProfile, session?.user?.id, username, fullName, usernameChanged, fullNameChanged]);
@@ -906,7 +906,7 @@ const AccountSettingsPage: React.FC = () => {
                   marginBottom: "20px",
                 }}
               >
-                Una vez eliminada, tu cuenta se programará para borrado. Tenés
+                Una vez eliminada, tu cuenta se programará para borrado. Tienes
                 30 días para recuperarla iniciando sesión.
               </p>
               <button
@@ -980,8 +980,8 @@ const AccountSettingsPage: React.FC = () => {
                 marginBottom: "20px",
               }}
             >
-              Si cerraste sesión en otro dispositivo y querés invalidar todas
-              las demás sesiones, usá este botón. Vas a mantener la sesión
+              Si cerraste sesión en otro dispositivo y quieres invalidar todas
+              las demás sesiones, usa este botón. Vas a mantener la sesión
               actual activa.
             </p>
 
@@ -1085,8 +1085,8 @@ const AccountSettingsPage: React.FC = () => {
                 marginBottom: "20px",
               }}
             >
-              Tu cuenta se programará para eliminación. Tenés{" "}
-              <strong>30 días</strong> para recuperarla iniciando sesión. Escribí{" "}
+              Tu cuenta se programará para eliminación. Tienes{" "}
+              <strong>30 días</strong> para recuperarla iniciando sesión. Escribe{" "}
               <strong>ELIMINAR</strong> para confirmar.
             </p>
 
