@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useGenerationContext } from '../context/GenerationContext';
-import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X } from 'lucide-react';
+import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X, Loader2 } from 'lucide-react';
 
 type TabType = 'video' | 'image' | 'audio';
 
@@ -837,20 +837,47 @@ const FloatingCommandCenter: React.FC = () => {
             <button
               onClick={handleGenerateClick}
               disabled={!prompt.trim() || isLoading}
+              className={isLoading ? 'pf-generating-btn' : ''}
               style={{
                 position: 'absolute', right: '0', bottom: '0',
-                background: !prompt.trim() || isLoading ? 'var(--pf-border-default)' : 'var(--pf-text-primary)',
-                color: 'var(--pf-bg-elevated)', fontFamily: 'var(--pf-font-ui)', fontSize: '13px', fontWeight: 600,
-                padding: '7px 18px', borderRadius: '99px', border: 'none',
+                background: isLoading
+                  ? 'var(--pf-text-primary)'
+                  : (!prompt.trim() ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)'),
+                color: isLoading
+                  ? 'var(--pf-text-inverse, #FFFFFF)'
+                  : (!prompt.trim() ? 'var(--pf-text-muted)' : 'var(--pf-text-inverse, #FFFFFF)'),
+                fontFamily: 'var(--pf-font-ui)',
+                fontSize: '13px',
+                fontWeight: 600,
+                padding: '7px 18px',
+                borderRadius: '99px',
+                border: 'none',
                 cursor: !prompt.trim() || isLoading ? 'not-allowed' : 'pointer',
-                opacity: !prompt.trim() || isLoading ? '0.5' : '1', transition: 'all 0.2s', whiteSpace: 'nowrap',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                minWidth: isLoading ? '118px' : 'auto',
+                justifyContent: 'center',
               }}
             >
-              Generar
-              <Sparkles size={14} />
+              {isLoading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Generando</span>
+                  <span className="pf-dots">
+                    <span>.</span>
+                    <span>.</span>
+                    <span>.</span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  Generar
+                  <Sparkles size={14} />
+                </>
+              )}
             </button>
           </div>
 
