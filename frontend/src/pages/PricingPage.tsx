@@ -222,7 +222,7 @@ const StatusBanner: React.FC<{
       <span style={{ flex: 1 }}>
         {isSuccess
           ? "¡Pago confirmado! Estamos activando tu acceso a Flux y LTX. Puede tardar unos segundos."
-          : "Cancelaste el proceso de pago. Podés intentarlo de nuevo cuando quieras."}
+          : "Cancelaste el proceso de pago. Puedes intentarlo de nuevo cuando quieras."}
       </span>
       <button
         onClick={onDismiss}
@@ -310,7 +310,7 @@ const PricingPage: React.FC = () => {
               margin: 0,
             }}
           >
-            Empezá gratis con Krea. Desbloqueá Flux y LTX con Pathfinder Pro
+            Empieza gratis con Krea. Desbloqueá Flux y LTX con Pathfinder Pro
             Beta. Sin suscripciones, sin cargos recurrentes.
           </p>
         </div>
@@ -407,7 +407,7 @@ const PricingPage: React.FC = () => {
                 {
                   n: "04",
                   title: "Generás desde Pathfinder",
-                  body: "El Studio detecta tu estación y podés usar los modelos Pro.",
+                  body: "El Studio detecta tu estación y puedes usar los modelos Pro.",
                 },
               ].map((s, i) => (
                 <div key={i} style={{ textAlign: "left" }}>
@@ -593,7 +593,7 @@ const PricingPage: React.FC = () => {
                     textAlign: "center",
                   }}
                 >
-                  ✓ Ya tenés Pro activo
+                  ✓ Ya tienes Pro activo
                 </div>
               ) : (
                 <button
@@ -691,19 +691,19 @@ const PricingPage: React.FC = () => {
             {[
               {
                 q: "¿Es realmente gratis?",
-                a: "Sí. El plan Free no tiene costo, no requiere tarjeta y no tiene fecha de vencimiento. Podés usar Krea todo el tiempo que quieras dentro de los límites indicados.",
+                a: "Sí. El plan Free no tiene costo, no requiere tarjeta y no tiene fecha de vencimiento. Puedes usar Krea todo el tiempo que quieras dentro de los límites indicados.",
               },
               {
                 q: "¿Qué incluye Pathfinder Pro Beta?",
-                a: "Acceso a Flux 2 Klein 4B y LTX 2.3 por 6 meses desde la fecha de pago. Además de Krea 2 Turbo, que ya tenés en Free. Incluye todas las mejoras del catálogo Pro que se incorporen durante ese período.",
+                a: "Acceso a Flux 2 Klein 4B y LTX 2.3 por 6 meses desde la fecha de pago. Además de Krea 2 Turbo, que ya tienes en Free. Incluye todas las mejoras del catálogo Pro que se incorporen durante ese período.",
               },
               {
                 q: "¿Es una suscripción?",
-                a: "No. Es un pago único de $399 MXN que te da acceso a los modelos Pro por 6 meses. Al término, podés renovar o seguir usando el plan Free sin perder nada.",
+                a: "No. Es un pago único de $399 MXN que te da acceso a los modelos Pro por 6 meses. Al término, puedes renovar o seguir usando el plan Free sin perder nada.",
               },
               {
                 q: "¿Puedo pedir reembolso?",
-                a: "Sí. Dentro de los primeros 14 días naturales después de tu compra, podés solicitar el reembolso completo sin necesidad de justificación, escribiéndonos a pathfinder.contacto@gmail.com.",
+                a: "Sí. Dentro de los primeros 14 días naturales después de tu compra, puedes solicitar el reembolso completo sin necesidad de justificación, escribiéndonos a pathfinder.contacto@gmail.com.",
               },
               {
                 q: "¿Necesito instalar algo?",
@@ -711,7 +711,7 @@ const PricingPage: React.FC = () => {
               },
               {
                 q: "¿Cuánto tiempo duran mis creaciones?",
-                a: "En ambos planes, las creaciones se almacenan por 7 días. Si querés conservarlas, podés descargarlas en cualquier momento.",
+                a: "En ambos planes, las creaciones se almacenan por 7 días. Si quieres conservarlas, puedes descargarlas en cualquier momento.",
               },
               {
                 q: "¿Qué métodos de pago aceptan?",
@@ -779,7 +779,7 @@ const PricingPage: React.FC = () => {
               color: "var(--pf-bg-elevated)",
             }}
           >
-            Empezá ahora, gratis
+            Empieza ahora, gratis
           </h2>
           <p
             style={{

@@ -336,8 +336,8 @@ const HomePage: React.FC = () => {
           {[
             { n: "01", title: "Crear tu cuenta", body: "Registrate con Google en 20 segundos. Sin formularios largos." },
             { n: "02", title: "Elegir un modelo", body: "Krea para imágenes rápidas, Flux para edición, LTX para video." },
-            { n: "03", title: "Describir tu idea", body: "Escribí un prompt y ajustá parámetros si querés. O dejalo simple." },
-            { n: "04", title: "Generar y descargar", body: "En segundos tenés tu resultado listo para usar donde quieras." },
+            { n: "03", title: "Describir tu idea", body: "Escribe un prompt y ajustá parámetros si quieres. O déjalo simple." },
+            { n: "04", title: "Generar y descargar", body: "En segundos tienes tu resultado listo para usar donde quieras." },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: "left" }}>
               <div
