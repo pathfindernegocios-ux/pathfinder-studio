@@ -921,7 +921,7 @@ const FloatingCommandCenter: React.FC = () => {
                     setKreaParams(prev => ({ ...prev, negativePrompt: v }));
                   }
                 }}
-                placeholder="Lo que NO querés que aparezca: low quality, blurry, distorted, extra fingers..."
+                placeholder="Lo que NO quieres que aparezca: low quality, blurry, distorted, extra fingers..."
                 rows={2}
                 style={{
                   marginTop: '8px',
