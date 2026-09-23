@@ -582,6 +582,7 @@ const PricingPage: React.FC = () => {
                 <div
                   style={{
                     width: "100%",
+                    boxSizing: "border-box",
                     padding: "12px 24px",
                     background: "rgba(16,185,129,0.1)",
                     color: "#059669",
