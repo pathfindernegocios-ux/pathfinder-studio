@@ -1,5 +1,5 @@
 // src/components/Sidebar.tsx
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
@@ -37,6 +37,37 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  // Dropdown de usuario
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  // Datos de display del usuario
+  const displayName =
+    profile?.full_name?.split(' ')[0] ||
+    profile?.username ||
+    profile?.email?.split('@')[0] ||
+    'Usuario';
+
+  const avatarInitial = (
+    profile?.username?.[0] ||
+    profile?.full_name?.[0] ||
+    profile?.email?.[0] ||
+    'U'
+  ).toUpperCase();
+
+  const avatarUrl = profile?.avatar_url || null;
 
   // Configuración de navegación
   // featured: true -> Se muestra siempre (incluso colapsado)
@@ -189,78 +220,242 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
         backdropFilter: 'blur(12px)' 
       }}>
         {session && profile ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              width: '36px', 
-              height: '36px', 
-              borderRadius: '50%', 
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', 
-              color: '#FFFFFF', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              fontFamily: 'var(--pf-font-ui)', 
-              fontSize: '0.9rem', 
-              fontWeight: 700,
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-              flexShrink: 0
-            }}>
-              {(profile.email || profile.user_metadata?.email || 'U')[0].toUpperCase()}
-            </div>
-            
-            {!collapsed && (
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ 
-                  fontFamily: 'var(--pf-font-ui)', 
-                  fontSize: '0.85rem', 
-                  fontWeight: 600, 
-                  color: 'var(--pf-text-primary, #F2F2F2)', 
-                  whiteSpace: 'nowrap', 
-                  overflow: 'hidden', 
-                  textOverflow: 'ellipsis' 
-                }}>
-                  {profile.email?.split('@')[0] || 'Usuario'}
-                </div>
-                <div style={{ 
-                  fontFamily: 'var(--pf-font-ui)', 
-                  fontSize: '0.75rem', 
-                  color: 'var(--pf-text-muted, #6E747D)',
-                  marginTop: '2px'
-                }}>
-                  En línea
-                </div>
-              </div>
-            )}
-            
-            {!collapsed && (
-              <button 
-                onClick={handleLogout} 
-                style={{ 
-                  background: 'transparent', 
-                  border: '1px solid var(--pf-border-default, #40454D)', 
-                  borderRadius: '8px', 
-                  padding: '6px 12px', 
-                  fontFamily: 'var(--pf-font-ui)', 
-                  fontSize: '0.75rem', 
-                  fontWeight: 500,
-                  color: 'var(--pf-text-secondary, #9EA4AA)', 
-                  cursor: 'pointer', 
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-                  e.currentTarget.style.color = '#ef4444';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.borderColor = 'var(--pf-border-default, #40454D)';
-                  e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)';
+          <div ref={menuRef} style={{ position: 'relative' }}>
+            {/* Botón de usuario (avatar + nombre) */}
+            <button
+              onClick={() => {
+                // Si está colapsado, expandir el sidebar primero
+                if (collapsed) {
+                  onToggleCollapsed();
+                  // Abrir el menú después de que el sidebar se expanda
+                  setTimeout(() => setMenuOpen(true), 100);
+                } else {
+                  setMenuOpen((o) => !o);
+                }
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                background: menuOpen ? 'var(--pf-glass-surface, rgba(255,255,255,0.05))' : 'transparent',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '6px',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+              }}
+              onMouseEnter={(e) => {
+                if (!menuOpen) e.currentTarget.style.background = 'var(--pf-glass-surface, rgba(255,255,255,0.05))';
+              }}
+              onMouseLeave={(e) => {
+                if (!menuOpen) e.currentTarget.style.background = 'transparent';
+              }}
+              title={collapsed ? displayName : undefined}
+            >
+              {/* Avatar */}
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                  flexShrink: 0,
                 }}
               >
-                Salir
-              </button>
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  avatarInitial
+                )}
+              </div>
+
+              {!collapsed && (
+                <>
+                  <div style={{ flex: 1, overflow: 'hidden', textAlign: 'left' }}>
+                    <div
+                      style={{
+                        fontFamily: 'var(--pf-font-ui)',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: 'var(--pf-text-primary, #F2F2F2)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {displayName}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: 'var(--pf-font-ui)',
+                        fontSize: '0.7rem',
+                        color: 'var(--pf-text-muted, #6E747D)',
+                        marginTop: '2px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      @{profile.username || 'usuario'}
+                    </div>
+                  </div>
+
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={{
+                      color: 'var(--pf-text-muted, #6E747D)',
+                      transform: menuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.15s ease',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </>
+              )}
+            </button>
+
+            {/* Dropdown */}
+            {menuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: '0',
+                  marginBottom: '8px',
+                  minWidth: '220px',
+                  background: '#FFFFFF',
+                  border: '1px solid var(--pf-border-default, #E5E5E5)',
+                  borderRadius: '12px',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
+                  padding: '8px',
+                  zIndex: 100,
+                }}
+              >
+                {/* Header del dropdown */}
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    borderBottom: '1px solid var(--pf-border-subtle, #F4F4F5)',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: 'var(--pf-font-ui, system-ui)',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      color: 'var(--pf-text-primary, #0A0A0A)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {profile.full_name || profile.username || 'Usuario'}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--pf-font-ui, system-ui)',
+                      fontSize: '0.75rem',
+                      color: 'var(--pf-text-muted, #A1A1AA)',
+                      marginTop: '2px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {profile.email}
+                  </div>
+                </div>
+
+                {/* Opciones */}
+                <Link
+                  to="/settings"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    fontFamily: 'var(--pf-font-ui, system-ui)',
+                    fontSize: '0.875rem',
+                    color: 'var(--pf-text-secondary, #525252)',
+                    transition: 'background 0.1s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--pf-bg-secondary, #FAFAFA)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" />
+                  </svg>
+                  Configuración
+                </Link>
+
+                {/* Divider */}
+                <div
+                  style={{
+                    height: '1px',
+                    background: 'var(--pf-border-subtle, #F4F4F5)',
+                    margin: '6px 0',
+                  }}
+                />
+
+                {/* Cerrar sesión */}
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleLogout();
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontFamily: 'var(--pf-font-ui, system-ui)',
+                    fontSize: '0.875rem',
+                    color: '#EF4444',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 0.1s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  Cerrar sesión
+                </button>
+              </div>
             )}
           </div>
         ) : (
