@@ -5,6 +5,7 @@ import { useModels } from "../hooks/useModels";
 import { useTheme } from "../hooks/useTheme";
 import { supabase } from "../lib/supabaseClient";
 import { Monitor, Sun, Moon } from "lucide-react";
+import AvatarPicker from "../components/AvatarPicker";
 
 type Tab = "profile" | "account" | "security";
 
@@ -109,6 +110,7 @@ const AccountSettingsPage: React.FC = () => {
   const { preference, setPreference } = useTheme();
 
   const [tab, setTab] = useState<Tab>("profile");
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
   // -- Perfil: estado
   const [username, setUsername] = useState("");
@@ -442,38 +444,46 @@ const AccountSettingsPage: React.FC = () => {
                 borderBottom: "1px solid var(--pf-border-subtle, #F4F4F5)",
               }}
             >
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt="Avatar"
-                  style={{
-                    width: "72px",
-                    height: "72px",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    border: "1px solid var(--pf-border-default, #E5E5E5)",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: "72px",
-                    height: "72px",
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                    color: "var(--pf-bg-elevated)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "1.75rem",
-                    fontWeight: 700,
-                    fontFamily: "var(--pf-font-ui, system-ui)",
-                  }}
-                >
-                  {(profile.email || "U")[0].toUpperCase()}
-                </div>
-              )}
-              <div>
+              <div
+                style={{
+                  width: "72px",
+                  height: "72px",
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                }}
+              >
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="Avatar"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      color: "#FFFFFF",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1.75rem",
+                      fontWeight: 700,
+                      fontFamily: "var(--pf-font-ui, system-ui)",
+                    }}
+                  >
+                    {(profile.username?.[0] || profile.email?.[0] || "U").toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     fontSize: "1rem",
@@ -485,15 +495,23 @@ const AccountSettingsPage: React.FC = () => {
                 >
                   {profile.full_name || profile.username}
                 </div>
-                <div
+                <button
+                  type="button"
+                  onClick={() => setIsAvatarPickerOpen(true)}
                   style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--pf-text-muted, #A1A1AA)",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
                     fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.8125rem",
+                    color: "var(--pf-text-primary, #0A0A0A)",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontWeight: 500,
                   }}
                 >
-                  Avatar gestionado por Google
-                </div>
+                  Cambiar avatar
+                </button>
               </div>
             </div>
 
@@ -1005,6 +1023,17 @@ const AccountSettingsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ============ AVATAR PICKER ============ */}
+      <AvatarPicker
+        isOpen={isAvatarPickerOpen}
+        onClose={() => setIsAvatarPickerOpen(false)}
+        userId={profile.id}
+        currentAvatarUrl={profile.avatar_url}
+        onSaved={() => {
+          window.location.reload();
+        }}
+      />
 
       {/* ============ DELETE MODAL ============ */}
       {showDeleteModal && (
