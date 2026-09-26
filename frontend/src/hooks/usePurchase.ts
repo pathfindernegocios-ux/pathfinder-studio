@@ -2,12 +2,16 @@
 import { useCallback, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
+export type PlanId = "creator" | "founder";
+
 type PurchaseState = "idle" | "loading" | "error";
 
 interface UsePurchaseResult {
   state: PurchaseState;
   error: string | null;
-  startCheckout: () => Promise<void>;
+  /** Plan actualmente en proceso de checkout, o null si ninguno */
+  loadingPlan: PlanId | null;
+  startCheckout: (planId: PlanId) => Promise<void>;
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -15,10 +19,12 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 export function usePurchase(): UsePurchaseResult {
   const [state, setState] = useState<PurchaseState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
 
-  const startCheckout = useCallback(async () => {
+  const startCheckout = useCallback(async (planId: PlanId) => {
     setState("loading");
     setError(null);
+    setLoadingPlan(planId);
 
     try {
       const {
@@ -26,8 +32,9 @@ export function usePurchase(): UsePurchaseResult {
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        setError("Necesitás iniciar sesión primero.");
+        setError("Necesitas iniciar sesión primero.");
         setState("error");
+        setLoadingPlan(null);
         return;
       }
 
@@ -39,7 +46,7 @@ export function usePurchase(): UsePurchaseResult {
             Authorization: `Bearer ${session.access_token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ plan: planId }),
         },
       );
 
@@ -47,17 +54,19 @@ export function usePurchase(): UsePurchaseResult {
 
       if (!res.ok) {
         if (res.status === 409) {
-          setError(data?.error || "Ya tenés Pathfinder Pro activo.");
+          setError(data?.error || "Ya tienes acceso activo.");
         } else {
-          setError(data?.error || "No pudimos iniciar el pago. Intentá de nuevo.");
+          setError(data?.error || "No pudimos iniciar el pago. Intenta de nuevo.");
         }
         setState("error");
+        setLoadingPlan(null);
         return;
       }
 
       if (!data?.url) {
-        setError("No recibimos la URL de pago. Intentá de nuevo.");
+        setError("No recibimos la URL de pago. Intenta de nuevo.");
         setState("error");
+        setLoadingPlan(null);
         return;
       }
 
@@ -69,8 +78,9 @@ export function usePurchase(): UsePurchaseResult {
         err instanceof Error ? err.message : "Error inesperado al iniciar el pago.",
       );
       setState("error");
+      setLoadingPlan(null);
     }
   }, []);
 
-  return { state, error, startCheckout };
+  return { state, error, loadingPlan, startCheckout };
 }

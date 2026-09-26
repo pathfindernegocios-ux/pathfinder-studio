@@ -696,7 +696,7 @@ const StationPage: React.FC = () => {
                     key={model.id}
                     model={model}
                     variant={model.coming_soon ? 'coming_soon' : 'locked'}
-                    onUnlock={isPro && !model.coming_soon ? () => startCheckout() : undefined}
+                    onUnlock={isPro && !model.coming_soon ? () => startCheckout("creator") : undefined}
                     isUnlocking={purchaseState === 'loading'}
                   />
                 );

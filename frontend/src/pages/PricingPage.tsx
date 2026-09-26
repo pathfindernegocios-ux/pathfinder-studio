@@ -598,7 +598,7 @@ const PricingPage: React.FC = () => {
                 </div>
               ) : (
                 <button
-                  onClick={startCheckout}
+                  onClick={() => startCheckout("creator")}
                   disabled={purchaseState === "loading"}
                   style={{
                     width: "100%",
