@@ -1,28 +1,115 @@
 // src/pages/PricingPage.tsx
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import {
+  Search,
+  FlaskConical,
+  Gauge,
+  RefreshCw,
+  Sparkles,
+  Check as CheckIcon,
+} from "lucide-react";
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
-import { usePurchase } from "../hooks/usePurchase";
+import { usePurchase, type PlanId } from "../hooks/usePurchase";
 import { setPostAuthRedirect } from "../lib/postAuthRedirect";
 
+// ============================================================
+// CONSTANTS
+// ============================================================
+const LAUNCH_DEADLINE = new Date("2026-12-31T23:59:59-06:00");
+
+// ============================================================
+// COUNTDOWN HOOK
+// ============================================================
+function useCountdown(target: Date) {
+  const [remaining, setRemaining] = useState(() => target.getTime() - Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setRemaining(target.getTime() - Date.now());
+    }, 60_000); // cada minuto
+    return () => window.clearInterval(interval);
+  }, [target]);
+
+  if (remaining <= 0) return null;
+
+  const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+  return { days, hours };
+}
+
+// ============================================================
+// CHECK ICON
+// ============================================================
 const Check = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#10B981"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    style={{ flexShrink: 0 }}
-  >
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
+  <CheckIcon
+    size={16}
+    style={{ color: "#10B981", flexShrink: 0, marginTop: "3px" }}
+    strokeWidth={2.5}
+  />
 );
 
+// ============================================================
+// COUNTDOWN BAR
+// ============================================================
+const CountdownBar: React.FC = () => {
+  const countdown = useCountdown(LAUNCH_DEADLINE);
+  if (!countdown) return null;
+
+  const { days, hours } = countdown;
+  const timeText =
+    days > 0
+      ? `Quedan ${days} ${days === 1 ? "día" : "días"} y ${hours} ${hours === 1 ? "hora" : "horas"}`
+      : `Quedan ${hours} ${hours === 1 ? "hora" : "horas"}`;
+
+  return (
+    <div
+      style={{
+        background: "var(--pf-text-primary, #0A0A0A)",
+        color: "var(--pf-text-inverse, #FFFFFF)",
+        padding: "10px 20px",
+        textAlign: "center",
+        fontFamily: "var(--pf-font-ui, system-ui)",
+        fontSize: "0.8125rem",
+        fontWeight: 500,
+        letterSpacing: "0.01em",
+      }}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
+          flexWrap: "wrap",
+          justifyContent: "center",
+        }}
+      >
+        <span
+          style={{
+            display: "inline-block",
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: "#10B981",
+            boxShadow: "0 0 0 3px rgba(16,185,129,0.25)",
+          }}
+        />
+        <span style={{ fontWeight: 700 }}>Precio de lanzamiento</span>
+        <span style={{ opacity: 0.85 }}>·</span>
+        <span>{timeText}</span>
+        <span style={{ opacity: 0.85 }}>·</span>
+        <span style={{ opacity: 0.85 }}>Hasta el 31 de diciembre</span>
+      </span>
+    </div>
+  );
+};
+
+// ============================================================
+// PLAN CARD
+// ============================================================
 interface PlanProps {
   name: string;
   tagline: string;
@@ -32,6 +119,9 @@ interface PlanProps {
   cta: React.ReactNode;
   highlighted?: boolean;
   badge?: string;
+  badgeSubtitle?: string;
+  badgeVariant?: "recommended" | "priority" | "trial";
+  disclaimer?: string;
 }
 
 const PlanCard: React.FC<PlanProps> = ({
@@ -43,150 +133,225 @@ const PlanCard: React.FC<PlanProps> = ({
   cta,
   highlighted,
   badge,
-}) => (
-  <div
-    style={{
-      position: "relative",
-      background: "var(--pf-bg-elevated)",
-      border: highlighted
-        ? "2px solid var(--pf-text-primary, #0A0A0A)"
-        : "1px solid var(--pf-border-default, #E5E5E5)",
-      borderRadius: "20px",
-      padding: "32px 28px",
-      display: "flex",
-      flexDirection: "column",
-      boxShadow: highlighted
-        ? "0 20px 40px -12px rgba(0,0,0,0.15)"
-        : "0 2px 8px rgba(0,0,0,0.03)",
-      transition: "transform 0.2s, box-shadow 0.2s",
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = "translateY(-4px)";
-      e.currentTarget.style.boxShadow = highlighted
-        ? "0 24px 48px -12px rgba(0,0,0,0.2)"
-        : "0 12px 24px -8px rgba(0,0,0,0.08)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = "translateY(0)";
-      e.currentTarget.style.boxShadow = highlighted
-        ? "0 20px 40px -12px rgba(0,0,0,0.15)"
-        : "0 2px 8px rgba(0,0,0,0.03)";
-    }}
-  >
-    {badge && (
-      <div
-        style={{
-          position: "absolute",
-          top: "-12px",
-          right: "24px",
-          padding: "4px 12px",
-          background: "var(--pf-text-primary, #0A0A0A)",
+  badgeSubtitle,
+  badgeVariant = "recommended",
+  disclaimer,
+}) => {
+  const badgeStyles = (() => {
+    switch (badgeVariant) {
+      case "priority":
+        return {
+          bg: "var(--pf-text-primary, #0A0A0A)",
           color: "var(--pf-text-inverse, #FFFFFF)",
-          borderRadius: "9999px",
-          fontFamily: "var(--pf-font-ui, system-ui)",
-          fontSize: "0.6875rem",
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-        }}
-      >
-        {badge}
-      </div>
-    )}
-
-    <div style={{ marginBottom: "24px" }}>
-      <h3
-        style={{
-          fontFamily: "var(--pf-font-display, system-ui)",
-          fontSize: "1.25rem",
-          fontWeight: 700,
-          letterSpacing: "-0.02em",
-          margin: 0,
-          marginBottom: "4px",
-        }}
-      >
-        {name}
-      </h3>
-      <p
-        style={{
-          fontFamily: "var(--pf-font-ui, system-ui)",
-          fontSize: "0.8125rem",
+          border: "none",
+        };
+      case "trial":
+        return {
+          bg: "var(--pf-bg-tertiary, #F5F5F5)",
           color: "var(--pf-text-secondary, #525252)",
-          margin: 0,
-          lineHeight: 1.5,
-        }}
-      >
-        {tagline}
-      </p>
-    </div>
+          border: "1px solid var(--pf-border-default, #E5E5E5)",
+        };
+      default:
+        return {
+          bg: "var(--pf-text-primary, #0A0A0A)",
+          color: "var(--pf-text-inverse, #FFFFFF)",
+          border: "none",
+        };
+    }
+  })();
 
-    <div style={{ marginBottom: "28px" }}>
-      <div
-        style={{
-          fontFamily: "var(--pf-font-display, system-ui)",
-          fontSize: "2.5rem",
-          fontWeight: 800,
-          letterSpacing: "-0.04em",
-          color: "var(--pf-text-primary, #0A0A0A)",
-          lineHeight: 1,
-        }}
-      >
-        {price}
-      </div>
-      {priceNote && (
-        <div
-          style={{
-            fontFamily: "var(--pf-font-ui, system-ui)",
-            fontSize: "0.75rem",
-            color: "var(--pf-text-muted, #A1A1AA)",
-            marginTop: "6px",
-          }}
-        >
-          {priceNote}
-        </div>
-      )}
-    </div>
-
-    <ul
+  return (
+    <div
       style={{
-        listStyle: "none",
-        padding: 0,
-        margin: 0,
-        marginBottom: "32px",
+        position: "relative",
+        background: "var(--pf-bg-elevated)",
+        border: highlighted
+          ? "2px solid var(--pf-text-primary, #0A0A0A)"
+          : "1px solid var(--pf-border-default, #E5E5E5)",
+        borderRadius: "20px",
+        padding: "40px 28px 32px 28px",
         display: "flex",
         flexDirection: "column",
-        gap: "12px",
-        flex: 1,
+        boxShadow: highlighted
+          ? "0 20px 40px -12px rgba(0,0,0,0.15)"
+          : "0 2px 8px rgba(0,0,0,0.03)",
+        transition: "transform 0.2s, box-shadow 0.2s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-4px)";
+        e.currentTarget.style.boxShadow = highlighted
+          ? "0 24px 48px -12px rgba(0,0,0,0.2)"
+          : "0 12px 24px -8px rgba(0,0,0,0.08)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = highlighted
+          ? "0 20px 40px -12px rgba(0,0,0,0.15)"
+          : "0 2px 8px rgba(0,0,0,0.03)";
       }}
     >
-      {features.map((f, i) => (
-        <li
-          key={i}
+      {badge && (
+        <div
           style={{
-            display: "flex",
-            gap: "10px",
-            alignItems: "flex-start",
+            position: "absolute",
+            top: "-14px",
+            right: "24px",
+            padding: "6px 14px",
+            background: badgeStyles.bg,
+            color: badgeStyles.color,
+            border: badgeStyles.border,
+            borderRadius: "9999px",
             fontFamily: "var(--pf-font-ui, system-ui)",
-            fontSize: "0.875rem",
+            fontSize: "0.6875rem",
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {badge}
+        </div>
+      )}
+
+      <div style={{ marginBottom: badgeSubtitle ? "8px" : "24px" }}>
+        <h3
+          style={{
+            fontFamily: "var(--pf-font-display, system-ui)",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+            margin: 0,
+            marginBottom: "6px",
+            color: "var(--pf-text-primary, #0A0A0A)",
+          }}
+        >
+          {name}
+        </h3>
+        <p
+          style={{
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.8125rem",
             color: "var(--pf-text-secondary, #525252)",
+            margin: 0,
             lineHeight: 1.5,
           }}
         >
-          <span style={{ marginTop: "3px" }}>
+          {tagline}
+        </p>
+      </div>
+
+      {badgeSubtitle && (
+        <div
+          style={{
+            marginBottom: "24px",
+            padding: "10px 14px",
+            background:
+              badgeVariant === "priority"
+                ? "rgba(99,102,241,0.08)"
+                : "var(--pf-bg-secondary, #FAFAFA)",
+            border:
+              badgeVariant === "priority"
+                ? "1px solid rgba(99,102,241,0.3)"
+                : "1px solid var(--pf-border-subtle, #F4F4F5)",
+            borderRadius: "10px",
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.75rem",
+            lineHeight: 1.5,
+            color:
+              badgeVariant === "priority"
+                ? "#4F46E5"
+                : "var(--pf-text-secondary, #525252)",
+          }}
+        >
+          {badgeSubtitle}
+        </div>
+      )}
+
+      <div style={{ marginBottom: "28px" }}>
+        <div
+          style={{
+            fontFamily: "var(--pf-font-display, system-ui)",
+            fontSize: "2.5rem",
+            fontWeight: 800,
+            letterSpacing: "-0.04em",
+            color: "var(--pf-text-primary, #0A0A0A)",
+            lineHeight: 1,
+          }}
+        >
+          {price}
+        </div>
+        {priceNote && (
+          <div
+            style={{
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.75rem",
+              color: "var(--pf-text-muted, #A1A1AA)",
+              marginTop: "8px",
+              lineHeight: 1.5,
+            }}
+          >
+            {priceNote}
+          </div>
+        )}
+      </div>
+
+      <ul
+        style={{
+          listStyle: "none",
+          padding: 0,
+          margin: 0,
+          marginBottom: "32px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "11px",
+          flex: 1,
+        }}
+      >
+        {features.map((f, i) => (
+          <li
+            key={i}
+            style={{
+              display: "flex",
+              gap: "10px",
+              alignItems: "flex-start",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.875rem",
+              color: "var(--pf-text-secondary, #525252)",
+              lineHeight: 1.5,
+            }}
+          >
             <Check />
-          </span>
-          <span>{f}</span>
-        </li>
-      ))}
-    </ul>
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
 
-    {cta}
-  </div>
-);
+      {disclaimer && (
+        <div
+          style={{
+            marginBottom: "20px",
+            padding: "10px 12px",
+            background: "var(--pf-bg-secondary, #FAFAFA)",
+            border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+            borderRadius: "8px",
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.6875rem",
+            color: "var(--pf-text-muted, #A1A1AA)",
+            lineHeight: 1.5,
+            fontStyle: "italic",
+          }}
+        >
+          {disclaimer}
+        </div>
+      )}
 
-// ---------------------------------------------------------------------------
-// Banner de estado post-checkout
-// ---------------------------------------------------------------------------
+      {cta}
+    </div>
+  );
+};
+
+// ============================================================
+// STATUS BANNER (post-checkout)
+// ============================================================
 const StatusBanner: React.FC<{
   type: "success" | "cancelled";
   onDismiss: () => void;
@@ -221,7 +386,7 @@ const StatusBanner: React.FC<{
       />
       <span style={{ flex: 1 }}>
         {isSuccess
-          ? "¡Pago confirmado! Estamos activando tu acceso a Flux y LTX. Puede tardar unos segundos."
+          ? "Pago confirmado. Estamos activando tu acceso al Estudio. Puede tardar unos segundos."
           : "Cancelaste el proceso de pago. Puedes intentarlo de nuevo cuando quieras."}
       </span>
       <button
@@ -243,27 +408,203 @@ const StatusBanner: React.FC<{
   );
 };
 
-// ---------------------------------------------------------------------------
-// PricingPage
-// ---------------------------------------------------------------------------
+// ============================================================
+// SIGNATURE BLOCK
+// ============================================================
+const SignatureBlock: React.FC = () => {
+  const steps = [
+    {
+      Icon: Search,
+      title: "Investigación",
+      body: "Seguimos las últimas tecnologías del sector IA y las traducimos en workflows competitivos.",
+    },
+    {
+      Icon: FlaskConical,
+      title: "Validación",
+      body: "Llevamos cada modelo a pruebas reales hasta que cumple con el estándar Pathfinder.",
+    },
+    {
+      Icon: Gauge,
+      title: "Optimización",
+      body: "Llevamos cada workflow al límite de la plataforma donde corre.",
+    },
+    {
+      Icon: RefreshCw,
+      title: "Evolución",
+      body: "Renovamos el catálogo a medida que avanza la tecnología.",
+    },
+  ];
+
+  return (
+    <section
+      style={{
+        padding: "64px 24px 56px",
+        background: "var(--pf-bg-secondary, #FAFAFA)",
+        borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
+        borderBottom: "1px solid var(--pf-border-subtle, #F4F4F5)",
+      }}
+    >
+      <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+        <h2
+          style={{
+            fontFamily: "var(--pf-font-display, system-ui)",
+            fontSize: "clamp(1.5rem, 3vw, 2rem)",
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            textAlign: "center",
+            margin: 0,
+            marginBottom: "8px",
+            color: "var(--pf-text-primary, #0A0A0A)",
+          }}
+        >
+          Pathfinder ingeniería a tu medida
+        </h2>
+        <p
+          style={{
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.9375rem",
+            color: "var(--pf-text-secondary, #525252)",
+            textAlign: "center",
+            maxWidth: "520px",
+            margin: "0 auto 48px",
+            lineHeight: 1.55,
+          }}
+        >
+          Cada modelo, cada workflow, cada preset — pasa por nuestro proceso antes de llegar a tus manos.
+        </p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "32px 24px",
+          }}
+        >
+          {steps.map((s, i) => (
+            <div key={i}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "12px",
+                  background: "var(--pf-bg-elevated, #FFFFFF)",
+                  border: "1px solid var(--pf-border-default, #E5E5E5)",
+                  color: "var(--pf-text-primary, #0A0A0A)",
+                  marginBottom: "16px",
+                }}
+              >
+                <s.Icon size={20} strokeWidth={2} />
+              </div>
+              <h3
+                style={{
+                  fontFamily: "var(--pf-font-display, system-ui)",
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                  margin: 0,
+                  marginBottom: "8px",
+                  color: "var(--pf-text-primary, #0A0A0A)",
+                }}
+              >
+                {s.title}
+              </h3>
+              <p
+                style={{
+                  fontFamily: "var(--pf-font-ui, system-ui)",
+                  fontSize: "0.8125rem",
+                  lineHeight: 1.6,
+                  color: "var(--pf-text-secondary, #525252)",
+                  margin: 0,
+                }}
+              >
+                {s.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ============================================================
+// NEW MODELS BLOCK
+// ============================================================
+const NewModelsBlock: React.FC = () => (
+  <section style={{ padding: "80px 24px" }}>
+    <div style={{ maxWidth: "780px", margin: "0 auto", textAlign: "center" }}>
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "56px",
+          height: "56px",
+          borderRadius: "16px",
+          background: "var(--pf-text-primary, #0A0A0A)",
+          color: "var(--pf-text-inverse, #FFFFFF)",
+          marginBottom: "24px",
+        }}
+      >
+        <Sparkles size={24} />
+      </div>
+      <h2
+        style={{
+          fontFamily: "var(--pf-font-display, system-ui)",
+          fontSize: "clamp(1.5rem, 3vw, 2rem)",
+          fontWeight: 800,
+          letterSpacing: "-0.03em",
+          margin: 0,
+          marginBottom: "16px",
+          color: "var(--pf-text-primary, #0A0A0A)",
+        }}
+      >
+        Los modelos nuevos entran a tu plan sin costo extra
+      </h2>
+      <p
+        style={{
+          fontFamily: "var(--pf-font-ui, system-ui)",
+          fontSize: "1.0625rem",
+          color: "var(--pf-text-secondary, #525252)",
+          lineHeight: 1.6,
+          margin: 0,
+          maxWidth: "620px",
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
+        Cuando agregamos un modelo nuevo al catálogo de Pathfinder, entra
+        automáticamente a tu plan Creator o Founder. No pagas por separado, no
+        necesitas una nueva suscripción. El catálogo crece contigo.
+      </p>
+    </div>
+  </section>
+);
+
+// ============================================================
+// PRICING PAGE
+// ============================================================
 const PricingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { session } = useAuth();
   const { unlockedIds, refresh: refreshModels } = useModels();
-  const { state: purchaseState, error: purchaseError, startCheckout } = usePurchase();
+  const { error: purchaseError, loadingPlan, startCheckout } = usePurchase();
 
   const status = searchParams.get("status");
   const [showBanner, setShowBanner] = useState(false);
 
-  const hasPro = unlockedIds.has("flux-2-klein-4b") || unlockedIds.has("ltx-2.3");
+  const hasCreator = unlockedIds.has("flux-2-klein-4b");
+  const hasFounder = false; // TODO: chequear si tiene Founder activo (purchase.paid vigente)
 
-  // Detectar ?status=success o ?status=cancelled
+  // Detectar ?status=success|cancelled
   useEffect(() => {
     if (status === "success" || status === "cancelled") {
       setShowBanner(true);
 
       if (status === "success") {
-        // Refrescar modelos varias veces: el webhook puede tardar unos segundos
         const delays = [1000, 3000, 6000, 10000];
         const timers = delays.map((d) =>
           window.setTimeout(() => {
@@ -277,211 +618,98 @@ const PricingPage: React.FC = () => {
 
   const handleDismissBanner = () => {
     setShowBanner(false);
-    // Limpiar query params
     const next = new URLSearchParams(searchParams);
     next.delete("status");
+    next.delete("plan");
     setSearchParams(next, { replace: true });
+  };
+
+  const handleSelectPlan = (planId: PlanId) => {
+    if (!session) {
+      setPostAuthRedirect("/pricing");
+      window.location.href = "/auth";
+      return;
+    }
+    startCheckout(planId);
   };
 
   return (
     <MarketingLayout>
+      {/* Countdown bar */}
+      <CountdownBar />
+
       {/* Hero */}
       <section style={{ padding: "80px 24px 40px", textAlign: "center" }}>
-        <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "720px", margin: "0 auto" }}>
           <h1
             style={{
               fontFamily: "var(--pf-font-display, system-ui)",
               fontSize: "clamp(2.25rem, 4.5vw, 3.5rem)",
               fontWeight: 800,
               letterSpacing: "-0.04em",
-              lineHeight: 1.1,
+              lineHeight: 1.05,
               margin: 0,
               marginBottom: "20px",
+              color: "var(--pf-text-primary, #0A0A0A)",
             }}
           >
-            Precios simples
+            Pathfinder para todos
           </h1>
           <p
             style={{
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "1.0625rem",
-              lineHeight: 1.55,
+              lineHeight: 1.6,
               color: "var(--pf-text-secondary, #525252)",
               margin: 0,
             }}
           >
-            Empieza gratis con Krea. Desbloqueá Flux y LTX con Pathfinder Pro
-            Beta. Sin suscripciones, sin cargos recurrentes.
+            Una gran variedad de modelos IA y workflows a tu medida, a un precio
+            accesible. Sin créditos, sin tokens, sin sorpresas.
           </p>
         </div>
       </section>
 
-      {/* Banner post-checkout */}
-      {showBanner && status && (status === "success" || status === "cancelled") && (
-        <StatusBanner type={status} onDismiss={handleDismissBanner} />
-      )}
+      {/* Signature block */}
+      <SignatureBlock />
 
-      {/* Error de checkout */}
-      {purchaseError && (
-        <div
-          style={{
-            maxWidth: "1100px",
-            margin: "0 auto 24px",
-            padding: "16px 20px",
-            background: "#FEF2F2",
-            border: "1px solid #FEE2E2",
-            borderRadius: "12px",
-            fontFamily: "var(--pf-font-ui, system-ui)",
-            fontSize: "0.9375rem",
-            color: "#EF4444",
-            lineHeight: 1.5,
-          }}
-        >
-          {purchaseError}
+      {/* Status banner */}
+      {showBanner && status && (status === "success" || status === "cancelled") && (
+        <div style={{ padding: "24px 24px 0" }}>
+          <StatusBanner type={status} onDismiss={handleDismissBanner} />
         </div>
       )}
 
-      {/* Cómo funciona */}
-      <section style={{ padding: "20px 24px 40px" }}>
-        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+      {/* Error banner */}
+      {purchaseError && (
+        <div style={{ padding: "24px 24px 0" }}>
           <div
             style={{
-              background: "var(--pf-bg-secondary, #FAFAFA)",
-              border: "1px solid var(--pf-border-subtle, #F4F4F5)",
-              borderRadius: "20px",
-              padding: "40px 32px",
+              maxWidth: "1100px",
+              margin: "0 auto",
+              padding: "16px 20px",
+              background: "#FEF2F2",
+              border: "1px solid #FEE2E2",
+              borderRadius: "12px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.9375rem",
+              color: "#EF4444",
+              lineHeight: 1.5,
             }}
           >
-            <h2
-              style={{
-                fontFamily: "var(--pf-font-display, system-ui)",
-                fontSize: "clamp(1.25rem, 2vw, 1.5rem)",
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
-                textAlign: "center",
-                margin: 0,
-                marginBottom: "8px",
-              }}
-            >
-              ¿Cómo funciona Pathfinder Pro?
-            </h2>
-            <p
-              style={{
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.9375rem",
-                color: "var(--pf-text-secondary, #525252)",
-                textAlign: "center",
-                maxWidth: "560px",
-                margin: "0 auto 40px",
-                lineHeight: 1.5,
-              }}
-            >
-              Pathfinder combina una interfaz unificada con estaciones de cómputo
-              que corren en tu navegador. Configurás tu estación una vez, y después
-              generás sin fricción.
-            </p>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "24px",
-              }}
-            >
-              {[
-                {
-                  n: "01",
-                  title: "Comprás Pathfinder Pro",
-                  body: "Pago único de $399 MXN. Desbloqueás Flux y LTX inmediatamente.",
-                },
-                {
-                  n: "02",
-                  title: "Descargás tu notebook",
-                  body: "Un archivo por modelo desde Mi Estación. Sin configuración manual.",
-                },
-                {
-                  n: "03",
-                  title: "Ejecutás \"Run All\" en Kaggle",
-                  body: "Con tu cuenta gratuita de Kaggle. La estación queda lista en ~2 minutos.",
-                },
-                {
-                  n: "04",
-                  title: "Generás desde Pathfinder",
-                  body: "El Studio detecta tu estación y puedes usar los modelos Pro.",
-                },
-              ].map((s, i) => (
-                <div key={i} style={{ textAlign: "left" }}>
-                  <div
-                    style={{
-                      fontFamily: "var(--pf-font-display, system-ui)",
-                      fontSize: "1.75rem",
-                      fontWeight: 800,
-                      color: "var(--pf-text-muted, #A1A1AA)",
-                      letterSpacing: "-0.04em",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    {s.n}
-                  </div>
-                  <h3
-                    style={{
-                      fontFamily: "var(--pf-font-display, system-ui)",
-                      fontSize: "0.9375rem",
-                      fontWeight: 600,
-                      letterSpacing: "-0.01em",
-                      margin: 0,
-                      marginBottom: "6px",
-                    }}
-                  >
-                    {s.title}
-                  </h3>
-                  <p
-                    style={{
-                      fontFamily: "var(--pf-font-ui, system-ui)",
-                      fontSize: "0.8125rem",
-                      lineHeight: 1.55,
-                      color: "var(--pf-text-secondary, #525252)",
-                      margin: 0,
-                    }}
-                  >
-                    {s.body}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                marginTop: "32px",
-                paddingTop: "24px",
-                borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.8125rem",
-                lineHeight: 1.6,
-                color: "var(--pf-text-secondary, #525252)",
-              }}
-            >
-              <strong style={{ color: "var(--pf-text-primary, #0A0A0A)" }}>
-                Importante:
-              </strong>{" "}
-              Pathfinder no incluye el cómputo. Los modelos Pro corren sobre tu
-              cuenta gratuita de Kaggle. Esto es lo que nos permite ofrecer
-              acceso a Flux y LTX a $399 MXN en lugar de una suscripción mensual.
-              Cuando termines de crear, apagás tu estación desde Pathfinder y
-              liberás la GPU automáticamente.
-            </div>
+            {purchaseError}
           </div>
         </div>
-      </section>
+      )}
 
-      {/* Planes */}
-      <section style={{ padding: "40px 24px 80px" }}>
+      {/* Plans */}
+      <section style={{ padding: "64px 24px 80px" }}>
         <div
           style={{
-            maxWidth: "1100px",
+            maxWidth: "1140px",
             margin: "0 auto",
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
             gap: "24px",
             alignItems: "stretch",
           }}
@@ -489,18 +717,21 @@ const PricingPage: React.FC = () => {
           {/* Plan Free */}
           <PlanCard
             name="Free"
-            tagline="Para empezar y experimentar."
+            tagline="Descubre qué puedes crear. Sin tarjeta."
             price="$0"
-            priceNote="Sin tarjeta. Sin fecha de vencimiento."
-            badge="Disponible"
+            priceNote="Sin fecha de vencimiento."
+            badge="Prueba Pathfinder"
+            badgeVariant="trial"
             features={[
-              "Krea 2 Turbo (generación de imágenes)",
-              "Hasta 15 generaciones por hora",
-              "Hasta 50 generaciones por día",
-              "100 creaciones activas",
-              "Acceso completo al Studio",
-              "Retención de archivos: 7 días",
+              "Krea 2 Turbo (imagen)",
+              "Wan 2.1 i2v (imagen a video)",
+              "Wan 2.1 t2v (texto a video)",
+              "Studio de creación",
+              "Mis Creaciones (retención 7 días)",
+              "Acceso a la guía de inicio",
+              "Requiere cuenta de Kaggle",
             ]}
+            disclaimer="Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo con todos los modelos, elige Creator o Founder."
             cta={
               session ? (
                 <Link
@@ -542,43 +773,29 @@ const PricingPage: React.FC = () => {
             }
           />
 
-          {/* Plan Pro Beta */}
+          {/* Plan Creator */}
           <PlanCard
-            name="Pathfinder Pro Beta"
-            tagline="Acceso a los modelos premium por 6 meses."
-            price="$399 MXN"
-            priceNote="Pago único. Sin cargos recurrentes."
-            badge={hasPro ? "Ya activo" : "Disponible"}
+            name="Creator"
+            tagline="El Estudio completo. Todos los modelos."
+            price="$249 MXN"
+            priceNote="Por mes. Sin contrato, cancelas cuando quieras."
+            badge="Recomendado"
+            badgeVariant="recommended"
             highlighted
             features={[
-              "Todo lo de Free, más:",
-              "Flux 2 Klein 4B (edición avanzada)",
-              "LTX 2.3 (video con audio sincronizado)",
-              "6 meses de acceso desde el pago",
-              "Actualizaciones del catálogo Pro incluidas",
-              "Renovación disponible al vencimiento",
+              "Estudio completo desbloqueado",
+              "Flux 2 Klein 4B (imagen con referencias)",
+              "LTX 2.3 (video con audio y lipsync)",
+              "LTX 2.5 MSR (5 refs + LoRA de producto)",
+              "Wan 2.1 i2v + Wan 2.1 t2v",
+              "OmniVoice (voz y clonación)",
+              "Modelos nuevos incluidos sin pago extra",
+              "Mis Creaciones completo",
+              "Soporte prioritario",
+              "Requiere cuenta de Kaggle",
             ]}
             cta={
-              !session ? (
-                <Link
-                  to="/auth"
-                  onClick={() => setPostAuthRedirect("/pricing")}
-                  style={{
-                    display: "block",
-                    textAlign: "center",
-                    textDecoration: "none",
-                    padding: "12px 24px",
-                    background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "var(--pf-text-inverse, #FFFFFF)",
-                    borderRadius: "10px",
-                    fontFamily: "var(--pf-font-ui, system-ui)",
-                    fontSize: "0.9375rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  Iniciar sesión para pagar
-                </Link>
-              ) : hasPro ? (
+              hasCreator ? (
                 <div
                   style={{
                     width: "100%",
@@ -594,21 +811,22 @@ const PricingPage: React.FC = () => {
                     textAlign: "center",
                   }}
                 >
-                  ✓ Ya tienes Pro activo
+                  Acceso Creator activo
                 </div>
               ) : (
                 <button
-                  onClick={() => startCheckout("creator")}
-                  disabled={purchaseState === "loading"}
+                  onClick={() => handleSelectPlan("creator")}
+                  disabled={loadingPlan !== null}
                   style={{
                     width: "100%",
+                    boxSizing: "border-box",
                     padding: "12px 24px",
                     background:
-                      purchaseState === "loading"
+                      loadingPlan !== null
                         ? "var(--pf-bg-tertiary, #F5F5F5)"
                         : "var(--pf-text-primary, #0A0A0A)",
                     color:
-                      purchaseState === "loading"
+                      loadingPlan !== null
                         ? "var(--pf-text-muted, #A1A1AA)"
                         : "var(--pf-text-inverse, #FFFFFF)",
                     border: "none",
@@ -616,54 +834,90 @@ const PricingPage: React.FC = () => {
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
                     fontWeight: 600,
-                    cursor: purchaseState === "loading" ? "wait" : "pointer",
+                    cursor: loadingPlan !== null ? "wait" : "pointer",
                     transition: "opacity 0.15s",
                   }}
                 >
-                  {purchaseState === "loading"
+                  {loadingPlan === "creator"
                     ? "Redirigiendo a Stripe..."
-                    : "Desbloquear Pro — $399"}
+                    : "Suscribirme a Creator — $249/mes"}
                 </button>
               )
             }
           />
 
-          {/* Plan Ultra */}
+          {/* Plan Founder */}
           <PlanCard
-            name="Ultra"
-            tagline="Para equipos y uso intensivo."
-            price="A medida"
-            priceNote="Hablemos de tu caso."
+            name="Founder"
+            tagline="Todo lo de Creator, con acceso prioritario."
+            price="$999 MXN"
+            priceNote="Pago único por 6 meses."
+            badge="Acceso prioritario"
+            badgeVariant="priority"
+            badgeSubtitle="Primeros accesos a nuevos modelos, plantillas y funcionalidades."
             features={[
-              "Todo lo de Pro, más:",
-              "Sin límites de generación",
-              "Acceso anticipado a nuevos modelos",
-              "Onboarding y soporte dedicados",
-              "SLA empresarial (a definir)",
+              "Todo lo de Creator por 6 meses",
+              "Acceso prioritario a nuevos modelos",
+              "Primeros accesos a plantillas y funcionalidades",
+              "Ahorro vs suscripción mensual",
+              "Requiere cuenta de Kaggle",
             ]}
             cta={
-              <a
-                href="mailto:pathfinder.contacto@gmail.com?subject=Consulta%20Plan%20Ultra"
-                style={{
-                  display: "block",
-                  textAlign: "center",
-                  textDecoration: "none",
-                  padding: "12px 24px",
-                  background: "transparent",
-                  color: "var(--pf-text-primary, #0A0A0A)",
-                  border: "1px solid var(--pf-border-default, #E5E5E5)",
-                  borderRadius: "10px",
-                  fontFamily: "var(--pf-font-ui, system-ui)",
-                  fontSize: "0.9375rem",
-                  fontWeight: 600,
-                }}
-              >
-                Contactanos
-              </a>
+              hasFounder ? (
+                <div
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 24px",
+                    background: "rgba(16,185,129,0.1)",
+                    color: "#059669",
+                    border: "1px solid rgba(16,185,129,0.4)",
+                    borderRadius: "10px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    textAlign: "center",
+                  }}
+                >
+                  Acceso Founder activo
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleSelectPlan("founder")}
+                  disabled={loadingPlan !== null}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 24px",
+                    background:
+                      loadingPlan !== null
+                        ? "var(--pf-bg-tertiary, #F5F5F5)"
+                        : "var(--pf-text-primary, #0A0A0A)",
+                    color:
+                      loadingPlan !== null
+                        ? "var(--pf-text-muted, #A1A1AA)"
+                        : "var(--pf-text-inverse, #FFFFFF)",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    cursor: loadingPlan !== null ? "wait" : "pointer",
+                    transition: "opacity 0.15s",
+                  }}
+                >
+                  {loadingPlan === "founder"
+                    ? "Redirigiendo a Stripe..."
+                    : "Comprar Founder — $999"}
+                </button>
+              )
             }
           />
         </div>
       </section>
+
+      {/* New models block */}
+      <NewModelsBlock />
 
       {/* FAQ */}
       <section
@@ -673,7 +927,7 @@ const PricingPage: React.FC = () => {
           borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
         }}
       >
-        <div style={{ maxWidth: "720px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "760px", margin: "0 auto" }}>
           <h2
             style={{
               fontFamily: "var(--pf-font-display, system-ui)",
@@ -683,36 +937,45 @@ const PricingPage: React.FC = () => {
               textAlign: "center",
               margin: 0,
               marginBottom: "40px",
+              color: "var(--pf-text-primary, #0A0A0A)",
             }}
           >
             Preguntas frecuentes
           </h2>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {[
               {
-                q: "¿Es realmente gratis?",
-                a: "Sí. El plan Free no tiene costo, no requiere tarjeta y no tiene fecha de vencimiento. Puedes usar Krea todo el tiempo que quieras dentro de los límites indicados.",
+                q: "¿Qué incluye el plan Free?",
+                a: "Krea 2 Turbo (imagen), Wan 2.1 i2v (imagen a video) y Wan 2.1 t2v (texto a video). Incluye el Studio de creación y acceso a Mis Creaciones con retención de 7 días. Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo con todos los modelos, elige Creator o Founder.",
               },
               {
-                q: "¿Qué incluye Pathfinder Pro Beta?",
-                a: "Acceso a Flux 2 Klein 4B y LTX 2.3 por 6 meses desde la fecha de pago. Además de Krea 2 Turbo, que ya tienes en Free. Incluye todas las mejoras del catálogo Pro que se incorporen durante ese período.",
+                q: "¿Qué diferencia hay entre Free y Creator?",
+                a: "El plan Free es para probar Pathfinder y descubrir qué puedes crear. El plan Creator desbloquea el Estudio completo: todos los modelos actuales (Flux 2, LTX 2.3, LTX 2.5 MSR, Wan i2v, OmniVoice), todos los workflows, presets, LoRAs integradas, y todos los modelos que agreguemos en el futuro sin costo extra.",
               },
               {
-                q: "¿Es una suscripción?",
-                a: "No. Es un pago único de $399 MXN que te da acceso a los modelos Pro por 6 meses. Al término, puedes renovar o seguir usando el plan Free sin perder nada.",
+                q: "¿Qué incluye Creator?",
+                a: "El Estudio completo con todos los modelos del catálogo: Flux 2 Klein 4B, LTX 2.3, LTX 2.5 MSR, Wan 2.1 i2v y t2v, OmniVoice, más Krea 2 Turbo. Incluye todos los workflows, presets, LoRAs curadas, y los modelos que se agreguen en el futuro sin costo adicional. Renovación mensual, cancelas cuando quieras.",
+              },
+              {
+                q: "¿Qué incluye Founder?",
+                a: "Todo lo de Creator por 6 meses, con acceso prioritario: los nuevos modelos, plantillas y funcionalidades llegan primero a los usuarios Founder. Es un pago único de $999 MXN con precio de lanzamiento hasta el 31 de diciembre de 2026.",
+              },
+              {
+                q: "¿Founder se renueva automáticamente?",
+                a: "No. Founder es un pago único por 6 meses. Al terminar el período, puedes renovar por 6 meses más al precio vigente en ese momento, o suscribirte a Creator mensual. Tú decides.",
+              },
+              {
+                q: "¿Puedo cancelar mi suscripción Creator?",
+                a: "Sí, en cualquier momento desde Configuración > Cuenta, o desde el portal de cliente de Stripe. Sigues teniendo acceso hasta el final del período que ya pagaste. Después, tu cuenta vuelve al plan Free sin perder tus creaciones guardadas.",
+              },
+              {
+                q: "¿Cómo funciona la activación de una estación?",
+                a: "Cada estación de Pathfinder corre en un entorno de ejecución externo que el usuario activa. Desde 'Mi Estación' descargas el notebook del modelo que quieras usar, lo ejecutas en tu cuenta de Kaggle, y Pathfinder lo detecta automáticamente cuando está listo. Es un proceso único por sesión. Cuando esté listo el modo sin fricción (próximamente), esta activación desaparecerá.",
               },
               {
                 q: "¿Puedo pedir reembolso?",
-                a: "Sí. Dentro de los primeros 14 días naturales después de tu compra, puedes solicitar el reembolso completo sin necesidad de justificación, escribiéndonos a pathfinder.contacto@gmail.com.",
-              },
-              {
-                q: "¿Necesito instalar algo?",
-                a: "No. Pathfinder funciona completamente en el navegador. No hay que descargar aplicaciones ni configurar nada.",
-              },
-              {
-                q: "¿Cuánto tiempo duran mis creaciones?",
-                a: "En ambos planes, las creaciones se almacenan por 7 días. Si quieres conservarlas, puedes descargarlas en cualquier momento.",
+                a: "Sí. En Creator, dentro de los primeros 14 días naturales después de tu primera suscripción, puedes solicitar el reembolso completo sin justificación. En Founder, aplica la misma ventana de 14 días. Escríbenos a pathfinder.contacto@gmail.com.",
               },
               {
                 q: "¿Qué métodos de pago aceptan?",
@@ -759,7 +1022,7 @@ const PricingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* CTA final */}
+      {/* Final CTA */}
       <section
         style={{
           padding: "100px 24px",
@@ -780,7 +1043,7 @@ const PricingPage: React.FC = () => {
               color: "var(--pf-text-inverse, #FFFFFF)",
             }}
           >
-            Empieza ahora, gratis
+            Empieza gratis hoy
           </h2>
           <p
             style={{
@@ -788,11 +1051,11 @@ const PricingPage: React.FC = () => {
               fontSize: "1rem",
               color: "rgba(255,255,255,0.7)",
               marginBottom: "32px",
-              lineHeight: 1.5,
+              lineHeight: 1.6,
             }}
           >
-            Sin tarjeta. Sin límite de tiempo. Solo tu idea y las herramientas
-            para hacerla realidad.
+            Sin tarjeta. Sin compromiso. Tres modelos disponibles desde el
+            primer minuto.
           </p>
           <Link
             to={session ? "/studio" : "/auth"}
