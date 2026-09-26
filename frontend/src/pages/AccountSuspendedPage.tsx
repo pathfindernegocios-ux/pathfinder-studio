@@ -1,4 +1,5 @@
 import React from "react";
+import { Ban } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 const AccountSuspendedPage: React.FC = () => {
@@ -21,7 +22,7 @@ const AccountSuspendedPage: React.FC = () => {
       }}
     >
       <div style={{ width: "100%", maxWidth: "440px", textAlign: "center" }}>
-        <div style={{ fontSize: "3rem", marginBottom: "16px", opacity: 0.6 }}>🚫</div>
+        <Ban size={48} strokeWidth={1.75} style={{ marginBottom: "16px", opacity: 0.6, color: "var(--pf-text-primary, #0A0A0A)" }} />
         <h1
           style={{
             fontSize: "1.75rem",

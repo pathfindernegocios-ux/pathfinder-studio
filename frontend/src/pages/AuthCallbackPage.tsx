@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import type { Profile } from "../types";
@@ -129,7 +130,7 @@ const AuthCallbackPage: React.FC = () => {
 
       {state.status === "error" && (
         <>
-          <div style={{ fontSize: "3rem", opacity: 0.5 }}>⚠️</div>
+          <AlertTriangle size={48} strokeWidth={1.75} style={{ opacity: 0.5, color: "var(--pf-text-primary, #0A0A0A)" }} />
           <div
             style={{
               fontSize: "1.0625rem",

@@ -1,5 +1,6 @@
 // src/pages/placeholders/SettingsPage.tsx
 import React from 'react';
+import { Settings } from "lucide-react";
 
 const SettingsPage: React.FC = () => {
   return (
@@ -28,7 +29,7 @@ const SettingsPage: React.FC = () => {
             marginBottom: '24px',
           }}
         >
-          ⚙️
+          <Settings size={64} strokeWidth={1.5} />
         </div>
         <h1
           className="pf-font-prompt"

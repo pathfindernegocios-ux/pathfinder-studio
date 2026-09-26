@@ -1,5 +1,6 @@
 // src/pages/CreationsPage.tsx
 import React, { useEffect, useState, useMemo } from 'react';
+import { AlertTriangle, Palette } from "lucide-react";
 import { useCreations } from '../hooks/useCreations';
 import type { Creation } from '../types';
 import { CreationThumbnail } from '../components/CreationThumbnail';
@@ -109,7 +110,7 @@ const CreationsPage: React.FC = () => {
         textAlign: 'center',
         padding: '40px'
       }}>
-        <div style={{ fontSize: '3rem', marginBottom: '16px', opacity: 0.5 }}>⚠️</div>
+        <AlertTriangle size={48} strokeWidth={1.75} style={{ marginBottom: "16px", opacity: 0.5, color: "var(--pf-text-primary)" }} />
         <h2 style={{ fontFamily: 'var(--pf-font-display)', fontSize: '1.5rem', color: 'var(--pf-text-primary)', marginBottom: '8px' }}>
           Algo salió mal
         </h2>
@@ -250,7 +251,7 @@ const CreationsPage: React.FC = () => {
             borderRadius: '24px',
             border: '1px dashed var(--pf-border-default)'
           }}>
-            <div style={{ fontSize: '4rem', marginBottom: '24px', filter: 'grayscale(100%)', opacity: 0.5 }}>🎨</div>
+            <Palette size={64} strokeWidth={1.5} style={{ marginBottom: "24px", opacity: 0.5, color: "var(--pf-text-primary)" }} />
             <h3 style={{ 
               fontFamily: 'var(--pf-font-display)', 
               fontSize: '1.5rem', 

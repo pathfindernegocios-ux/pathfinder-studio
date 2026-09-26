@@ -1,5 +1,6 @@
 // src/components/WelcomeScreen.tsx
 import React from 'react';
+import { Sparkles } from "lucide-react";
 
 interface WelcomeScreenProps {
   onEnter: () => void;
@@ -56,7 +57,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onEnter }) => {
           WebkitTextFillColor: 'transparent',
           filter: 'drop-shadow(0 4px 12px rgba(99, 102, 241, 0.3))'
         }}>
-          ✨
+          <Sparkles size={64} strokeWidth={1.5} style={{ color: 'var(--pf-text-primary)' }} />
         </div>
         
         <h1 style={{

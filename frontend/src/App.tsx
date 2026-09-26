@@ -56,22 +56,19 @@ const LoadingScreen: React.FC = () => (
       justifyContent: "center",
       background: "var(--pf-bg-primary)",
       color: "var(--pf-text-primary)",
-      fontFamily: "system-ui, sans-serif",
     }}
   >
-    <div style={{ textAlign: "center" }}>
-      <div
-        style={{
-          fontSize: "2rem",
-          marginBottom: "1rem",
-          animation: "spin 1s linear infinite",
-        }}
-      >
-        ⏳
-      </div>
-      <p style={{ fontWeight: 500, fontSize: "0.9rem" }}>Cargando Pathfinder...</p>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>
+    <div
+      style={{
+        width: "40px",
+        height: "40px",
+        border: "3px solid var(--pf-border-default, #E5E5E5)",
+        borderTopColor: "var(--pf-text-primary, #0A0A0A)",
+        borderRadius: "50%",
+        animation: "spin 1s linear infinite",
+      }}
+    />
+    <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
   </div>
 );
 

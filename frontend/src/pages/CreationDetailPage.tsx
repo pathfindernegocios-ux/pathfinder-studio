@@ -4,7 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCreations } from '../hooks/useCreations';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Creation } from '../types';
-import { Trash2, ArrowLeft, Clock, Film, Image as ImageIcon, Cpu, Maximize2, X } from 'lucide-react';
+import { ArrowLeft, Clock, Cpu, Film, Frown, Image as ImageIcon, Maximize2, Trash2, X } from "lucide-react";
 
 const CreationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -107,7 +107,7 @@ const CreationDetailPage: React.FC = () => {
         padding: '40px 20px', 
         textAlign: 'center' 
       }}>
-        <div style={{ fontSize: '4rem', marginBottom: '24px', opacity: 0.5 }}>😕</div>
+        <Frown size={64} strokeWidth={1.5} style={{ marginBottom: "24px", opacity: 0.5, color: "var(--pf-text-primary)" }} />
         <h1 className="pf-font-prompt" style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--pf-text-primary)', marginBottom: '16px' }}>
           Creación no encontrada
         </h1>

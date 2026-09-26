@@ -1,5 +1,6 @@
 // src/components/AudioChip.tsx
 import React from 'react';
+import { Music } from "lucide-react";
 
 interface AudioChipProps {
   label: string;
@@ -47,7 +48,7 @@ const AudioChip: React.FC<AudioChipProps> = ({
         }
       }}
     >
-      <span style={{ fontSize: '1rem' }}>🎵</span>
+      <Music size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
       <span>{label}</span>
       {duration && (
         <span
