@@ -29,7 +29,7 @@ function useCountdown(target: Date) {
   useEffect(() => {
     const interval = window.setInterval(() => {
       setRemaining(target.getTime() - Date.now());
-    }, 60_000); // cada minuto
+    }, 60_000);
     return () => window.clearInterval(interval);
   }, [target]);
 
@@ -119,7 +119,6 @@ interface PlanProps {
   cta: React.ReactNode;
   highlighted?: boolean;
   badge?: string;
-  badgeSubtitle?: string;
   badgeVariant?: "recommended" | "priority" | "trial";
   disclaimer?: string;
 }
@@ -133,7 +132,6 @@ const PlanCard: React.FC<PlanProps> = ({
   cta,
   highlighted,
   badge,
-  badgeSubtitle,
   badgeVariant = "recommended",
   disclaimer,
 }) => {
@@ -212,7 +210,7 @@ const PlanCard: React.FC<PlanProps> = ({
         </div>
       )}
 
-      <div style={{ marginBottom: badgeSubtitle ? "8px" : "24px" }}>
+      <div style={{ marginBottom: "24px" }}>
         <h3
           style={{
             fontFamily: "var(--pf-font-display, system-ui)",
@@ -238,33 +236,6 @@ const PlanCard: React.FC<PlanProps> = ({
           {tagline}
         </p>
       </div>
-
-      {badgeSubtitle && (
-        <div
-          style={{
-            marginBottom: "24px",
-            padding: "10px 14px",
-            background:
-              badgeVariant === "priority"
-                ? "rgba(99,102,241,0.08)"
-                : "var(--pf-bg-secondary, #FAFAFA)",
-            border:
-              badgeVariant === "priority"
-                ? "1px solid rgba(99,102,241,0.3)"
-                : "1px solid var(--pf-border-subtle, #F4F4F5)",
-            borderRadius: "10px",
-            fontFamily: "var(--pf-font-ui, system-ui)",
-            fontSize: "0.75rem",
-            lineHeight: 1.5,
-            color:
-              badgeVariant === "priority"
-                ? "#4F46E5"
-                : "var(--pf-text-secondary, #525252)",
-          }}
-        >
-          {badgeSubtitle}
-        </div>
-      )}
 
       <div style={{ marginBottom: "28px" }}>
         <div
@@ -306,23 +277,44 @@ const PlanCard: React.FC<PlanProps> = ({
           flex: 1,
         }}
       >
-        {features.map((f, i) => (
-          <li
-            key={i}
-            style={{
-              display: "flex",
-              gap: "10px",
-              alignItems: "flex-start",
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "0.875rem",
-              color: "var(--pf-text-secondary, #525252)",
-              lineHeight: 1.5,
-            }}
-          >
-            <Check />
-            <span>{f}</span>
-          </li>
-        ))}
+        {features.map((f, i) => {
+          const isPriority = f.startsWith("★");
+          const text = isPriority ? f.slice(1).trim() : f;
+          return (
+            <li
+              key={i}
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "flex-start",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.875rem",
+                color: isPriority
+                  ? "var(--pf-text-primary, #0A0A0A)"
+                  : "var(--pf-text-secondary, #525252)",
+                fontWeight: isPriority ? 500 : 400,
+                lineHeight: 1.5,
+              }}
+            >
+              {isPriority ? (
+                <span
+                  style={{
+                    flexShrink: 0,
+                    marginTop: "1px",
+                    color: "#4F46E5",
+                    fontSize: "0.875rem",
+                    lineHeight: "1.5",
+                  }}
+                >
+                  ★
+                </span>
+              ) : (
+                <Check />
+              )}
+              <span>{text}</span>
+            </li>
+          );
+        })}
       </ul>
 
       {disclaimer && (
@@ -597,9 +589,8 @@ const PricingPage: React.FC = () => {
   const [showBanner, setShowBanner] = useState(false);
 
   const hasCreator = unlockedIds.has("flux-2-klein-4b");
-  const hasFounder = false; // TODO: chequear si tiene Founder activo (purchase.paid vigente)
+  const hasFounder = false; // TODO: chequear Founder activo
 
-  // Detectar ?status=success|cancelled
   useEffect(() => {
     if (status === "success" || status === "cancelled") {
       setShowBanner(true);
@@ -635,7 +626,6 @@ const PricingPage: React.FC = () => {
 
   return (
     <MarketingLayout>
-      {/* Countdown bar */}
       <CountdownBar />
 
       {/* Hero */}
@@ -670,17 +660,14 @@ const PricingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Signature block */}
       <SignatureBlock />
 
-      {/* Status banner */}
       {showBanner && status && (status === "success" || status === "cancelled") && (
         <div style={{ padding: "24px 24px 0" }}>
           <StatusBanner type={status} onDismiss={handleDismissBanner} />
         </div>
       )}
 
-      {/* Error banner */}
       {purchaseError && (
         <div style={{ padding: "24px 24px 0" }}>
           <div
@@ -851,15 +838,19 @@ const PricingPage: React.FC = () => {
             name="Founder"
             tagline="Todo lo de Creator, con acceso prioritario."
             price="$999 MXN"
-            priceNote="Pago único por 6 meses."
+            priceNote="Pago único por 6 meses. Ahorras $495 MXN vs. mensual."
             badge="Acceso prioritario"
             badgeVariant="priority"
-            badgeSubtitle="Primeros accesos a nuevos modelos, plantillas y funcionalidades."
             features={[
-              "Todo lo de Creator por 6 meses",
-              "Acceso prioritario a nuevos modelos",
-              "Primeros accesos a plantillas y funcionalidades",
-              "Ahorro vs suscripción mensual",
+              "Todo lo del plan Creator",
+              "Flux 2 Klein 4B (imagen con referencias)",
+              "LTX 2.3 (video con audio y lipsync)",
+              "LTX 2.5 MSR (5 refs + LoRA de producto)",
+              "Wan 2.1 i2v + Wan 2.1 t2v",
+              "OmniVoice (voz y clonación)",
+              "Modelos nuevos incluidos sin pago extra",
+              "★ Acceso prioritario a nuevos modelos",
+              "★ Primeros accesos a plantillas y funcionalidades",
               "Requiere cuenta de Kaggle",
             ]}
             cta={
@@ -916,7 +907,6 @@ const PricingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* New models block */}
       <NewModelsBlock />
 
       {/* FAQ */}
