@@ -15,7 +15,7 @@ import { supabase } from "../lib/supabaseClient";
 // ---------------------------------------------------------------------------
 const MEDIA_URLS = {
   block1_register:  "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/block1-register.png.jpg", // Imagen: home de Kaggle (Sign In / Register)
-  block2_verify:    "", // Video/captura: verificación de identidad en Kaggle
+  block2_verify:    "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/block2-verify.mp4", // Video: verificación de identidad en Kaggle
   block3_download:  "", // Video: descargar notebook desde Mi Estación
   block4_import:    "", // Video: import notebook en Kaggle
   block4_gpu:       "", // Captura: configurar GPU T4 x2 + Internet
@@ -423,7 +423,17 @@ export const HowItWorksContent: React.FC = () => {
             GPUs. Sin este paso, no vas a poder ejecutar los modelos.
           </p>
 
-          <Step>Entra a tu cuenta de Kaggle → <strong>Settings</strong>.</Step>
+          <Step>
+            Entra a tu cuenta de Kaggle →{" "}
+            <a
+              href="https://www.kaggle.com/settings"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--pf-text-primary, #0A0A0A)", fontWeight: 600, textDecoration: "underline" }}
+            >
+              Settings <ExternalLink size={12} style={{ display: "inline", marginLeft: "4px" }} />
+            </a>.
+          </Step>
           <Step>
             Busca la sección <strong>Phone Verification</strong>.
           </Step>
