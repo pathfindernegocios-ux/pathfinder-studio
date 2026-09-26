@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
 import { useTheme } from "../hooks/useTheme";
 import { supabase } from "../lib/supabaseClient";
-import { Monitor, Sun, Moon } from "lucide-react";
+import { Monitor, Sun, Moon, Loader2, ExternalLink, Crown } from "lucide-react";
 import AvatarPicker from "../components/AvatarPicker";
 
 type Tab = "profile" | "account" | "security";
@@ -112,6 +112,17 @@ const AccountSettingsPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>("profile");
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
 
+  // -- Suscripción
+  const [subscription, setSubscription] = useState<{
+    id: string;
+    plan: string;
+    status: string;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+  } | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [managingSubscription, setManagingSubscription] = useState(false);
+
   // -- Perfil: estado
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
@@ -138,6 +149,38 @@ const AccountSettingsPage: React.FC = () => {
       setFullName(profile.full_name ?? "");
     }
   }, [profile?.id, profile?.username, profile?.full_name]);
+
+  // Cargar subscription activa (una vez al montar y cuando cambia el user)
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setLoadingSubscription(false);
+      return;
+    }
+    let cancelled = false;
+    const fetchSubscription = async () => {
+      try {
+        const { data } = await supabase
+          .from("subscriptions")
+          .select("id, plan, status, current_period_end, cancel_at_period_end")
+          .eq("user_id", session.user.id)
+          .in("status", ["active", "trialing", "past_due"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled) {
+          setSubscription(data as any);
+          setLoadingSubscription(false);
+        }
+      } catch (e) {
+        console.error("[Settings] subscription fetch error:", e);
+        if (!cancelled) setLoadingSubscription(false);
+      }
+    };
+    fetchSubscription();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
 
   // Cargar conteo de creaciones activas (una vez al montar)
   useEffect(() => {
@@ -203,6 +246,41 @@ const AccountSettingsPage: React.FC = () => {
       setSavingProfile(false);
     }
   }, [canSaveProfile, session?.user?.id, username, fullName, usernameChanged, fullNameChanged]);
+
+  // -- Gestionar suscripción (abre el Customer Portal de Stripe)
+  const handleManageSubscription = useCallback(async () => {
+    setManagingSubscription(true);
+    try {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+      const token = currentSession?.access_token;
+      if (!token) {
+        alert("Sesión expirada. Inicia sesión de nuevo.");
+        setManagingSubscription(false);
+        return;
+      }
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const res = await fetch(`${supabaseUrl}/functions/v1/create-portal-session`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.url) {
+        alert(data?.error || "No pudimos abrir el portal de gestión.");
+        setManagingSubscription(false);
+        return;
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("[Settings] manage subscription error:", err);
+      alert("Ocurrió un error. Intenta de nuevo.");
+      setManagingSubscription(false);
+    }
+  }, []);
 
   // -- Cerrar otras sesiones
   const handleRevokeOthers = useCallback(async () => {
@@ -724,6 +802,160 @@ const AccountSettingsPage: React.FC = () => {
         {/* ============ TAB: CUENTA ============ */}
         {tab === "account" && (
           <div>
+            {/* Suscripción activa */}
+            {!loadingSubscription && subscription && (
+              <div
+                style={{
+                  background: "var(--pf-bg-elevated)",
+                  border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                  borderRadius: "16px",
+                  padding: "32px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                  marginBottom: "24px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginBottom: "20px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "36px",
+                      height: "36px",
+                      borderRadius: "10px",
+                      background: "rgba(99,102,241,0.1)",
+                      border: "1px solid rgba(99,102,241,0.3)",
+                      color: "#4F46E5",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Crown size={18} />
+                  </div>
+                  <h2
+                    style={{
+                      fontSize: "1.125rem",
+                      fontWeight: 600,
+                      color: "var(--pf-text-primary, #0A0A0A)",
+                      fontFamily: "var(--pf-font-display, system-ui)",
+                      letterSpacing: "-0.02em",
+                      margin: 0,
+                    }}
+                  >
+                    Suscripción
+                  </h2>
+                </div>
+
+                <InfoRow
+                  label="Plan"
+                  value={
+                    <span
+                      style={{
+                        padding: "4px 10px",
+                        background: "rgba(16,185,129,0.1)",
+                        color: "#10B981",
+                        borderRadius: "9999px",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      {subscription.plan === "creator" ? "Creator" : subscription.plan}
+                    </span>
+                  }
+                />
+
+                <InfoRow
+                  label="Estado"
+                  value={
+                    subscription.status === "active" || subscription.status === "trialing"
+                      ? "Activo"
+                      : subscription.status === "past_due"
+                        ? "Pago pendiente"
+                        : subscription.status
+                  }
+                />
+
+                {subscription.current_period_end && (
+                  <InfoRow
+                    label={subscription.cancel_at_period_end ? "Termina el" : "Próxima renovación"}
+                    value={formatDate(subscription.current_period_end)}
+                  />
+                )}
+
+                {subscription.cancel_at_period_end && (
+                  <div
+                    style={{
+                      marginTop: "16px",
+                      padding: "12px 14px",
+                      background: "rgba(245,158,11,0.08)",
+                      border: "1px solid rgba(245,158,11,0.3)",
+                      borderRadius: "10px",
+                      fontFamily: "var(--pf-font-ui, system-ui)",
+                      fontSize: "0.8125rem",
+                      color: "#B45309",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Tu suscripción se cancelará al final del período actual. Puedes revertir esto desde el portal de gestión.
+                  </div>
+                )}
+
+                <button
+                  onClick={handleManageSubscription}
+                  disabled={managingSubscription}
+                  style={{
+                    marginTop: "20px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "12px 24px",
+                    background: "var(--pf-text-primary, #0A0A0A)",
+                    color: "var(--pf-text-inverse, #FFFFFF)",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    cursor: managingSubscription ? "wait" : "pointer",
+                    opacity: managingSubscription ? 0.6 : 1,
+                  }}
+                >
+                  {managingSubscription ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Abriendo portal...
+                    </>
+                  ) : (
+                    <>
+                      Gestionar suscripción
+                      <ExternalLink size={14} />
+                    </>
+                  )}
+                </button>
+
+                <p
+                  style={{
+                    marginTop: "12px",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.75rem",
+                    color: "var(--pf-text-muted, #A1A1AA)",
+                    lineHeight: 1.5,
+                    margin: "12px 0 0 0",
+                  }}
+                >
+                  Desde el portal puedes actualizar tu método de pago, ver facturas o cancelar tu suscripción.
+                </p>
+              </div>
+            )}
+
             {/* Plan + Modelos */}
             <div
               style={{
