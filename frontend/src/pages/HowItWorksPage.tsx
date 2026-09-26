@@ -14,6 +14,7 @@ import { supabase } from "../lib/supabaseClient";
 //   "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/nombre.mp4"
 // ---------------------------------------------------------------------------
 const MEDIA_URLS = {
+  block1_register:  "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/block1-register.png.jpg", // Imagen: home de Kaggle (Sign In / Register)
   block2_verify:    "", // Video/captura: verificación de identidad en Kaggle
   block3_download:  "", // Video: descargar notebook desde Mi Estación
   block4_import:    "", // Video: import notebook en Kaggle
@@ -33,7 +34,15 @@ const MediaPlaceholder: React.FC<{
 }> = ({ type, label, url }) => {
   if (url && url.length > 0) {
     return (
-      <div style={{ borderRadius: "12px", overflow: "hidden", margin: "24px 0", background: "var(--pf-text-primary)" }}>
+      <div
+        style={{
+          borderRadius: "12px",
+          overflow: "hidden",
+          margin: "24px 0",
+          background: "var(--pf-bg-secondary, #FAFAFA)",
+          border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+        }}
+      >
         {type === "video" ? (
           <video
             src={url}
@@ -42,7 +51,26 @@ const MediaPlaceholder: React.FC<{
             style={{ width: "100%", display: "block" }}
           />
         ) : (
-          <img src={url} alt={label} style={{ width: "100%", display: "block" }} />
+          <div
+            style={{
+              aspectRatio: "16 / 9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--pf-bg-secondary, #FAFAFA)",
+            }}
+          >
+            <img
+              src={url}
+              alt={label}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
+          </div>
         )}
       </div>
     );
@@ -376,6 +404,12 @@ export const HowItWorksContent: React.FC = () => {
             Una vez dentro, verifica que tu cuenta esté activa. Ya tienes todo listo para el siguiente
             paso.
           </Step>
+
+          <MediaPlaceholder
+            type="image"
+            label="Home de Kaggle — Sign In / Register"
+            url={MEDIA_URLS.block1_register}
+          />
 
           <Callout kind="info">
             Si ya tienes una cuenta de Kaggle, puedes saltar directamente al Bloque 2.
