@@ -16,7 +16,7 @@ import { supabase } from "../lib/supabaseClient";
 const MEDIA_URLS = {
   block1_register:  "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/block1-register.png.jpg", // Imagen: home de Kaggle (Sign In / Register)
   block2_verify:    "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/block2-verify.mp4", // Video: verificación de identidad en Kaggle
-  block3_download:  "", // Video: descargar notebook desde Mi Estación
+  block3_download:  "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/block3_download.mp4", // Video: descargar notebook desde Mi Estación
   block4_import:    "", // Video: import notebook en Kaggle
   block4_gpu:       "", // Captura: configurar GPU T4 x2 + Internet
   block5_run_all:   "", // Video: Run All hasta "Estación lista"
