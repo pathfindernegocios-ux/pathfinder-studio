@@ -77,6 +77,16 @@ interface GenerateParams {
   wanForcePreset?: boolean;
   extraLoras?: string[];
   loraMults?: string;
+  // ── LTX 2.5 MSR ──
+  msrMode?: 'KI' | 'I';
+  removeBg?: boolean;
+  msrRef1?: File | string | null;
+  msrRef2?: File | string | null;
+  msrRef3?: File | string | null;
+  msrRef4?: File | string | null;
+  msrRef5?: File | string | null;
+  pipeline?: string;
+  audioCfg?: number;
 }
 
 interface GenerationContextValue {
@@ -633,7 +643,62 @@ export function GenerationProvider({
         const client = await getClient();
         if (!client) { setErrorMsg("No se pudo conectar con el runtime."); return; }
 
-        if (capability === "video" && params.videoModelId && params.videoModelId.startsWith('wan-')) {
+        if (capability === "video" && params.videoModelId === 'ltx-2.5-msr') {
+          // ── LTX 2.5 MSR (Multi-Subject Reference) ──
+          const result = await client.predict("/generate", [
+            params.prompt,
+            params.msrMode || 'KI',
+            params.removeBg ?? true,
+            params.msrRef1 || null,
+            params.msrRef2 || null,
+            params.msrRef3 || null,
+            params.msrRef4 || null,
+            params.msrRef5 || null,
+            params.seed ?? -1,
+            params.durationLabel || "3 Seconds (73 frames - Standard)",
+            params.resolution || "Fast Preview (384p - ~1-2 min)",
+            params.aspectRatio || "16:9 Landscape",
+            params.pipeline || "Single stage (fast - recommended for T4)",
+            params.audioCfg ?? 1.0,
+            params.steps ?? 8,
+            params.extraLoras || [],
+            params.loraMults || "",
+            token,
+          ]);
+
+          const data = result.data as unknown[];
+          const videoData = data[0];
+          const statusText = data[1] as string;
+
+          let tempUrl: string | null = null;
+          if (typeof videoData === "string") tempUrl = videoData;
+          else if (videoData && typeof videoData === "object") {
+            const maybe = videoData as { url?: string; video?: { url?: string } };
+            tempUrl = maybe.url ?? maybe.video?.url ?? null;
+          }
+
+          if (tempUrl) {
+            setVideoSrc(tempUrl);
+            sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
+
+            setSessionHistory(prev => prev.map(item => {
+              if (item.isGenerating) {
+                return {
+                  ...item,
+                  mediaUrls: [tempUrl],
+                  isGenerating: false,
+                  status: 'temporary' as const,
+                };
+              }
+              return item;
+            }));
+
+            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            if (statusText) setStatusMsg(statusText);
+          } else {
+            setErrorMsg("No se devolvió un video válido.");
+          }
+        } else if (capability === "video" && params.videoModelId && params.videoModelId.startsWith('wan-')) {
           // ── Wan 2.1 I2V / T2V ──
           const wanMode = params.wanMode || 'i2v';
 

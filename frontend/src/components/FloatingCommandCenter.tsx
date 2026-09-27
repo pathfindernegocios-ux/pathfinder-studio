@@ -48,6 +48,31 @@ const WAN_RESOLUTIONS = ['480p', '540p', '720p'];
 const WAN_ASPECTS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
 const WAN_SAMPLERS = ['UniPC (recomendado)', 'Euler', 'Euler a', 'DPM++ 2M', 'DPM++ 2M SDE', 'Heun', 'LMS'];
 
+// ── LTX 2.5 MSR ──
+const LTX25_DURATIONS = [
+  '2 Seconds (49 frames - Fast)',
+  '3 Seconds (73 frames - Standard)',
+  '5 Seconds (121 frames - Long)',
+  '6 Seconds (145 frames - MSR default)',
+  '8 Seconds (193 frames)',
+  '10 Seconds (241 frames)',
+];
+const LTX25_RESOLUTIONS = [
+  'Fast Preview (384p - ~1-2 min)',
+  'Balanced (480p - ~3-5 min)',
+  'High Quality (704p - ~6-8 min)',
+  'Cinema 1080p (1088p - High Detail)',
+];
+const LTX25_ASPECTS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
+const LTX25_PIPELINES = [
+  'Single stage (fast - recommended for T4)',
+  'Two stages (half-res + x2 spatial upscale - slower)',
+];
+const LTX25_MODES = [
+  { label: 'Background + Up to 4 Subjects', value: 'KI' },
+  { label: 'Up to 4 Subjects / Objects', value: 'I' },
+];
+
 const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'];
 const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High)', '2048px (2K Ultra)'];
 const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait'];
@@ -127,6 +152,24 @@ interface WanParams {
   seed: number;          // -1
   forcePreset: boolean;  // false
   loraItems: { name: string; mult: string }[];
+}
+
+interface Ltx25Params {
+  mode: 'KI' | 'I';
+  removeBg: boolean;
+  ref1: File | null;
+  ref2: File | null;
+  ref3: File | null;
+  ref4: File | null;
+  ref5: File | null;
+  duration: string;
+  resolution: string;
+  aspectRatio: string;
+  pipeline: string;
+  audioCfg: number;
+  steps: number;
+  seed: number;
+  loraItems: { name: string; mult: string; enabled: boolean }[];
 }
 
 interface KreaParams {
@@ -356,12 +399,13 @@ const FloatingCommandCenter: React.FC = () => {
 
   const isVideoWan = selectedVideoModelId.startsWith('wan-');
   const isVideoLtx = selectedVideoModelId === 'ltx-2.3';
+  const isVideoLtx25Msr = selectedVideoModelId === 'ltx-2.5-msr';
 
   // Estado de la estación activa (badge offline/online)
   const currentStationModelId = activeTab === 'image'
     ? (selectedImageModelId || activeImageModelId)
     : activeTab === 'video'
-      ? (isVideoWan ? 'wan-dual' : 'ltx-2.3')
+      ? (isVideoWan ? 'wan-dual' : isVideoLtx25Msr ? 'ltx-2.5-msr' : 'ltx-2.3')
       : activeTab === 'audio'
         ? 'tts-dual'
         : null;
@@ -409,6 +453,24 @@ const FloatingCommandCenter: React.FC = () => {
     seed: -1,
     forcePreset: false,
     loraItems: [],
+  });
+
+  const [ltx25Params, setLtx25Params] = useState<Ltx25Params>({
+    mode: 'KI',
+    removeBg: true,
+    ref1: null,
+    ref2: null,
+    ref3: null,
+    ref4: null,
+    ref5: null,
+    duration: '3 Seconds (73 frames - Standard)',
+    resolution: 'Fast Preview (384p - ~1-2 min)',
+    aspectRatio: '16:9 Landscape',
+    pipeline: 'Single stage (fast - recommended for T4)',
+    audioCfg: 1.0,
+    steps: 8,
+    seed: -1,
+    loraItems: [{ name: 'LTX23_Product_Commercial_LoRA.safetensors', mult: '1.0', enabled: true }],
   });
 
   const [kreaParams, setKreaParams] = useState<KreaParams>({
@@ -462,6 +524,11 @@ const FloatingCommandCenter: React.FC = () => {
       ...(videoParams.audioFile ? [videoParams.audioFile] : []),
       ...(wanParams.imageStartFile ? [wanParams.imageStartFile] : []),
       ...(wanParams.imageEndFile ? [wanParams.imageEndFile] : []),
+      ...(ltx25Params.ref1 ? [ltx25Params.ref1] : []),
+      ...(ltx25Params.ref2 ? [ltx25Params.ref2] : []),
+      ...(ltx25Params.ref3 ? [ltx25Params.ref3] : []),
+      ...(ltx25Params.ref4 ? [ltx25Params.ref4] : []),
+      ...(ltx25Params.ref5 ? [ltx25Params.ref5] : []),
       ...fluxParams.refFiles,
       ...(ttsParams.audioGuide ? [ttsParams.audioGuide] : []),
       ...(ttsParams.audioGuide2 ? [ttsParams.audioGuide2] : []),
@@ -693,6 +760,46 @@ const FloatingCommandCenter: React.FC = () => {
     setWanParams(prev => ({ ...prev, [type === 'start' ? 'imageStartFile' : 'imageEndFile']: file }));
   };
 
+  const handleLtx25RefChange = (idx: 1 | 2 | 3 | 4 | 5, file: File | null) => {
+    setLtx25Params(prev => {
+      const next = { ...prev };
+      if (idx === 1) next.ref1 = file;
+      if (idx === 2) next.ref2 = file;
+      if (idx === 3) next.ref3 = file;
+      if (idx === 4) next.ref4 = file;
+      if (idx === 5) next.ref5 = file;
+      return next;
+    });
+  };
+
+  const renderLtx25RefChip = (idx: 1 | 2 | 3 | 4 | 5, label: string, file: File | null) => (
+    <>
+      {!file && (
+        <label style={{ position: 'relative', cursor: 'pointer' }}>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleLtx25RefChange(idx, e.target.files?.[0] || null)}
+            style={{ display: 'none' }}
+          />
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '6px 10px',
+            background: 'var(--pf-bg-secondary)',
+            border: '1px dashed var(--pf-border-default)',
+            borderRadius: '8px',
+            fontSize: '12px',
+            fontFamily: 'var(--pf-font-ui)',
+            color: 'var(--pf-text-secondary)',
+          }}>
+            <span>+ {label}</span>
+          </div>
+        </label>
+      )}
+      {file && renderFileThumbnail(file, `ltx25-ref${idx}`)}
+    </>
+  );
+
   const handleFluxRefFilesChange = (files: File[]) => {
     const validFiles = Array.from(files).filter(f => f instanceof File);
     if (validFiles.length === 0) {
@@ -760,6 +867,59 @@ const FloatingCommandCenter: React.FC = () => {
     }));
   };
 
+  // ── LoRA handlers para LTX 2.5 MSR ──
+  const handleAddLoraLtx25 = async () => {
+    const url = newLoraUrl.trim();
+    if (!url) return;
+    setLoraAdding(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { alert('Sesión no válida'); return; }
+      const client = await getClient();
+      if (!client) { alert('Sin conexión al runtime'); return; }
+      const result = await client.predict('/add_lora_url', [url, token]);
+      const status = Array.isArray(result.data) ? result.data[0] : result.data;
+      if (typeof status === 'string' && status.startsWith('✅')) {
+        const name = status.replace('✅ Descargado:', '').trim();
+        setLtx25Params(prev => ({
+          ...prev,
+          loraItems: [...prev.loraItems, { name, mult: '1.0', enabled: true }],
+        }));
+        setNewLoraUrl('');
+      } else {
+        alert(status || 'Error al descargar la LoRA');
+      }
+    } catch (err) {
+      console.error('[FCM] add_lora_url (LTX25) error:', err);
+      alert('Error de conexión al agregar la LoRA.');
+    } finally {
+      setLoraAdding(false);
+    }
+  };
+
+  const removeLoraItemLtx25 = (idx: number) => {
+    if (idx === 0) return;
+    setLtx25Params(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const updateLoraMultLtx25 = (idx: number, mult: string) => {
+    setLtx25Params(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.map((it, i) => i === idx ? { ...it, mult } : it),
+    }));
+  };
+
+  const toggleLoraEnabledLtx25 = (idx: number) => {
+    setLtx25Params(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.map((it, i) => i === idx ? { ...it, enabled: !it.enabled } : it),
+    }));
+  };
+
   const handleModelChange = (modelId: string, isComingSoon: boolean) => {
     if (isComingSoon) return;
     if (activeTab === 'image') {
@@ -817,6 +977,29 @@ const FloatingCommandCenter: React.FC = () => {
       if (activeTab === 'video') {
         if (isVideoLtx) {
           await handleGenerate({ prompt, videoModelId: 'ltx-2.3', ...videoParams });
+        } else if (isVideoLtx25Msr) {
+          // LTX 2.5 MSR (Multi-Subject Reference)
+          await handleGenerate({
+            prompt,
+            videoModelId: 'ltx-2.5-msr',
+            msrMode: ltx25Params.mode,
+            removeBg: ltx25Params.removeBg,
+            msrRef1: ltx25Params.ref1,
+            msrRef2: ltx25Params.ref2,
+            msrRef3: ltx25Params.ref3,
+            msrRef4: ltx25Params.ref4,
+            msrRef5: ltx25Params.ref5,
+            durationLabel: ltx25Params.duration,
+            resolution: ltx25Params.resolution,
+            aspectRatio: ltx25Params.aspectRatio,
+            pipeline: ltx25Params.pipeline,
+            audioCfg: ltx25Params.audioCfg,
+            steps: ltx25Params.steps,
+            seed: ltx25Params.seed,
+            negativePrompt: '',
+            extraLoras: ltx25Params.loraItems.filter(x => x.enabled).map(x => x.name),
+            loraMults: ltx25Params.loraItems.filter(x => x.enabled).map(x => x.mult).join(' '),
+          });
         } else {
           // Wan 2.1 I2V o T2V
           await handleGenerate({
@@ -904,7 +1087,7 @@ const FloatingCommandCenter: React.FC = () => {
     } catch (error) {
       console.error("Error initiating generation:", error);
     }
-  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoWan, videoParams, wanParams, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate]);
+  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoLtx25Msr, isVideoWan, videoParams, wanParams, ltx25Params, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -936,6 +1119,11 @@ const FloatingCommandCenter: React.FC = () => {
             if (type === 'ref') handleFluxRefFilesChange([]);
             if (type === 'tts-audio-1') setTtsParams(prev => ({ ...prev, audioGuide: null }));
             if (type === 'tts-audio-2') setTtsParams(prev => ({ ...prev, audioGuide2: null }));
+            if (type === 'ltx25-ref1') setLtx25Params(prev => ({ ...prev, ref1: null }));
+            if (type === 'ltx25-ref2') setLtx25Params(prev => ({ ...prev, ref2: null }));
+            if (type === 'ltx25-ref3') setLtx25Params(prev => ({ ...prev, ref3: null }));
+            if (type === 'ltx25-ref4') setLtx25Params(prev => ({ ...prev, ref4: null }));
+            if (type === 'ltx25-ref5') setLtx25Params(prev => ({ ...prev, ref5: null }));
           }}
           style={{
             position: 'absolute', top: '-4px', right: '-4px',
@@ -1112,6 +1300,58 @@ const FloatingCommandCenter: React.FC = () => {
                   {wanParams.imageEndFile && renderFileThumbnail(wanParams.imageEndFile, 'wan-end')}
                 </>
               )}
+            </div>
+          )}
+
+          {/* Chips de refs para LTX 2.5 MSR */}
+          {activeTab === 'video' && isVideoLtx25Msr && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <DropdownButton
+                  options={LTX25_MODES.map(m => m.label)}
+                  value={LTX25_MODES.find(m => m.value === ltx25Params.mode)?.label || LTX25_MODES[0].label}
+                  onChange={(v: string) => {
+                    const newMode = (LTX25_MODES.find(m => m.label === v)?.value || 'KI') as 'KI' | 'I';
+                    setLtx25Params(prev => ({ ...prev, mode: newMode }));
+                  }}
+                  formatOption={(opt) => {
+                    if (opt.startsWith('Background')) return 'BG + Subjects';
+                    if (opt.startsWith('Up to 4 Subjects / Objects')) return 'Subjects only';
+                    return opt;
+                  }}
+                />
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  fontSize: '12px', fontFamily: 'var(--pf-font-ui)',
+                  color: 'var(--pf-text-secondary)', cursor: 'pointer',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={ltx25Params.removeBg}
+                    onChange={(e) => setLtx25Params(prev => ({ ...prev, removeBg: e.target.checked }))}
+                    style={{ marginRight: '2px' }}
+                  />
+                  Quitar fondo
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {ltx25Params.mode === 'KI' ? (
+                  <>
+                    {renderLtx25RefChip(1, 'Ref 1 (background)', ltx25Params.ref1)}
+                    {renderLtx25RefChip(2, 'Ref 2 (subject 1)', ltx25Params.ref2)}
+                    {renderLtx25RefChip(3, 'Ref 3 (subject 2)', ltx25Params.ref3)}
+                    {renderLtx25RefChip(4, 'Ref 4 (subject 3)', ltx25Params.ref4)}
+                    {renderLtx25RefChip(5, 'Ref 5 (subject 4)', ltx25Params.ref5)}
+                  </>
+                ) : (
+                  <>
+                    {renderLtx25RefChip(1, 'Ref 1 (subject 1)', ltx25Params.ref1)}
+                    {renderLtx25RefChip(2, 'Ref 2 (subject 2)', ltx25Params.ref2)}
+                    {renderLtx25RefChip(3, 'Ref 3 (subject 3)', ltx25Params.ref3)}
+                    {renderLtx25RefChip(4, 'Ref 4 (subject 4)', ltx25Params.ref4)}
+                  </>
+                )}
+              </div>
             </div>
           )}
 
@@ -1622,6 +1862,271 @@ const FloatingCommandCenter: React.FC = () => {
                             ))}
                             <div style={{ fontSize: '9px', color: 'var(--pf-text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
                               El orden importa: cada multiplicador aplica a su LoRA.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            )}
+
+            {/* LTX 2.5 MSR — fila inferior */}
+            {activeTab === 'video' && isVideoLtx25Msr && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <DropdownButton
+                  options={LTX25_DURATIONS}
+                  value={ltx25Params.duration}
+                  onChange={(v: string) => setLtx25Params(prev => ({ ...prev, duration: v }))}
+                  formatOption={(opt) => opt.split(' ')[0] + 's'}
+                />
+                <DropdownButton
+                  options={LTX25_RESOLUTIONS}
+                  value={ltx25Params.resolution}
+                  onChange={(v: string) => setLtx25Params(prev => ({ ...prev, resolution: v }))}
+                  formatOption={(opt) => {
+                    const m = opt.match(/\((\d{3,4}p)/);
+                    return m ? m[1] : opt;
+                  }}
+                />
+                <DropdownButton
+                  options={LTX25_ASPECTS}
+                  value={ltx25Params.aspectRatio}
+                  onChange={(v: string) => setLtx25Params(prev => ({ ...prev, aspectRatio: v }))}
+                  formatOption={(opt) => opt.split(' ')[0]}
+                />
+                <NumberInput
+                  label="Seed"
+                  value={ltx25Params.seed}
+                  onChange={(v: number) => setLtx25Params(prev => ({ ...prev, seed: v }))}
+                  min={-1}
+                  max={2147483647}
+                  step={1}
+                />
+                <div style={{ position: 'relative' }}>
+                  <details style={{ display: 'inline-block' }}>
+                    <summary style={{
+                      listStyle: 'none',
+                      background: 'var(--pf-bg-secondary)',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px',
+                      padding: '5px 10px',
+                      fontSize: '12px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      color: 'var(--pf-text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      Avanzado ▼
+                    </summary>
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 8px)',
+                      left: 0,
+                      background: 'white',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                      zIndex: 1000,
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      width: '320px'
+                    }}>
+                      <div>
+                        <DropdownButton
+                          options={LTX25_PIPELINES}
+                          value={ltx25Params.pipeline}
+                          onChange={(v: string) => setLtx25Params(prev => ({ ...prev, pipeline: v }))}
+                          formatOption={(opt) => opt.startsWith('Single') ? 'Single' : 'Two-stage'}
+                        />
+                      </div>
+                      <div>
+                        <NumberInput
+                          label="Steps"
+                          value={ltx25Params.steps}
+                          onChange={(v: number) => setLtx25Params(prev => ({ ...prev, steps: v }))}
+                          min={4}
+                          max={8}
+                          step={1}
+                        />
+                      </div>
+                      <div>
+                        <NumberInput
+                          label="Audio CFG"
+                          value={ltx25Params.audioCfg}
+                          onChange={(v: number) => setLtx25Params(prev => ({ ...prev, audioCfg: v }))}
+                          min={1.0}
+                          max={5.0}
+                          step={0.5}
+                        />
+                      </div>
+                      <div style={{ borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                          LoRAs
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                          <input
+                            type="text"
+                            value={newLoraUrl}
+                            onChange={(e) => setNewLoraUrl(e.target.value)}
+                            placeholder="https://huggingface.co/..."
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              padding: '5px 7px',
+                              background: 'var(--pf-bg-secondary)',
+                              border: '1px solid var(--pf-border-default)',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontFamily: 'var(--pf-font-ui)',
+                              color: 'var(--pf-text-primary)',
+                              outline: 'none',
+                            }}
+                            disabled={loraAdding || isLoading}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddLoraLtx25}
+                            disabled={loraAdding || !newLoraUrl.trim() || isLoading}
+                            style={{
+                              padding: '5px 9px',
+                              background: (!newLoraUrl.trim() || loraAdding) ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)',
+                              color: (!newLoraUrl.trim() || loraAdding) ? 'var(--pf-text-muted)' : 'var(--pf-bg-elevated)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontFamily: 'var(--pf-font-ui)',
+                              fontWeight: 600,
+                              cursor: (!newLoraUrl.trim() || loraAdding) ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {loraAdding ? '...' : 'Add'}
+                          </button>
+                        </div>
+                        {ltx25Params.loraItems.length === 0 ? (
+                          <div style={{ fontSize: '10px', color: 'var(--pf-text-muted)', fontStyle: 'italic', lineHeight: 1.4 }}>
+                            Sin LoRAs adicionales. Se aplicará solo MSR V1 (interna).
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {ltx25Params.loraItems.map((item, i) => {
+                              const isProduct = i === 0 && item.name.toLowerCase().includes('product_commercial');
+                              const dimmed = !item.enabled;
+                              return (
+                                <div key={`${item.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', opacity: dimmed ? 0.45 : 1 }}>
+                                  {isProduct && (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleLoraEnabledLtx25(i)}
+                                      disabled={isLoading}
+                                      title={item.enabled ? 'Desactivar' : 'Activar'}
+                                      style={{
+                                        width: '14px',
+                                        height: '14px',
+                                        borderRadius: '3px',
+                                        border: '1px solid var(--pf-border-default)',
+                                        background: item.enabled ? 'var(--pf-text-primary)' : 'var(--pf-bg-secondary)',
+                                        color: 'var(--pf-bg-elevated)',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: 0,
+                                        fontSize: '10px',
+                                        lineHeight: 1,
+                                      }}
+                                    >
+                                      {item.enabled ? '✓' : ''}
+                                    </button>
+                                  )}
+                                  <span
+                                    title={item.name}
+                                    style={{
+                                      flex: 1,
+                                      fontSize: '10px',
+                                      fontFamily: 'var(--pf-font-ui)',
+                                      color: isProduct ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)',
+                                      fontWeight: isProduct ? 600 : 400,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      minWidth: 0,
+                                      textDecoration: dimmed ? 'line-through' : 'none',
+                                    }}
+                                  >
+                                    {item.name}
+                                  </span>
+                                  <input
+                                    type="number"
+                                    value={item.mult}
+                                    min={0}
+                                    max={2}
+                                    step={0.05}
+                                    onChange={(e) => updateLoraMultLtx25(i, e.target.value)}
+                                    disabled={isLoading || dimmed}
+                                    style={{
+                                      width: '42px',
+                                      padding: '3px 5px',
+                                      background: 'var(--pf-bg-secondary)',
+                                      border: '1px solid var(--pf-border-default)',
+                                      borderRadius: '5px',
+                                      fontSize: '11px',
+                                      fontFamily: 'var(--pf-font-ui)',
+                                      color: 'var(--pf-text-primary)',
+                                      textAlign: 'center',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                  {isProduct ? (
+                                    <span
+                                      title="Product Commercial (precargada) — se puede activar/desactivar"
+                                      style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '10px',
+                                        color: 'var(--pf-text-muted)',
+                                      }}
+                                    >
+                                      🔒
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => removeLoraItemLtx25(i)}
+                                      disabled={isLoading}
+                                      style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        borderRadius: '50%',
+                                        background: '#EF4444',
+                                        color: 'white',
+                                        border: 'none',
+                                        fontSize: '10px',
+                                        lineHeight: 1,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: 0,
+                                      }}
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            <div style={{ fontSize: '9px', color: 'var(--pf-text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
+                              MSR V1 (interna) se aplica siempre. Product Commercial es editable y activable/desactivable.
                             </div>
                           </div>
                         )}
