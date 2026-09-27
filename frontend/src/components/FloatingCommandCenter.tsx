@@ -904,6 +904,37 @@ const FloatingCommandCenter: React.FC = () => {
         }));
       }
 
+      // ── Restaurar LoRAs cuando el usuario hace Variación ──
+      // El `params.extraLoras` viene del history_entry (estado local o backend).
+      // El `params.loraMults` es un string separado por espacios con un mult
+      // por LoRA, en el mismo orden que extraLoras.
+      const extraLorasArr: string[] = Array.isArray(p.extraLoras)
+        ? (p.extraLoras as string[]).filter((x): x is string => typeof x === 'string' && x.length > 0)
+        : [];
+      const loraMultsStr: string = typeof p.loraMults === 'string' ? p.loraMults : '';
+      const loraMultsArr: string[] = loraMultsStr.split(/\s+/).filter(Boolean);
+
+      if (isWan && extraLorasArr.length > 0) {
+        setWanParams(prev => ({
+          ...prev,
+          loraItems: extraLorasArr.map((name, i) => ({
+            name,
+            mult: loraMultsArr[i] || '1.0',
+          })),
+        }));
+      } else if (detail.modelId === 'ltx-2.5-msr' && extraLorasArr.length > 0) {
+        // Para LTX 2.5 MSR, siempre reconstruimos la lista completa.
+        // Si la extraLoras vacía ya la maneja el default (Product Commercial).
+        setLtx25Params(prev => ({
+          ...prev,
+          loraItems: extraLorasArr.map((name, i) => ({
+            name,
+            mult: loraMultsArr[i] || '1.0',
+            enabled: true,
+          })),
+        }));
+      }
+
       if (Array.isArray(detail.refUrls) && detail.refUrls.length > 0) {
         try {
           const files: File[] = [];

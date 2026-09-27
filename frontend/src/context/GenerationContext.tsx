@@ -172,6 +172,9 @@ function mapBackendParams(raw: any): Record<string, unknown> | undefined {
     wanMode: r.mode,
     wanShift: r.shift,
     wanSampler: r.sampler,
+    // ── LoRAs (Wan + LTX 2.5 MSR) ──
+    extraLoras: r.extra_loras,
+    loraMults: r.lora_mults,
   };
 }
 
@@ -628,6 +631,9 @@ export function GenerationProvider({
           duration: params.duration,
           guideScale: params.guideScale,
           matchAudioDur: params.matchAudioDur,
+          // ── LoRAs (Wan / LTX 2.5 MSR) — para que Variación las restaure ──
+          extraLoras: params.extraLoras,
+          loraMults: params.loraMults,
         },
       }]);
 
