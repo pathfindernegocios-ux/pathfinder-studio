@@ -364,7 +364,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
           ) : (
             <>
               <Sparkles size={14} />
-              Desbloquear — $399
+              Desbloquear
             </>
           )}
         </button>
@@ -689,8 +689,10 @@ const StationPage: React.FC = () => {
               }}
             >
               {[...lockedModels, ...comingSoonModels].map((model) => {
-                const isPro =
-                  model.id === 'flux-2-klein-4b' || model.id === 'ltx-2.3';
+                // Modelos "no free" son los que requieren plan pago.
+                // Antes estaba hardcodeado a flux-2-klein-4b y ltx-2.3 — quedaba
+                // obsoleto con cada modelo nuevo. Ahora se lee dinámicamente.
+                const isPro = !model.is_free;
                 return (
                   <ModelCard
                     key={model.id}
