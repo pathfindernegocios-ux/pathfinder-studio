@@ -52,6 +52,22 @@ interface GenerateParams {
   modelModeLabel?: string;
   fluxGuideScale?: number;
   embeddedGuidance?: number;
+  // ── Audio (TTS Dual) ──
+  audioMode?: 'omnivoice' | 'index_tts25';
+  voiceMode?: string;              // "" | "VD" | "A" | "AB"
+  voiceInstruction?: string;       // OmniVoice: tags de voz
+  emotionInstruction?: string;     // Index TTS: lista de emociones
+  audioGuide?: File | null;
+  audioGuide2?: File | null;
+  language?: string;
+  durationLabel?: string;          // "Custom (auto)" | "5 segundos" | ...
+  ttsSteps?: number;
+  ttsGuidance?: number;
+  speechSpeed?: number;
+  ttsTemperature?: number;
+  ttsTopP?: number;
+  ttsTopK?: number;
+  textNormalization?: boolean;
 }
 
 interface GenerationContextValue {
@@ -125,6 +141,11 @@ function mapBackendParams(raw: any): Record<string, unknown> | undefined {
     stylePreset: r.style_preset,
     duration: r.duration,
     matchAudioDur: r.match_audio_dur,
+    // ── TTS Dual ──
+    audioMode: r.mode,
+    voiceMode: r.voice_mode,
+    language: r.language,
+    durationLabel: r.duration,
   };
 }
 
@@ -368,6 +389,26 @@ export function GenerationProvider({
     return () => { cancelled = true; };
   }, [stationId]);
 
+  const parseAudioFromResult = (raw: unknown): string[] => {
+    const audios: string[] = [];
+    if (typeof raw === "string") {
+      audios.push(raw);
+    } else if (raw && typeof raw === "object") {
+      const obj = raw as any;
+      const maybe = obj.url || obj.path || obj.name || obj.audio?.url || obj.audio?.path;
+      if (typeof maybe === "string") audios.push(maybe);
+    } else if (Array.isArray(raw)) {
+      for (const item of raw) {
+        if (typeof item === "string") audios.push(item);
+        else if (item && typeof item === "object") {
+          const maybe = (item as any).url || (item as any).path || (item as any).name;
+          if (typeof maybe === "string") audios.push(maybe);
+        }
+      }
+    }
+    return audios;
+  };
+
   const parseImagesFromResult = (raw: unknown): string[] => {
     const images: string[] = [];
     if (Array.isArray(raw)) {
@@ -516,8 +557,10 @@ export function GenerationProvider({
         prompt: params.prompt,
         mediaUrls: [],
         mediaType: capability === 'video' ? 'video' : capability === 'audio' ? 'audio' : 'image',
-        modelId: activeImageModelId || '',
-        modelLabel: activeImageModelId === 'flux-2-klein-4b' ? 'Flux 2' : activeImageModelId === 'krea-2-turbo' ? 'Krea' : 'LTX 2.3',
+        modelId: capability === 'audio' ? 'tts-dual' : (activeImageModelId || ''),
+        modelLabel: capability === 'audio'
+          ? (params.audioMode === 'index_tts25' ? 'Index TTS 2.5' : 'OmniVoice')
+          : (activeImageModelId === 'flux-2-klein-4b' ? 'Flux 2' : activeImageModelId === 'krea-2-turbo' ? 'Krea' : 'LTX 2.3'),
         aspectRatio: aspectRatioCss,
         createdAt: Date.now(),
         status: 'temporary',
@@ -697,6 +740,75 @@ export function GenerationProvider({
             setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
           } else {
             setErrorMsg("No se devolvieron imágenes.");
+          }
+        } else if (capability === "audio") {
+          const mode = params.audioMode || 'omnivoice';
+
+          const result = await client.predict("/generate", [
+            mode,
+            params.prompt,
+            params.voiceMode || "",
+            params.voiceInstruction || "",
+            params.audioGuide || null,
+            params.audioGuide2 || null,
+            params.ttsSteps ?? 32,
+            params.ttsGuidance ?? 2.0,
+            params.voiceMode || "A",
+            params.emotionInstruction || "",
+            params.audioGuide || null,
+            params.audioGuide2 || null,
+            params.ttsSteps ?? 25,
+            params.speechSpeed ?? 1.0,
+            params.ttsTemperature ?? 0.8,
+            params.ttsTopP ?? 0.8,
+            params.ttsTopK ?? 30,
+            params.textNormalization ?? true,
+            params.language || "spanish",
+            params.durationLabel || "Custom (auto)",
+            params.seed,
+            token,
+          ]);
+
+          const data = result.data as unknown[];
+          const audioData = data[0];
+          const statusText = data[1] as string;
+
+          const audioPaths = parseAudioFromResult(audioData);
+          const absoluteUrls = toAbsoluteUrls(audioPaths, gradioUrl);
+
+          if (absoluteUrls.length > 0) {
+            setSessionHistory(prev => prev.map(item => {
+              if (item.isGenerating) {
+                return {
+                  ...item,
+                  mediaUrls: absoluteUrls,
+                  isGenerating: false,
+                  status: 'temporary' as const,
+                  params: {
+                    ...item.params,
+                    audioMode: mode,
+                    voiceMode: params.voiceMode,
+                    voiceInstruction: params.voiceInstruction,
+                    emotionInstruction: params.emotionInstruction,
+                    language: params.language,
+                    durationLabel: params.durationLabel,
+                    ttsSteps: params.ttsSteps,
+                    ttsGuidance: params.ttsGuidance,
+                    speechSpeed: params.speechSpeed,
+                    ttsTemperature: params.ttsTemperature,
+                    ttsTopP: params.ttsTopP,
+                    ttsTopK: params.ttsTopK,
+                    textNormalization: params.textNormalization,
+                  },
+                };
+              }
+              return item;
+            }));
+
+            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            if (statusText) setStatusMsg(statusText);
+          } else {
+            setErrorMsg("No se devolvió un audio válido.");
           }
         }
       } catch (err) {

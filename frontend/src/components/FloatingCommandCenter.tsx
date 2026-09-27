@@ -2,20 +2,26 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useGenerationContext } from '../context/GenerationContext';
-import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X, Loader2 } from 'lucide-react';
+import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X, Loader2, Mic, Mic2, Pencil } from 'lucide-react';
+import AudioTrimmer from './AudioTrimmer';
 
 type TabType = 'video' | 'image' | 'audio';
 
 // Definición estática de modelos disponibles en la UI
-const STATIC_IMAGE_MODELS = [
+const STATIC_IMAGE_MODELS: { id: string; name: string; type: string; comingSoon?: boolean }[] = [
   { id: 'krea-2-turbo', name: 'Krea 2', type: 'krea' },
   { id: 'flux-2-klein-4b', name: 'Flux 2', type: 'flux' },
   { id: 'wan-i2v', name: 'Wan I2V', type: 'wan', comingSoon: true },
 ];
 
-const STATIC_VIDEO_MODELS = [
+const STATIC_VIDEO_MODELS: { id: string; name: string; type: string; comingSoon?: boolean }[] = [
   { id: 'ltx-2.3', name: 'LTX 2.3', type: 'ltx' },
   { id: 'wan-i2v-video', name: 'Wan I2V', type: 'wan', comingSoon: true },
+];
+
+const STATIC_AUDIO_MODELS: { id: string; name: string; type: string; comingSoon?: boolean }[] = [
+  { id: 'omnivoice', name: 'OmniVoice', type: 'tts' },
+  { id: 'index_tts25', name: 'Index TTS', type: 'tts' },
 ];
 
 // Arrays de opciones simplificadas
@@ -47,6 +53,49 @@ const FLUX_REF_MODES = [
 
 const FLUX_RESOLUTIONS = ['1024px (Estándar)', '1536px (Alta)'];
 const FLUX_ASPECT_RATIOS = ['1:1 Cuadrado', '16:9 Paisaje', '9:16 Retrato', '4:5 Retrato'];
+
+// ── TTS Dual — OmniVoice + Index TTS 2.5 ──
+const TTS_OMNI_VOICE_MODES = [
+  'Auto Voice (sin referencia)',
+  'Voice Design (solo tags)',
+  'Voice Cloning (1 referencia)',
+  'Two-Speaker (2 referencias)',
+];
+const TTS_INDEX_VOICE_MODES = [
+  'Voice Cloning (1 referencia)',
+  'Voice + Emotion (2 referencias)',
+];
+const TTS_OMNI_LANGS = ['Auto', 'Spanish', 'English', 'Portuguese', 'French', 'German', 'Italian', 'Japanese', 'Korean', 'Chinese', 'Arabic', 'Hindi', 'Russian'];
+const TTS_INDEX_LANGS = ['Spanish', 'English', 'Chinese', 'Chinese / English Mixed', 'Japanese', 'Arabic'];
+const TTS_DURATIONS = ['Custom (auto)', '5 segundos', '10 segundos', '15 segundos', '25 segundos', '40 segundos', '60 segundos'];
+
+// Mapas label visible → código que espera el backend.
+// OmniVoice usa nombres en inglés (spanish, english, ...) — ver OMNIVOICE_LANGS en el notebook.
+// Index TTS usa códigos cortos (ES, EN, ZH, ZHEN, JA, AR) — ver INDEXTTS_LANGS en el notebook.
+const TTS_LANG_CODE_MAP_OMNI: Record<string, string> = {
+  'Auto':       'auto',
+  'Spanish':    'spanish',
+  'English':    'english',
+  'Portuguese': 'portuguese',
+  'French':     'french',
+  'German':     'german',
+  'Italian':    'italian',
+  'Japanese':   'japanese',
+  'Korean':     'korean',
+  'Chinese':    'chinese',
+  'Arabic':     'arabic',
+  'Hindi':      'hindi',
+  'Russian':    'russian',
+};
+
+const TTS_LANG_CODE_MAP_INDEX: Record<string, string> = {
+  'Spanish': 'ES',
+  'English': 'EN',
+  'Chinese': 'ZH',
+  'Chinese / English Mixed': 'ZHEN',
+  'Japanese': 'JA',
+  'Arabic': 'AR',
+};
 
 // Interfaces para los parámetros
 interface VideoParams {
@@ -84,6 +133,27 @@ interface FluxParams {
   modelModeLabel: string; // Se mantiene internamente pero no se edita en UI
   fluxGuideScale: number;
   embeddedGuidance: number;
+}
+
+interface TtsParams {
+  // Comunes
+  voiceMode: string;            // "" | "VD" | "A" | "AB"
+  voiceInstruction: string;     // OmniVoice: tags de voz
+  emotionInstruction: string;   // Index TTS: lista de emociones
+  audioGuide: File | null;
+  audioGuide2: File | null;
+  language: string;
+  duration: string;
+  seed: number;
+  // OmniVoice
+  steps: number;
+  guideScale: number;
+  // Index TTS
+  speechSpeed: number;
+  temperature: number;
+  topP: number;
+  topK: number;
+  textNormalization: boolean;
 }
 
 // Componente auxiliar para menús desplegables inteligentes
@@ -256,13 +326,17 @@ const FloatingCommandCenter: React.FC = () => {
 
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>('krea-2-turbo');
   const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>('ltx-2.3');
+  const [selectedTtsModelId, setSelectedTtsModelId] = useState<string>('omnivoice');
+  const [expandedAudio, setExpandedAudio] = useState<'audioGuide' | 'audioGuide2' | null>(null);
 
   // Estado de la estación activa (badge offline/online)
   const currentStationModelId = activeTab === 'image'
     ? (selectedImageModelId || activeImageModelId)
     : activeTab === 'video'
       ? (selectedVideoModelId || 'ltx-2.3')
-      : null;
+      : activeTab === 'audio'
+        ? 'tts-dual'
+        : null;
   const isStationOffline = currentStationModelId
     ? stationStatusMap[currentStationModelId] !== 'online'
     : false;
@@ -282,6 +356,9 @@ const FloatingCommandCenter: React.FC = () => {
   }, [activeTab, activeImageModelId]);
 
   const isFluxActive = selectedImageModelId.includes('flux');
+  const isTtsOmni = selectedTtsModelId === 'omnivoice';
+  const ttsVoiceModeOptions = isTtsOmni ? TTS_OMNI_VOICE_MODES : TTS_INDEX_VOICE_MODES;
+  const ttsLangOptions = isTtsOmni ? TTS_OMNI_LANGS : TTS_INDEX_LANGS;
   
   const [videoParams, setVideoParams] = useState<VideoParams>({
     imageStartFile: null,
@@ -322,6 +399,24 @@ const FloatingCommandCenter: React.FC = () => {
     embeddedGuidance: 1,
   });
 
+  const [ttsParams, setTtsParams] = useState<TtsParams>({
+    voiceMode: 'VD',
+    voiceInstruction: 'female, young adult, moderate pitch',
+    emotionInstruction: '',
+    audioGuide: null,
+    audioGuide2: null,
+    language: 'Auto',
+    duration: 'Custom (auto)',
+    seed: -1,
+    steps: 32,
+    guideScale: 2.0,
+    speechSpeed: 1.0,
+    temperature: 0.8,
+    topP: 0.8,
+    topK: 30,
+    textNormalization: true,
+  });
+
   // Limpieza de URLs huérfanas
   useEffect(() => {
     const activeFiles = new Set<File>([
@@ -329,6 +424,8 @@ const FloatingCommandCenter: React.FC = () => {
       ...(videoParams.imageEndFile ? [videoParams.imageEndFile] : []),
       ...(videoParams.audioFile ? [videoParams.audioFile] : []),
       ...fluxParams.refFiles,
+      ...(ttsParams.audioGuide ? [ttsParams.audioGuide] : []),
+      ...(ttsParams.audioGuide2 ? [ttsParams.audioGuide2] : []),
     ]);
     const cache = objectUrlCacheRef.current;
     for (const [file, url] of cache.entries()) {
@@ -337,7 +434,7 @@ const FloatingCommandCenter: React.FC = () => {
         cache.delete(file);
       }
     }
-  }, [videoParams.imageStartFile, videoParams.imageEndFile, videoParams.audioFile, fluxParams.refFiles]);
+  }, [videoParams.imageStartFile, videoParams.imageEndFile, videoParams.audioFile, fluxParams.refFiles, ttsParams.audioGuide, ttsParams.audioGuide2]);
 
   useEffect(() => {
     return () => {
@@ -531,11 +628,25 @@ const FloatingCommandCenter: React.FC = () => {
     });
   };
 
+  const handleApplyTrim = (which: 'audioGuide' | 'audioGuide2', trimmedFile: File, _startSec: number, _endSec: number) => {
+    setTtsParams(prev => ({ ...prev, [which]: trimmedFile }));
+    setExpandedAudio(null);
+  };
+
   const handleModelChange = (modelId: string, isComingSoon: boolean) => {
     if (isComingSoon) return;
     if (activeTab === 'image') {
       setSelectedImageModelId(modelId);
       if (setActiveImageModelId) setActiveImageModelId(modelId);
+    } else if (activeTab === 'audio') {
+      setSelectedTtsModelId(modelId);
+      // Reset de params dependientes del modo
+      setTtsParams(prev => ({
+        ...prev,
+        voiceMode: modelId === 'omnivoice' ? 'VD' : 'A',
+        language: modelId === 'omnivoice' ? 'Auto' : 'Spanish',
+        steps: modelId === 'omnivoice' ? 32 : 25,
+      }));
     }
   };
 
@@ -598,11 +709,44 @@ const FloatingCommandCenter: React.FC = () => {
             stylePreset: kreaParams.stylePreset,
           });
         }
+      } else if (activeTab === 'audio') {
+        // Mapear el voiceMode legible a letra del backend
+        const voiceModeMap: Record<string, string> = {
+          'Auto Voice (sin referencia)': '',
+          'Voice Design (solo tags)': 'VD',
+          'Voice Cloning (1 referencia)': 'A',
+          'Two-Speaker (2 referencias)': 'AB',
+          'Voice + Emotion (2 referencias)': 'AB',
+        };
+        const voiceModeLetter = voiceModeMap[ttsParams.voiceMode] ?? '';
+
+        await handleGenerate({
+          prompt,
+          audioMode: selectedTtsModelId as 'omnivoice' | 'index_tts25',
+          voiceMode: voiceModeLetter,
+          voiceInstruction: ttsParams.voiceInstruction,
+          emotionInstruction: ttsParams.emotionInstruction,
+          audioGuide: ttsParams.audioGuide,
+          audioGuide2: ttsParams.audioGuide2,
+          language: (selectedTtsModelId === 'omnivoice'
+            ? TTS_LANG_CODE_MAP_OMNI[ttsParams.language]
+            : TTS_LANG_CODE_MAP_INDEX[ttsParams.language])
+            || (selectedTtsModelId === 'omnivoice' ? 'auto' : 'ES'),
+          durationLabel: ttsParams.duration,
+          ttsSteps: ttsParams.steps,
+          ttsGuidance: ttsParams.guideScale,
+          speechSpeed: ttsParams.speechSpeed,
+          ttsTemperature: ttsParams.temperature,
+          ttsTopP: ttsParams.topP,
+          ttsTopK: ttsParams.topK,
+          textNormalization: ttsParams.textNormalization,
+          seed: ttsParams.seed,
+        });
       }
     } catch (error) {
       console.error("Error initiating generation:", error);
     }
-  }, [prompt, activeTab, isFluxActive, videoParams, fluxParams, kreaParams, selectedVideoModelId, selectedImageModelId, handleGenerate]);
+  }, [prompt, activeTab, isFluxActive, videoParams, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -631,6 +775,8 @@ const FloatingCommandCenter: React.FC = () => {
             if (type === 'video-end') handleVideoFileChange('end', null);
             if (type === 'video-audio') handleVideoFileChange('audio', null);
             if (type === 'ref') handleFluxRefFilesChange([]); // Simplificación: limpia todo al borrar uno
+            if (type === 'tts-audio-1') setTtsParams(prev => ({ ...prev, audioGuide: null }));
+            if (type === 'tts-audio-2') setTtsParams(prev => ({ ...prev, audioGuide2: null }));
           }}
           style={{
             position: 'absolute', top: '-4px', right: '-4px',
@@ -646,9 +792,16 @@ const FloatingCommandCenter: React.FC = () => {
   };
 
   const renderModelSelector = () => {
-    const models = activeTab === 'image' ? STATIC_IMAGE_MODELS : STATIC_VIDEO_MODELS;
-    const selectedId = activeTab === 'image' ? selectedImageModelId : selectedVideoModelId;
-    // Eliminada variable no usada setSelectedId
+    const models = activeTab === 'image'
+      ? STATIC_IMAGE_MODELS
+      : activeTab === 'audio'
+        ? STATIC_AUDIO_MODELS
+        : STATIC_VIDEO_MODELS;
+    const selectedId = activeTab === 'image'
+      ? selectedImageModelId
+      : activeTab === 'audio'
+        ? selectedTtsModelId
+        : selectedVideoModelId;
 
     return (
       <div style={{ display: 'flex', gap: '6px' }}>
@@ -713,7 +866,7 @@ const FloatingCommandCenter: React.FC = () => {
               </button>
             ))}
           </div>
-          {(activeTab === 'image' || activeTab === 'video') && renderModelSelector()}
+          {renderModelSelector()}
         </div>
 
         {isStationOffline && currentStationModelId && (
@@ -748,7 +901,7 @@ const FloatingCommandCenter: React.FC = () => {
         )}
 
         <div style={{ padding: '12px 14px' }}>
-          {(activeTab === 'video' || (activeTab === 'image' && isFluxActive)) && (
+          {(activeTab === 'video' || (activeTab === 'image' && isFluxActive) || activeTab === 'audio') && (
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
               {activeTab === 'video' && (
                 <>
@@ -805,7 +958,97 @@ const FloatingCommandCenter: React.FC = () => {
                   ))}
                 </>
               )}
+
+              {activeTab === 'audio' && (
+                <>
+                  {!ttsParams.audioGuide && (
+                    <label style={{ position: 'relative', cursor: 'pointer' }}>
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        onChange={(e) => setTtsParams(prev => ({ ...prev, audioGuide: e.target.files?.[0] || null }))}
+                        style={{ display: 'none' }}
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                        <Mic size={12} />
+                        <span>+ Audio 1</span>
+                      </div>
+                    </label>
+                  )}
+                  {ttsParams.audioGuide && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAudio(expandedAudio === 'audioGuide' ? null : 'audioGuide')}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '6px 10px',
+                          background: expandedAudio === 'audioGuide' ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
+                          border: '1px solid var(--pf-border-default)',
+                          borderRadius: '8px', fontSize: '12px',
+                          fontFamily: 'var(--pf-font-ui)',
+                          color: expandedAudio === 'audioGuide' ? 'var(--pf-bg-elevated)' : 'var(--pf-text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Mic size={12} />
+                        <span>Audio 1</span>
+                        <Pencil size={10} />
+                      </button>
+                      {renderFileThumbnail(ttsParams.audioGuide, 'tts-audio-1')}
+                    </>
+                  )}
+
+                  {!ttsParams.audioGuide2 && (
+                    <label style={{ position: 'relative', cursor: 'pointer' }}>
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        onChange={(e) => setTtsParams(prev => ({ ...prev, audioGuide2: e.target.files?.[0] || null }))}
+                        style={{ display: 'none' }}
+                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                        <Mic2 size={12} />
+                        <span>+ Audio 2</span>
+                      </div>
+                    </label>
+                  )}
+                  {ttsParams.audioGuide2 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAudio(expandedAudio === 'audioGuide2' ? null : 'audioGuide2')}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '6px 10px',
+                          background: expandedAudio === 'audioGuide2' ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
+                          border: '1px solid var(--pf-border-default)',
+                          borderRadius: '8px', fontSize: '12px',
+                          fontFamily: 'var(--pf-font-ui)',
+                          color: expandedAudio === 'audioGuide2' ? 'var(--pf-bg-elevated)' : 'var(--pf-text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Mic2 size={12} />
+                        <span>Audio 2</span>
+                        <Pencil size={10} />
+                      </button>
+                      {renderFileThumbnail(ttsParams.audioGuide2, 'tts-audio-2')}
+                    </>
+                  )}
+                </>
+              )}
             </div>
+          )}
+
+          {/* AudioTrimmer expandido — solo en tab Audio, 1 activo a la vez */}
+          {activeTab === 'audio' && expandedAudio && ttsParams[expandedAudio] && (
+            <AudioTrimmer
+              src={getObjectUrl(ttsParams[expandedAudio] as File)}
+              fileName={(ttsParams[expandedAudio] as File).name}
+              onApply={(trimmed, s, e) => handleApplyTrim(expandedAudio, trimmed, s, e)}
+              onCancel={() => setExpandedAudio(null)}
+            />
           )}
 
           {/* Selector de Reference Mode visible inmediatamente si hay refs (Solo Flux) */}
@@ -824,7 +1067,13 @@ const FloatingCommandCenter: React.FC = () => {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={activeTab === 'video' ? "Describe tu video..." : "Describe tu imagen..."}
+              placeholder={
+                activeTab === 'video'
+                  ? "Describe tu video..."
+                  : activeTab === 'audio'
+                    ? "Escribe el texto a narrar..."
+                    : "Describe tu imagen..."
+              }
               rows={1}
               style={{
                 width: '100%', minHeight: '38px', maxHeight: '110px', background: 'transparent',
@@ -874,12 +1123,76 @@ const FloatingCommandCenter: React.FC = () => {
                 </>
               ) : (
                 <>
-                  Generar
+                  {activeTab === 'audio' ? 'Generar Audio' : 'Generar'}
                   <Sparkles size={14} />
                 </>
               )}
             </button>
           </div>
+
+          {/* Voice / Emotion instruction — visible solo en tab Audio */}
+          {activeTab === 'audio' && (
+            <details style={{ marginTop: '10px' }}>
+              <summary style={{
+                listStyle: 'none',
+                fontSize: '12px',
+                fontFamily: 'var(--pf-font-ui)',
+                color: 'var(--pf-text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                userSelect: 'none',
+              }}>
+                <span style={{ fontSize: '10px' }}>▸</span>
+                {isTtsOmni ? 'Voice instruction' : 'Emotion instruction'}
+                {((isTtsOmni ? ttsParams.voiceInstruction : ttsParams.emotionInstruction) || '').trim() !== '' && (
+                  <span style={{
+                    fontSize: '10px',
+                    color: 'var(--pf-text-muted)',
+                    fontStyle: 'italic',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '240px',
+                  }}>
+                    — {(isTtsOmni ? ttsParams.voiceInstruction : ttsParams.emotionInstruction).slice(0, 60)}
+                  </span>
+                )}
+              </summary>
+              <input
+                type="text"
+                value={isTtsOmni ? ttsParams.voiceInstruction : ttsParams.emotionInstruction}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (isTtsOmni) {
+                    setTtsParams(prev => ({ ...prev, voiceInstruction: v }));
+                  } else {
+                    setTtsParams(prev => ({ ...prev, emotionInstruction: v }));
+                  }
+                }}
+                placeholder={
+                  isTtsOmni
+                    ? 'female, young adult, moderate pitch'
+                    : 'happy, angry, sad, afraid, disgusted, melancholic, surprised, calm'
+                }
+                style={{
+                  marginTop: '8px',
+                  width: '100%',
+                  padding: '8px 10px',
+                  background: 'var(--pf-bg-secondary)',
+                  border: '1px solid var(--pf-border-default)',
+                  borderRadius: '8px',
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '12px',
+                  color: 'var(--pf-text-primary)',
+                  lineHeight: 1.4,
+                  outline: 'none',
+                }}
+                disabled={isLoading}
+              />
+            </details>
+          )}
 
           {/* Negative prompt — visible solo en tab Imagen (Krea / Flux) */}
           {activeTab === 'image' && (
@@ -1018,6 +1331,137 @@ const FloatingCommandCenter: React.FC = () => {
                       </div>
                    </details>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'audio' && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <DropdownButton
+                  options={ttsLangOptions}
+                  value={ttsParams.language}
+                  onChange={(v: string) => setTtsParams(prev => ({ ...prev, language: v }))}
+                />
+                <DropdownButton
+                  options={TTS_DURATIONS}
+                  value={ttsParams.duration}
+                  onChange={(v: string) => setTtsParams(prev => ({ ...prev, duration: v }))}
+                  formatOption={(opt) => opt === 'Custom (auto)' ? 'Auto' : opt.replace(' segundos', 's')}
+                />
+                <DropdownButton
+                  options={ttsVoiceModeOptions}
+                  value={ttsParams.voiceMode}
+                  onChange={(v: string) => setTtsParams(prev => ({ ...prev, voiceMode: v }))}
+                  formatOption={(opt) => {
+                    if (opt.startsWith('Auto')) return 'Auto';
+                    if (opt.startsWith('Voice Design')) return 'Design';
+                    if (opt.startsWith('Voice Cloning')) return 'Cloning';
+                    if (opt.startsWith('Two-Speaker')) return 'Dual';
+                    if (opt.startsWith('Voice + Emotion')) return 'Emotion';
+                    return opt;
+                  }}
+                />
+                <NumberInput
+                  label="Steps"
+                  value={ttsParams.steps}
+                  onChange={(v: number) => setTtsParams(prev => ({ ...prev, steps: v }))}
+                  min={8}
+                  max={64}
+                />
+                {isTtsOmni ? (
+                  <NumberInput
+                    label="Guide"
+                    value={ttsParams.guideScale}
+                    onChange={(v: number) => setTtsParams(prev => ({ ...prev, guideScale: v }))}
+                    min={1.0}
+                    max={5.0}
+                    step={0.1}
+                  />
+                ) : (
+                  <div style={{ position: 'relative' }}>
+                    <details style={{ display: 'inline-block' }}>
+                      <summary style={{
+                        listStyle: 'none',
+                        background: 'var(--pf-bg-secondary)',
+                        border: '1px solid var(--pf-border-default)',
+                        borderRadius: '8px',
+                        padding: '5px 10px',
+                        fontSize: '12px',
+                        fontFamily: 'var(--pf-font-ui)',
+                        color: 'var(--pf-text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        Avanzado ▼
+                      </summary>
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 'calc(100% + 8px)',
+                        left: 0,
+                        background: 'white',
+                        border: '1px solid var(--pf-border-default)',
+                        borderRadius: '8px',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        zIndex: 1000,
+                        padding: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        width: '220px'
+                      }}>
+                        <div>
+                          <NumberInput
+                            label="Speed"
+                            value={ttsParams.speechSpeed}
+                            onChange={(v: number) => setTtsParams(prev => ({ ...prev, speechSpeed: v }))}
+                            min={0.5}
+                            max={2.0}
+                            step={0.05}
+                          />
+                        </div>
+                        <div>
+                          <NumberInput
+                            label="Temp"
+                            value={ttsParams.temperature}
+                            onChange={(v: number) => setTtsParams(prev => ({ ...prev, temperature: v }))}
+                            min={0.1}
+                            max={1.5}
+                            step={0.05}
+                          />
+                        </div>
+                        <div>
+                          <NumberInput
+                            label="Top P"
+                            value={ttsParams.topP}
+                            onChange={(v: number) => setTtsParams(prev => ({ ...prev, topP: v }))}
+                            min={0.5}
+                            max={1.0}
+                            step={0.05}
+                          />
+                        </div>
+                        <div>
+                          <NumberInput
+                            label="Top K"
+                            value={ttsParams.topK}
+                            onChange={(v: number) => setTtsParams(prev => ({ ...prev, topK: v }))}
+                            min={10}
+                            max={100}
+                            step={5}
+                          />
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={ttsParams.textNormalization}
+                            onChange={(e) => setTtsParams(prev => ({ ...prev, textNormalization: e.target.checked }))}
+                          />
+                          Text Normalization
+                        </label>
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             )}
           </div>

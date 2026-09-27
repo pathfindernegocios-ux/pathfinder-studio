@@ -2,10 +2,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import FloatingCommandCenter from '../components/FloatingCommandCenter';
+import AudioPlayer from '../components/AudioPlayer';
 import { useCreations } from '../hooks/useCreations';
 import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
-import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, Music, HelpCircle, Sparkles } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Sparkles } from 'lucide-react';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -49,7 +50,9 @@ const StudioPage: React.FC = () => {
     ? activeImageModelId
     : capability === 'video'
       ? 'ltx-2.3'
-      : null;
+      : capability === 'audio'
+        ? 'tts-dual'
+        : null;
   const isCurrentModelOnline = currentModelId
     ? stationStatusMap[currentModelId] === 'online'
     : false;
@@ -433,9 +436,8 @@ const StudioPage: React.FC = () => {
                       )}
 
                       {!item.isGenerating && item.mediaUrls.length > 0 && item.mediaType === 'audio' && (
-                        <div style={{ padding: '16px', width: frameWidthStyle('1/1'), background: 'var(--pf-bg-secondary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                          <Music size={24} style={{ color: 'var(--pf-text-secondary)' }} />
-                          <audio src={item.mediaUrls[0]} controls style={{ width: '100%' }} />
+                        <div style={{ width: 'min(440px, 100%)' }}>
+                          <AudioPlayer src={item.mediaUrls[0]} bars={44} />
                         </div>
                       )}
                     </div>

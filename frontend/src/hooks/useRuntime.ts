@@ -32,7 +32,7 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
       return;
     }
 
-    const modelType = capability === "image" ? "image" : "video";
+    const modelType = capability === "image" ? "image" : capability === "audio" ? "audio" : "video";
 
     const fetchRuntime = async () => {
       if (modelType === "image") {
@@ -63,6 +63,26 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
           setGradioUrl(null);
           setStatus("UNKNOWN");
         }
+      } else if (modelType === "audio") {
+        // Audio: mismo patrón que video — 1 runtime activo (tts-dual)
+        const { data, error } = await supabase
+          .from("runtimes")
+          .select("gradio_url, state, model_id")
+          .eq("station_id", stationId)
+          .eq("model_type", "audio")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data && data.gradio_url) {
+          setGradioUrl((prev) => (prev === data.gradio_url ? prev : data.gradio_url));
+        } else {
+          setGradioUrl(null);
+          setStatus("UNKNOWN");
+        }
+
+        setImageModels([]);
+        setActiveImageModelId(null);
       } else {
         // Video: comportamiento original, pero sin forzar estado desde Supabase
         const { data, error } = await supabase
