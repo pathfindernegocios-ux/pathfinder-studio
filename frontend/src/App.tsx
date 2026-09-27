@@ -1,13 +1,15 @@
 // src/App.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BrowserRouter,
   Routes,
   Route,
   Navigate,
   Outlet,
+  useLocation,
 } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { useIsMobile } from "./hooks/useIsMobile";
 import { GenerationProvider } from "./context/GenerationContext";
 import { ThemeProvider } from "./hooks/useTheme";
 import type { Profile } from "./types";
@@ -90,6 +92,15 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
   setSidebarCollapsed,
   children,
 }) => {
+  const isMobile = useIsMobile();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Cerrar el drawer al cambiar de ruta (solo en móvil)
+  useEffect(() => {
+    if (isMobile) setMobileMenuOpen(false);
+  }, [location.pathname, isMobile]);
+
   if (!session) return <Navigate to="/auth" replace />;
   if (!profile) return <LoadingScreen />;
 
@@ -109,6 +120,32 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
     return <Navigate to="/auth" replace />;
   }
 
+  // Sidebar como drawer en móvil (translateX), colapsable en desktop
+  const sidebarWrapperStyle: React.CSSProperties = isMobile
+    ? {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        height: "100%",
+        width: "260px",
+        background: "var(--pf-bg-secondary)",
+        borderRight: "1px solid var(--pf-border-subtle)",
+        zIndex: 60,
+        transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+        transform: mobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+        boxShadow: mobileMenuOpen ? "0 12px 32px rgba(0,0,0,0.25)" : "none",
+      }
+    : {
+        width: `${sidebarCollapsed ? 80 : 260}px`,
+        flexShrink: 0,
+        height: "100%",
+        background: "var(--pf-bg-secondary)",
+        borderRight: "1px solid var(--pf-border-subtle)",
+        zIndex: 40,
+        transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+        overflow: "hidden",
+      };
+
   return (
     <div
       style={{
@@ -118,21 +155,30 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
         overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          width: `${sidebarCollapsed ? 80 : 260}px`,
-          flexShrink: 0,
-          height: "100%",
-          background: "var(--pf-bg-secondary)",
-          borderRight: "1px solid var(--pf-border-subtle)",
-          zIndex: 40,
-          transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          overflow: "hidden",
-        }}
-      >
+      {/* Backdrop (solo móvil, cuando el drawer está abierto) */}
+      {isMobile && mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 55,
+            animation: "fadeIn 0.2s ease",
+          }}
+        />
+      )}
+
+      <div style={sidebarWrapperStyle}>
         <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+          collapsed={isMobile ? false : sidebarCollapsed}
+          onToggleCollapsed={() => {
+            if (isMobile) {
+              setMobileMenuOpen(false);
+            } else {
+              setSidebarCollapsed((c) => !c);
+            }
+          }}
         />
       </div>
 
@@ -145,6 +191,46 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
           position: "relative",
         }}
       >
+        {/* Botón hamburguesa (solo móvil) */}
+        {isMobile && (
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Abrir menú"
+            style={{
+              position: "absolute",
+              top: "14px",
+              left: "14px",
+              zIndex: 50,
+              width: "40px",
+              height: "40px",
+              borderRadius: "10px",
+              background: "var(--pf-bg-elevated)",
+              border: "1px solid var(--pf-border-default, #E5E5E5)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--pf-text-primary)",
+              cursor: "pointer",
+              padding: 0,
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        )}
+
         {children ? (
           <div
             style={{

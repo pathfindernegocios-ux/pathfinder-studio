@@ -6,6 +6,7 @@ import AudioPlayer from '../components/AudioPlayer';
 import { useCreations } from '../hooks/useCreations';
 import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Sparkles } from 'lucide-react';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
@@ -26,6 +27,7 @@ const frameWidthStyle = (aspectRatioCss: string): string => {
 
 const StudioPage: React.FC = () => {
   const { saveCreation, saveError } = useCreations();
+  const isMobile = useIsMobile();
   const { profile } = useAuth();
 
   // Datos del usuario para avatares del chat
@@ -238,10 +240,10 @@ const StudioPage: React.FC = () => {
           // paddingBottom dinámico = alto real del panel + margen. Este es el
           // límite duro: el scroll físicamente no llega más abajo que esto,
           // así que nada puede quedar detrás del panel flotante.
-          paddingTop: '40px',
-          paddingBottom: `${panelHeight + 40}px`,
-          paddingLeft: '20px',
-          paddingRight: '20px',
+          paddingTop: isMobile ? '64px' : '40px',
+          paddingBottom: `${panelHeight + (isMobile ? 20 : 40)}px`,
+          paddingLeft: isMobile ? '12px' : '20px',
+          paddingRight: isMobile ? '12px' : '20px',
           transition: 'padding-bottom 0.2s ease',
         }}
       >
@@ -537,12 +539,12 @@ const StudioPage: React.FC = () => {
         ref={panelWrapperRef}
         style={{
           position: 'absolute',
-          bottom: '32px',
+          bottom: isMobile ? '16px' : '32px',
           left: 0,
           right: 0,
           display: 'flex',
           justifyContent: 'center',
-          padding: '0 16px',
+          padding: isMobile ? '0 10px' : '0 16px',
           zIndex: 50,
         }}
       >
@@ -563,43 +565,45 @@ const StudioPage: React.FC = () => {
         </div>
       )}
 
-      {/* BOTÓN FLOTANTE — Cómo funciona */}
-      <Link
-        to="/how-it-works"
-        title="¿Cómo funciona Pathfinder?"
-        style={{
-          position: 'absolute',
-          bottom: '24px',
-          right: '24px',
-          zIndex: 45,
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          background: 'var(--pf-bg-elevated)',
-          border: '1px solid var(--pf-border-default, #E5E5E5)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--pf-text-secondary, #525252)',
-          textDecoration: 'none',
-          transition: 'all 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'var(--pf-bg-secondary, #FAFAFA)';
-          e.currentTarget.style.borderColor = 'var(--pf-text-primary, #0A0A0A)';
-          e.currentTarget.style.color = 'var(--pf-text-primary, #0A0A0A)';
-          e.currentTarget.style.transform = 'scale(1.05)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'var(--pf-bg-elevated)';
-          e.currentTarget.style.borderColor = 'var(--pf-border-default, #E5E5E5)';
-          e.currentTarget.style.color = 'var(--pf-text-secondary, #525252)';
-          e.currentTarget.style.transform = 'scale(1)';
-        }}
-      >
-        <HelpCircle size={18} />
-      </Link>
+      {/* BOTÓN FLOTANTE — Cómo funciona (oculto en móvil para no solaparse con el FCM) */}
+      {!isMobile && (
+        <Link
+          to="/how-it-works"
+          title="¿Cómo funciona Pathfinder?"
+          style={{
+            position: 'absolute',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 45,
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: 'var(--pf-bg-elevated)',
+            border: '1px solid var(--pf-border-default, #E5E5E5)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--pf-text-secondary, #525252)',
+            textDecoration: 'none',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--pf-bg-secondary, #FAFAFA)';
+            e.currentTarget.style.borderColor = 'var(--pf-text-primary, #0A0A0A)';
+            e.currentTarget.style.color = 'var(--pf-text-primary, #0A0A0A)';
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--pf-bg-elevated)';
+            e.currentTarget.style.borderColor = 'var(--pf-border-default, #E5E5E5)';
+            e.currentTarget.style.color = 'var(--pf-text-secondary, #525252)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          <HelpCircle size={18} />
+        </Link>
+      )}
 
       <style>{`
         @keyframes shimmer { to { background-position: -200% 0; } }
@@ -619,30 +623,37 @@ const StudioPage: React.FC = () => {
 };
 
 // Componente auxiliar para botones
-const ActionButton = ({ onClick, icon, label, danger, disabled }: any) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    style={{
-      display: 'flex', alignItems: 'center', gap: '4px',
-      padding: '6px 12px',
-      background: 'var(--pf-bg-secondary)',
-      border: '1px solid var(--pf-border-subtle)',
-      borderRadius: '8px',
-      color: danger ? '#ef4444' : 'var(--pf-text-secondary)',
-      fontSize: '0.75rem',
-      fontFamily: 'var(--pf-font-ui)',
-      fontWeight: 500,
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      opacity: disabled ? 0.5 : 1,
-      transition: 'all 0.2s',
-      userSelect: 'none'
-    }}
-    onMouseEnter={(e) => !disabled && (e.currentTarget.style.background = 'var(--pf-bg-tertiary)', e.currentTarget.style.borderColor = danger ? '#ef4444' : 'var(--pf-text-secondary)')}
-    onMouseLeave={(e) => !disabled && (e.currentTarget.style.background = 'var(--pf-bg-secondary)', e.currentTarget.style.borderColor = 'var(--pf-border-subtle)')}
-  >
-    {icon} <span>{label}</span>
-  </button>
-);
+// En móvil: solo íconos (con tooltip nativo via `title`) para evitar que el
+// texto se corte y para ahorrar espacio horizontal.
+const ActionButton = ({ onClick, icon, label, danger, disabled }: any) => {
+  const isMobile = useIsMobile();
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '4px',
+        padding: isMobile ? '8px 10px' : '6px 12px',
+        background: 'var(--pf-bg-secondary)',
+        border: '1px solid var(--pf-border-subtle)',
+        borderRadius: '8px',
+        color: danger ? '#ef4444' : 'var(--pf-text-secondary)',
+        fontSize: '0.75rem',
+        fontFamily: 'var(--pf-font-ui)',
+        fontWeight: 500,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'all 0.2s',
+        userSelect: 'none',
+        justifyContent: 'center',
+      }}
+      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => !disabled && (e.currentTarget.style.background = 'var(--pf-bg-tertiary)', e.currentTarget.style.borderColor = danger ? '#ef4444' : 'var(--pf-text-secondary)')}
+      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => !disabled && (e.currentTarget.style.background = 'var(--pf-bg-secondary)', e.currentTarget.style.borderColor = 'var(--pf-border-subtle)')}
+    >
+      {icon} {!isMobile && <span>{label}</span>}
+    </button>
+  );
+};
 
 export default StudioPage;

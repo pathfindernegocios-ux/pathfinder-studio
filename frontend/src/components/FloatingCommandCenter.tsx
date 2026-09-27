@@ -5,6 +5,7 @@ import { useGenerationContext } from '../context/GenerationContext';
 import { supabase } from '../lib/supabaseClient';
 import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X, Loader2, Mic, Mic2, Pencil } from 'lucide-react';
 import AudioTrimmer from './AudioTrimmer';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 type TabType = 'video' | 'image' | 'audio';
 
@@ -386,6 +387,7 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
 );
 
 const FloatingCommandCenter: React.FC = () => {
+  const isMobile = useIsMobile();
   const isFirstRenderRef = useRef(true);
   // Auto-select: corre la 1ra vez que ve stationStatusMap con datos, y también
   // cuando aparece un modelo NUEVO online.
@@ -1855,7 +1857,8 @@ const FloatingCommandCenter: React.FC = () => {
                     <div style={{
                       position: 'absolute',
                       bottom: 'calc(100% + 8px)',
-                      left: 0,
+                      left: isMobile ? 'auto' : 0,
+                      right: isMobile ? 0 : 'auto',
                       background: 'white',
                       border: '1px solid var(--pf-border-default)',
                       borderRadius: '8px',
@@ -1865,7 +1868,8 @@ const FloatingCommandCenter: React.FC = () => {
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '12px',
-                      width: '280px'
+                      width: isMobile ? 'auto' : '280px',
+                      maxWidth: 'calc(100vw - 24px)'
                     }}>
                       <div>
                         <NumberInput label="Steps" value={wanParams.steps} onChange={(v: number) => setWanParams({...wanParams, steps: v})} min={1} max={20} step={1} />
@@ -2056,7 +2060,8 @@ const FloatingCommandCenter: React.FC = () => {
                     <div style={{
                       position: 'absolute',
                       bottom: 'calc(100% + 8px)',
-                      left: 0,
+                      left: isMobile ? 'auto' : 0,
+                      right: isMobile ? 0 : 'auto',
                       background: 'white',
                       border: '1px solid var(--pf-border-default)',
                       borderRadius: '8px',
@@ -2066,7 +2071,8 @@ const FloatingCommandCenter: React.FC = () => {
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '12px',
-                      width: '320px'
+                      width: isMobile ? 'auto' : '320px',
+                      maxWidth: 'calc(100vw - 24px)'
                     }}>
                       <div>
                         <DropdownButton
@@ -2308,7 +2314,8 @@ const FloatingCommandCenter: React.FC = () => {
                       <div style={{
                         position: 'absolute',
                         bottom: 'calc(100% + 8px)',
-                        left: 0,
+                        left: isMobile ? 'auto' : 0,
+                        right: isMobile ? 0 : 'auto',
                         background: 'white',
                         border: '1px solid var(--pf-border-default)',
                         borderRadius: '8px',
@@ -2318,7 +2325,8 @@ const FloatingCommandCenter: React.FC = () => {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '12px',
-                        width: '200px'
+                        width: isMobile ? 'auto' : '200px',
+                        maxWidth: 'calc(100vw - 24px)'
                       }}>
                         <div>
                           <NumberInput label="Guide Scale" value={fluxParams.fluxGuideScale} onChange={(v: number) => setFluxParams({...fluxParams, fluxGuideScale: v})} min={0.5} max={10} step={0.5} />
@@ -2397,7 +2405,8 @@ const FloatingCommandCenter: React.FC = () => {
                       <div style={{
                         position: 'absolute',
                         bottom: 'calc(100% + 8px)',
-                        left: 0,
+                        left: isMobile ? 'auto' : 0,
+                        right: isMobile ? 0 : 'auto',
                         background: 'white',
                         border: '1px solid var(--pf-border-default)',
                         borderRadius: '8px',
@@ -2407,7 +2416,8 @@ const FloatingCommandCenter: React.FC = () => {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '12px',
-                        width: '220px'
+                        width: isMobile ? 'auto' : '220px',
+                        maxWidth: 'calc(100vw - 24px)'
                       }}>
                         <div>
                           <NumberInput
