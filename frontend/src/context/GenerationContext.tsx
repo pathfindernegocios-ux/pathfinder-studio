@@ -221,6 +221,15 @@ export function GenerationProvider({
   children: ReactNode;
 }) {
   const [capability, setCapability] = useState<CapabilityId>("video");
+  const [activeVideoModelId, setActiveVideoModelId] = useState<string>('ltx-2.3');
+
+  // runtimeId resuelto: filtra useRuntime por el model_id correspondiente.
+  // Image: null → useRuntime usa su propio activeImageModelId + imageModels.
+  const runtimeModelId =
+    capability === 'video' ? getRuntimeId(activeVideoModelId) :
+    capability === 'audio' ? 'tts-dual' :
+    null;
+
   const {
     gradioUrl,
     status,
@@ -229,9 +238,8 @@ export function GenerationProvider({
     activeImageModelId,
     setActiveImageModelId,
     imageModels,
-  } = useRuntime({ stationId, capability });
+  } = useRuntime({ stationId, capability, modelId: runtimeModelId });
 
-  const [activeVideoModelId, setActiveVideoModelId] = useState<string>('ltx-2.3');
 
   const {
     statusMap: stationStatusMap,

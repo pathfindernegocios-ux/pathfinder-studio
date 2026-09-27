@@ -11,9 +11,13 @@ interface ImageRuntime {
 interface UseRuntimeParams {
   stationId: string | null;
   capability?: CapabilityId;
+  /** Runtime a consultar. Si se provee, filtra runtimes por `model_id`.
+   *  Si es null/undefined, cae al runtime más reciente de la capability
+   *  (comportamiento legacy, solo fallback). */
+  modelId?: string | null;
 }
 
-export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams) {
+export function useRuntime({ stationId, capability = "video", modelId = null }: UseRuntimeParams) {
   const [gradioUrl, setGradioUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("UNKNOWN");
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
@@ -64,15 +68,20 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
           setStatus("UNKNOWN");
         }
       } else if (modelType === "audio") {
-        // Audio: mismo patrón que video — 1 runtime activo (tts-dual)
-        const { data, error } = await supabase
+        // Audio: filtra por model_id si se provee (ej: 'tts-dual')
+        let query = supabase
           .from("runtimes")
           .select("gradio_url, state, model_id")
           .eq("station_id", stationId)
           .eq("model_type", "audio")
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+
+        if (modelId) {
+          query = query.eq("model_id", modelId);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (!error && data && data.gradio_url) {
           setGradioUrl((prev) => (prev === data.gradio_url ? prev : data.gradio_url));
@@ -84,15 +93,20 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
         setImageModels([]);
         setActiveImageModelId(null);
       } else {
-        // Video: comportamiento original, pero sin forzar estado desde Supabase
-        const { data, error } = await supabase
+        // Video: filtra por model_id si se provee (ltx-2.3, ltx-2.5-msr, wan-dual)
+        let query = supabase
           .from("runtimes")
           .select("gradio_url, state")
           .eq("station_id", stationId)
           .eq("model_type", "video")
           .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(1);
+
+        if (modelId) {
+          query = query.eq("model_id", modelId);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (!error && data && data.gradio_url) {
           setGradioUrl((prev) => (prev === data.gradio_url ? prev : data.gradio_url));
@@ -110,7 +124,7 @@ export function useRuntime({ stationId, capability = "video" }: UseRuntimeParams
     fetchRuntime();
     const interval = setInterval(fetchRuntime, 5000);
     return () => clearInterval(interval);
-  }, [stationId, capability]);
+  }, [stationId, capability, modelId]);
 
   // Efecto para actualizar gradioUrl según el modelo activo de imagen
   useEffect(() => {
