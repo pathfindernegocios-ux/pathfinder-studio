@@ -169,6 +169,11 @@ const StudioPage: React.FC = () => {
   };
 
   const handleRetry = (item: SessionItem) => {
+    console.log('[handleRetry] Variación disparada', {
+      modelId: item.modelId,
+      modelLabel: item.modelLabel,
+      params: item.params,
+    });
     window.dispatchEvent(new CustomEvent('pathfinder-load-config', {
       detail: {
         prompt: item.prompt,

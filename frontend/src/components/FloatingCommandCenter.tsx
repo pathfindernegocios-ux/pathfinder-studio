@@ -813,9 +813,15 @@ const FloatingCommandCenter: React.FC = () => {
       if (isVideo) {
         setActiveTab('video');
         setSelectedVideoModelId(detail.modelId);
+        // Fix: también sincronizar el modelo activo en el contexto.
+        // Sin esto, si el runtimeId del backend no coincide con el
+        // selectedVideoModelId, useRuntime puede quedar apuntando al túnel
+        // del modelo equivocado (bug observado al alternar entre devices).
+        setActiveVideoModelId(getRuntimeId(detail.modelId));
       } else if (isWan) {
         setActiveTab('video');
         setSelectedVideoModelId(detail.modelId);
+        setActiveVideoModelId(getRuntimeId(detail.modelId));
       } else if (isFlux || isKrea) {
         setActiveTab('image');
         setSelectedImageModelId(detail.modelId);
@@ -914,6 +920,15 @@ const FloatingCommandCenter: React.FC = () => {
       const loraMultsStr: string = typeof p.loraMults === 'string' ? p.loraMults : '';
       const loraMultsArr: string[] = loraMultsStr.split(/\s+/).filter(Boolean);
 
+      console.log('[handleLoadConfig] restoring LoRAs', {
+        modelId: detail.modelId,
+        isWan,
+        isLtx25Msr: detail.modelId === 'ltx-2.5-msr',
+        extraLorasArr,
+        loraMultsArr,
+        rawParams: p,
+      });
+
       if (isWan && extraLorasArr.length > 0) {
         setWanParams(prev => ({
           ...prev,
@@ -922,6 +937,7 @@ const FloatingCommandCenter: React.FC = () => {
             mult: loraMultsArr[i] || '1.0',
           })),
         }));
+        console.log('[handleLoadConfig] ✅ wanParams.loraItems restored:', extraLorasArr.length);
       } else if (detail.modelId === 'ltx-2.5-msr' && extraLorasArr.length > 0) {
         // Para LTX 2.5 MSR, siempre reconstruimos la lista completa.
         // Si la extraLoras vacía ya la maneja el default (Product Commercial).
