@@ -73,6 +73,12 @@ const LTX25_MODES = [
   { label: 'Up to 4 Subjects / Objects', value: 'I' },
 ];
 
+// ── Disclaimer rotativo (IA puede cometer errores + tiempo variable) ──
+const DISCLAIMER_MESSAGES = [
+  'La IA puede cometer errores. Verifica el contenido antes de usarlo.',
+  'El tiempo de generación puede variar según el modelo y la resolución.',
+];
+
 // ── Persistencia de selección (sobrevive refresh y navegación) ──
 const STUDIO_SELECTION_KEY = 'pf_studio_selection_v1';
 
@@ -385,6 +391,12 @@ const FloatingCommandCenter: React.FC = () => {
   // cuando aparece un modelo NUEVO online.
   const hasAutoSelectedRef = useRef(false);
   const lastOnlineIdsRef = useRef<Set<string>>(new Set());
+
+  // Índice del disclaimer: se elige al azar al montar. Cambia en cada refresh
+  // (o al remontar el FCM cuando se navega a otra página y se vuelve a Studio).
+  const [disclaimerIdx] = useState(() =>
+    Math.floor(Math.random() * DISCLAIMER_MESSAGES.length)
+  );
   const [activeTab, setActiveTab] = useState<TabType>(() => loadPersistedStudioSelection()?.activeTab || 'video');
   const [prompt, setPrompt] = useState('');
   
@@ -2453,6 +2465,24 @@ const FloatingCommandCenter: React.FC = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Disclaimer — IA + tiempo variable (cambia al azar en cada montaje) */}
+      <div
+        style={{
+          marginTop: '10px',
+          textAlign: 'center',
+          fontFamily: 'var(--pf-font-ui)',
+          fontSize: '10px',
+          color: 'var(--pf-text-muted)',
+          opacity: 0.75,
+          animation: 'fadeIn 0.5s ease-in-out',
+          minHeight: '14px',
+          padding: '0 12px',
+          userSelect: 'none',
+        }}
+      >
+        {DISCLAIMER_MESSAGES[disclaimerIdx]}
       </div>
     </div>
   );

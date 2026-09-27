@@ -27,7 +27,6 @@ export interface ModelOption {
 export const IMAGE_MODELS: ModelOption[] = [
   { id: 'krea-2-turbo',    name: 'Krea 2',   type: 'krea', runtimeId: 'krea-2-turbo' },
   { id: 'flux-2-klein-4b', name: 'Flux 2',   type: 'flux', runtimeId: 'flux-2-klein-4b' },
-  { id: 'wan-i2v',         name: 'Wan I2V',  type: 'wan',  runtimeId: 'wan-dual', comingSoon: true },
 ];
 
 export const VIDEO_MODELS: ModelOption[] = [
