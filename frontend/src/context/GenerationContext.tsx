@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import type { ReactNode } from "react";
 import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
+import { getChatLabel, getRuntimeId } from "../config/models";
 import { useRuntime } from "../hooks/useRuntime";
 import { useStationStatus } from "../hooks/useStationStatus";
 
@@ -68,6 +69,14 @@ interface GenerateParams {
   ttsTopP?: number;
   ttsTopK?: number;
   textNormalization?: boolean;
+  // ── Wan 2.1 Dual ──
+  videoModelId?: string;
+  wanMode?: 'i2v' | 't2v';
+  wanShift?: number;
+  wanSampler?: string;
+  wanForcePreset?: boolean;
+  extraLoras?: string[];
+  loraMults?: string;
 }
 
 interface GenerationContextValue {
@@ -100,7 +109,9 @@ interface GenerationContextValue {
   status: Status;
   sessionUptime: string;
   activeImageModelId: string | null;
+  activeVideoModelId: string;
   setActiveImageModelId: (id: string | null) => void;
+  setActiveVideoModelId: (id: string) => void;
   imageModels: ImageRuntime[];
   sessionHistory: SessionItem[];
   appendSessionItem: (item: SessionItem) => void;
@@ -111,6 +122,7 @@ interface GenerationContextValue {
   stationStatusMap: Record<string, 'online' | 'offline'>;
   stationStatusLoading: boolean;
   refreshStationStatus: () => Promise<void>;
+  getClient: () => Promise<any>;
 }
 
 const GenerationContext = createContext<GenerationContextValue | null>(null);
@@ -146,6 +158,10 @@ function mapBackendParams(raw: any): Record<string, unknown> | undefined {
     voiceMode: r.voice_mode,
     language: r.language,
     durationLabel: r.duration,
+    // ── Wan 2.1 Dual ──
+    wanMode: r.mode,
+    wanShift: r.shift,
+    wanSampler: r.sampler,
   };
 }
 
@@ -204,6 +220,8 @@ export function GenerationProvider({
     setActiveImageModelId,
     imageModels,
   } = useRuntime({ stationId, capability });
+
+  const [activeVideoModelId, setActiveVideoModelId] = useState<string>('ltx-2.3');
 
   const {
     statusMap: stationStatusMap,
@@ -557,10 +575,22 @@ export function GenerationProvider({
         prompt: params.prompt,
         mediaUrls: [],
         mediaType: capability === 'video' ? 'video' : capability === 'audio' ? 'audio' : 'image',
-        modelId: capability === 'audio' ? 'tts-dual' : (activeImageModelId || ''),
-        modelLabel: capability === 'audio'
-          ? (params.audioMode === 'index_tts25' ? 'Index TTS 2.5' : 'OmniVoice')
-          : (activeImageModelId === 'flux-2-klein-4b' ? 'Flux 2' : activeImageModelId === 'krea-2-turbo' ? 'Krea' : 'LTX 2.3'),
+        modelId: (() => {
+          if (capability === 'audio') return 'tts-dual';
+          if (capability === 'video') return getRuntimeId(params.videoModelId || activeVideoModelId);
+          return activeImageModelId || '';
+        })(),
+        modelLabel: (() => {
+          if (capability === 'audio') {
+            return params.audioMode === 'index_tts25' ? 'Index TTS 2.5' : 'OmniVoice';
+          }
+          if (capability === 'video') {
+            return getChatLabel(params.videoModelId || activeVideoModelId, params.wanMode);
+          }
+          return activeImageModelId === 'flux-2-klein-4b' ? 'Flux 2'
+               : activeImageModelId === 'krea-2-turbo' ? 'Krea 2'
+               : 'Imagen';
+        })(),
         aspectRatio: aspectRatioCss,
         createdAt: Date.now(),
         status: 'temporary',
@@ -589,7 +619,9 @@ export function GenerationProvider({
         stage: "preparing",
         started_at: localStart,
         capability,
-        modelId: activeImageModelId ?? undefined,
+        modelId: capability === 'video'
+          ? getRuntimeId(params.videoModelId || activeVideoModelId)
+          : (activeImageModelId ?? undefined),
         prompt: params.prompt,
       });
 
@@ -601,7 +633,70 @@ export function GenerationProvider({
         const client = await getClient();
         if (!client) { setErrorMsg("No se pudo conectar con el runtime."); return; }
 
-        if (capability === "video") {
+        if (capability === "video" && params.videoModelId && params.videoModelId.startsWith('wan-')) {
+          // ── Wan 2.1 I2V / T2V ──
+          const wanMode = params.wanMode || 'i2v';
+
+          const result = await client.predict("/generate", [
+            wanMode,
+            params.prompt,
+            params.negativePrompt || "",
+            params.imageStartFile || null,
+            params.imageEndFile || null,
+            params.wanForcePreset ?? false,
+            params.seed ?? -1,
+            params.durationLabel || "5s (81 frames)",
+            params.resolution || "480p",
+            params.aspectRatio || "16:9 Landscape",
+            params.steps ?? 4,
+            params.guideScale ?? 1.0,
+            params.wanShift ?? 5.0,
+            params.wanSampler || "UniPC (recomendado)",
+            1, 1.0, 1.0, 900,
+            1.0, 3.5, 0.5,
+            0, 9, 10, 90,
+            0, -1, 0,
+            1.0, 0.0, 1.0, false,
+            0, 0.0, 0.999,
+            0, 0,
+            params.extraLoras || [],
+            params.loraMults || "",
+            token,
+          ]);
+
+          const data = result.data as unknown[];
+          const videoData = data[0];
+          const statusText = data[1] as string;
+
+          let tempUrl: string | null = null;
+          if (typeof videoData === "string") tempUrl = videoData;
+          else if (videoData && typeof videoData === "object") {
+            const maybe = videoData as { url?: string; video?: { url?: string } };
+            tempUrl = maybe.url ?? maybe.video?.url ?? null;
+          }
+
+          if (tempUrl) {
+            setVideoSrc(tempUrl);
+            sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
+
+            setSessionHistory(prev => prev.map(item => {
+              if (item.isGenerating) {
+                return {
+                  ...item,
+                  mediaUrls: [tempUrl],
+                  isGenerating: false,
+                  status: 'temporary' as const,
+                };
+              }
+              return item;
+            }));
+
+            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            if (statusText) setStatusMsg(statusText);
+          } else {
+            setErrorMsg("No se devolvió un video válido.");
+          }
+        } else if (capability === "video") {
           const result = await client.predict("/generate", [
             params.prompt, params.imageStartFile, params.imageEndFile || undefined,
             params.audioFile || undefined, params.seed, params.duration, params.resolution,
@@ -865,8 +960,10 @@ export function GenerationProvider({
     handleGenerate, handleCancel, progressFrac, liveElapsedSec, remainingSec,
     completedDurationSec, backendError, canCancel, recoveryState, status,
     sessionUptime, activeImageModelId, setActiveImageModelId, imageModels,
+    activeVideoModelId, setActiveVideoModelId,
     sessionHistory, appendSessionItem, updateSessionItem, removeSessionItem, discardSessionItem, clearSessionHistory,
-    stationStatusMap, stationStatusLoading, refreshStationStatus
+    stationStatusMap, stationStatusLoading, refreshStationStatus,
+    getClient,
   };
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;

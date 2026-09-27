@@ -2,29 +2,29 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useGenerationContext } from '../context/GenerationContext';
+import { supabase } from '../lib/supabaseClient';
 import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X, Loader2, Mic, Mic2, Pencil } from 'lucide-react';
 import AudioTrimmer from './AudioTrimmer';
 
 type TabType = 'video' | 'image' | 'audio';
 
-// Definición estática de modelos disponibles en la UI
-const STATIC_IMAGE_MODELS: { id: string; name: string; type: string; comingSoon?: boolean }[] = [
-  { id: 'krea-2-turbo', name: 'Krea 2', type: 'krea' },
-  { id: 'flux-2-klein-4b', name: 'Flux 2', type: 'flux' },
-  { id: 'wan-i2v', name: 'Wan I2V', type: 'wan', comingSoon: true },
-];
+// Catálogo de modelos — fuente única de verdad en src/config/models.ts
+import {
+  IMAGE_MODELS,
+  VIDEO_MODELS,
+  AUDIO_MODELS,
+  MODELS_BY_CAPABILITY,
+  getRuntimeId,
+  getOnlineCapability,
+  getFirstOnlineModel,
+} from '../config/models';
 
-const STATIC_VIDEO_MODELS: { id: string; name: string; type: string; comingSoon?: boolean }[] = [
-  { id: 'ltx-2.3', name: 'LTX 2.3', type: 'ltx' },
-  { id: 'wan-i2v-video', name: 'Wan I2V', type: 'wan', comingSoon: true },
-];
+// Alias locales para minimizar el diff con el código existente
+const STATIC_IMAGE_MODELS = IMAGE_MODELS;
+const STATIC_VIDEO_MODELS = VIDEO_MODELS;
+const STATIC_AUDIO_MODELS = AUDIO_MODELS;
 
-const STATIC_AUDIO_MODELS: { id: string; name: string; type: string; comingSoon?: boolean }[] = [
-  { id: 'omnivoice', name: 'OmniVoice', type: 'tts' },
-  { id: 'index_tts25', name: 'Index TTS', type: 'tts' },
-];
-
-// Arrays de opciones simplificadas
+// Arrays de opciones simplificadas — LTX
 const VIDEO_DURATIONS = [
   '2 Seconds (49 frames)',
   '3 Seconds (73 frames)',
@@ -39,13 +39,19 @@ const VIDEO_DURATIONS = [
 const VIDEO_RESOLUTIONS = ['1080p', '720p', '540p', '480p'];
 const VIDEO_ASPECT_RATIOS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
 
+// Arrays de opciones — Wan 2.1
+const WAN_DURATIONS = [
+  '2s (33 frames)', '3s (49 frames)', '4s (65 frames)', '5s (81 frames)',
+  '6s (97 frames)', '8s (129 frames)', '10s (161 frames)',
+];
+const WAN_RESOLUTIONS = ['480p', '540p', '720p'];
+const WAN_ASPECTS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
+const WAN_SAMPLERS = ['UniPC (recomendado)', 'Euler', 'Euler a', 'DPM++ 2M', 'DPM++ 2M SDE', 'Heun', 'LMS'];
+
 const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'];
 const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High)', '2048px (2K Ultra)'];
-// Alineado 1:1 con resolve_dimensions() del backend Krea (run_krea_turbo.py).
-// Los 5 labels existen en el backend. Antes había '4:5 Portrait' que caía a 1:1 silenciosamente.
 const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait'];
 
-// Simplificado: Solo modos con referencia
 const FLUX_REF_MODES = [
   'Sujeto/Escenario + Personas u Objetos (KI)',
   'Solo Personas u Objetos (I)'
@@ -69,9 +75,6 @@ const TTS_OMNI_LANGS = ['Auto', 'Spanish', 'English', 'Portuguese', 'French', 'G
 const TTS_INDEX_LANGS = ['Spanish', 'English', 'Chinese', 'Chinese / English Mixed', 'Japanese', 'Arabic'];
 const TTS_DURATIONS = ['Custom (auto)', '5 segundos', '10 segundos', '15 segundos', '25 segundos', '40 segundos', '60 segundos'];
 
-// Mapas label visible → código que espera el backend.
-// OmniVoice usa nombres en inglés (spanish, english, ...) — ver OMNIVOICE_LANGS en el notebook.
-// Index TTS usa códigos cortos (ES, EN, ZH, ZHEN, JA, AR) — ver INDEXTTS_LANGS en el notebook.
 const TTS_LANG_CODE_MAP_OMNI: Record<string, string> = {
   'Auto':       'auto',
   'Spanish':    'spanish',
@@ -110,6 +113,22 @@ interface VideoParams {
   matchAudioDur: boolean;
 }
 
+interface WanParams {
+  mode: 'i2v' | 't2v';
+  imageStartFile: File | null;
+  imageEndFile: File | null;
+  duration: string;      // "5s (81 frames)"
+  resolution: string;    // "480p"
+  aspectRatio: string;   // "16:9 Landscape"
+  steps: number;         // 4
+  guideScale: number;    // 1.0
+  shift: number;         // 5.0
+  sampler: string;       // "UniPC (recomendado)"
+  seed: number;          // -1
+  forcePreset: boolean;  // false
+  loraItems: { name: string; mult: string }[];
+}
+
 interface KreaParams {
   negativePrompt: string;
   steps: number;
@@ -130,25 +149,22 @@ interface FluxParams {
   refFiles: File[];
   refModeLabel: string;
   maskFile: File | null;
-  modelModeLabel: string; // Se mantiene internamente pero no se edita en UI
+  modelModeLabel: string;
   fluxGuideScale: number;
   embeddedGuidance: number;
 }
 
 interface TtsParams {
-  // Comunes
-  voiceMode: string;            // "" | "VD" | "A" | "AB"
-  voiceInstruction: string;     // OmniVoice: tags de voz
-  emotionInstruction: string;   // Index TTS: lista de emociones
+  voiceMode: string;
+  voiceInstruction: string;
+  emotionInstruction: string;
   audioGuide: File | null;
   audioGuide2: File | null;
   language: string;
   duration: string;
   seed: number;
-  // OmniVoice
   steps: number;
   guideScale: number;
-  // Index TTS
   speechSpeed: number;
   temperature: number;
   topP: number;
@@ -301,7 +317,6 @@ const FloatingCommandCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('video');
   const [prompt, setPrompt] = useState('');
   
-  // --- Cache de Object URLs -------------------------------------------------
   const objectUrlCacheRef = useRef<Map<File, string>>(new Map());
 
   const getObjectUrl = useCallback((file: File): string => {
@@ -321,26 +336,38 @@ const FloatingCommandCenter: React.FC = () => {
     setCapability, 
     activeImageModelId, 
     setActiveImageModelId,
+    activeVideoModelId,
+    setActiveVideoModelId,
     stationStatusMap,
+    getClient,
   } = useGenerationContext();
 
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>('krea-2-turbo');
-  const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>('ltx-2.3');
+  const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>(activeVideoModelId || 'ltx-2.3');
   const [selectedTtsModelId, setSelectedTtsModelId] = useState<string>('omnivoice');
   const [expandedAudio, setExpandedAudio] = useState<'audioGuide' | 'audioGuide2' | null>(null);
+  const [newLoraUrl, setNewLoraUrl] = useState('');
+  const [loraAdding, setLoraAdding] = useState(false);
+
+  // Marca si el usuario tocó manualmente una tab durante esta sesión.
+  // Mientras sea false, permitimos auto-select según backend online.
+  // Se reinicia al desmontar el FCM (ej: ir al landing y volver).
+  const userTouchedTabRef = useRef(false);
+
+  const isVideoWan = selectedVideoModelId.startsWith('wan-');
+  const isVideoLtx = selectedVideoModelId === 'ltx-2.3';
 
   // Estado de la estación activa (badge offline/online)
   const currentStationModelId = activeTab === 'image'
     ? (selectedImageModelId || activeImageModelId)
     : activeTab === 'video'
-      ? (selectedVideoModelId || 'ltx-2.3')
+      ? (isVideoWan ? 'wan-dual' : 'ltx-2.3')
       : activeTab === 'audio'
         ? 'tts-dual'
         : null;
   const isStationOffline = currentStationModelId
     ? stationStatusMap[currentStationModelId] !== 'online'
     : false;
-
   useEffect(() => {
     if (activeTab === 'image') {
       if (activeImageModelId && STATIC_IMAGE_MODELS.some(m => m.id === activeImageModelId)) {
@@ -348,10 +375,6 @@ const FloatingCommandCenter: React.FC = () => {
       } else if (!activeImageModelId) {
         setSelectedImageModelId('krea-2-turbo');
       }
-    } else if (activeTab === 'video') {
-       if (!activeImageModelId) {
-         setSelectedVideoModelId('ltx-2.3');
-       }
     }
   }, [activeTab, activeImageModelId]);
 
@@ -372,6 +395,22 @@ const FloatingCommandCenter: React.FC = () => {
     matchAudioDur: false,
   });
 
+  const [wanParams, setWanParams] = useState<WanParams>({
+    mode: 'i2v',
+    imageStartFile: null,
+    imageEndFile: null,
+    duration: '5s (81 frames)',
+    resolution: '480p',
+    aspectRatio: '16:9 Landscape',
+    steps: 4,
+    guideScale: 1.0,
+    shift: 5.0,
+    sampler: 'UniPC (recomendado)',
+    seed: -1,
+    forcePreset: false,
+    loraItems: [],
+  });
+
   const [kreaParams, setKreaParams] = useState<KreaParams>({
     negativePrompt: '',
     steps: 8,
@@ -390,10 +429,8 @@ const FloatingCommandCenter: React.FC = () => {
     seed: -1,
     numImages: 1,
     refFiles: [],
-    // Valor por defecto activado (KI)
     refModeLabel: 'Sujeto/Escenario + Personas u Objetos (KI)',
     maskFile: null,
-    // Valor fijo interno para compatibilidad backend
     modelModeLabel: 'Masked Denoising : Inpainted area may reuse some content that has been masked',
     fluxGuideScale: 5,
     embeddedGuidance: 1,
@@ -423,6 +460,8 @@ const FloatingCommandCenter: React.FC = () => {
       ...(videoParams.imageStartFile ? [videoParams.imageStartFile] : []),
       ...(videoParams.imageEndFile ? [videoParams.imageEndFile] : []),
       ...(videoParams.audioFile ? [videoParams.audioFile] : []),
+      ...(wanParams.imageStartFile ? [wanParams.imageStartFile] : []),
+      ...(wanParams.imageEndFile ? [wanParams.imageEndFile] : []),
       ...fluxParams.refFiles,
       ...(ttsParams.audioGuide ? [ttsParams.audioGuide] : []),
       ...(ttsParams.audioGuide2 ? [ttsParams.audioGuide2] : []),
@@ -434,7 +473,7 @@ const FloatingCommandCenter: React.FC = () => {
         cache.delete(file);
       }
     }
-  }, [videoParams.imageStartFile, videoParams.imageEndFile, videoParams.audioFile, fluxParams.refFiles, ttsParams.audioGuide, ttsParams.audioGuide2]);
+  }, [videoParams.imageStartFile, videoParams.imageEndFile, videoParams.audioFile, wanParams.imageStartFile, wanParams.imageEndFile, fluxParams.refFiles, ttsParams.audioGuide, ttsParams.audioGuide2]);
 
   useEffect(() => {
     return () => {
@@ -443,9 +482,6 @@ const FloatingCommandCenter: React.FC = () => {
     };
   }, []);
 
-  // Sync capability (contexto) → activeTab (UI).
-  // Cubre el caso B.4 al montar y cualquier cambio externo de capability.
-  // El click del tab hace ambas actualizaciones; este efecto es solo para cambios externos.
   useEffect(() => {
     if (capability !== activeTab) {
       setActiveTab(capability);
@@ -464,9 +500,51 @@ const FloatingCommandCenter: React.FC = () => {
     return () => window.removeEventListener('pathfinder-set-prompt', handleSetPrompt as EventListener);
   }, []);
 
-  // ============================================================
+  // ── AUTO-SELECT: si el usuario no tocó una tab manualmente y el tab actual
+  //    no tiene ningún backend online, saltar al que sí lo tenga.
+  //    Al desmontar el FCM (ir al landing y volver), userTouchedTabRef se reinicia.
+  useEffect(() => {
+    if (userTouchedTabRef.current) return;
+    if (!stationStatusMap || Object.keys(stationStatusMap).length === 0) return;
+
+    const currentTabHasOnline = MODELS_BY_CAPABILITY[activeTab].some(
+      m => stationStatusMap[m.runtimeId] === 'online',
+    );
+    if (currentTabHasOnline) return;
+
+    const onlineCap = getOnlineCapability(stationStatusMap);
+    if (!onlineCap) return;
+
+    setActiveTab(onlineCap);
+    setCapability(onlineCap);
+
+    const firstOnline = getFirstOnlineModel(onlineCap, stationStatusMap);
+    if (!firstOnline) return;
+
+    if (onlineCap === 'video') {
+      setSelectedVideoModelId(firstOnline.id);
+      setActiveVideoModelId(firstOnline.runtimeId);
+      if (firstOnline.id === 'wan-i2v') {
+        setWanParams(prev => ({ ...prev, mode: 'i2v' }));
+      } else if (firstOnline.id === 'wan-t2v') {
+        setWanParams(prev => ({ ...prev, mode: 't2v' }));
+      }
+    } else if (onlineCap === 'image') {
+      setSelectedImageModelId(firstOnline.id);
+      if (setActiveImageModelId) setActiveImageModelId(firstOnline.id);
+    } else if (onlineCap === 'audio') {
+      setSelectedTtsModelId(firstOnline.id);
+      setTtsParams(prev => ({
+        ...prev,
+        voiceMode: firstOnline.id === 'omnivoice' ? 'VD' : 'A',
+        language: firstOnline.id === 'omnivoice' ? 'Auto' : 'Spanish',
+        steps: firstOnline.id === 'omnivoice' ? 32 : 25,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationStatusMap]);
+
   // FASE 3: escuchar pathfinder-load-config — repoblar prompt, params y refs
-  // ============================================================
   useEffect(() => {
     const handleLoadConfig = async (e: Event) => {
       const custom = e as CustomEvent<{
@@ -480,26 +558,27 @@ const FloatingCommandCenter: React.FC = () => {
       const detail = custom.detail;
       if (!detail) return;
 
-      // 1. Prompt
       if (typeof detail.prompt === 'string') {
         setPrompt(detail.prompt);
       }
 
-      // 2. Determinar si es Flux o Krea por modelId
       const isFlux = detail.modelId.includes('flux');
       const isKrea = detail.modelId.includes('krea');
       const isVideo = detail.modelId.includes('ltx');
+      const isWan = detail.modelId.includes('wan');
 
-      // 3. Cambiar tab según modelo
       if (isVideo) {
         setActiveTab('video');
+        setSelectedVideoModelId(detail.modelId);
+      } else if (isWan) {
+        setActiveTab('video');
+        setSelectedVideoModelId(detail.modelId);
       } else if (isFlux || isKrea) {
         setActiveTab('image');
         setSelectedImageModelId(detail.modelId);
         if (setActiveImageModelId) setActiveImageModelId(detail.modelId);
       }
 
-      // 4. Extraer params con fallbacks
       const p = detail.params || {};
       const num = (v: unknown, fallback: number): number => {
         const n = Number(v);
@@ -512,8 +591,6 @@ const FloatingCommandCenter: React.FC = () => {
         return typeof v === 'boolean' ? v : fallback;
       };
 
-      // 5. Reconstruir aspect ratio para el dropdown (de "9/16" a "9:16 Retrato" o similar)
-      // Buscamos en las opciones disponibles la que matchee
       const cssRatio = detail.aspectRatio || "1/1";
       const [rwStr, rhStr] = cssRatio.split('/');
       const rw = parseInt(rwStr, 10);
@@ -558,6 +635,19 @@ const FloatingCommandCenter: React.FC = () => {
           numImages: num(p.numImages, prev.numImages),
           stylePreset: str(p.stylePreset, prev.stylePreset),
         }));
+      } else if (isWan) {
+        const aspectOpt = findAspect(WAN_ASPECTS);
+        setWanParams(prev => ({
+          ...prev,
+          duration: str(p.duration, prev.duration),
+          resolution: str(p.resolution, prev.resolution),
+          aspectRatio: aspectOpt,
+          steps: num(p.steps, prev.steps),
+          guideScale: num(p.guideScale, prev.guideScale),
+          shift: num(p.shift, prev.shift),
+          sampler: str(p.sampler, prev.sampler),
+          seed: num(p.seed, prev.seed),
+        }));
       } else if (isVideo) {
         const aspectOpt = findAspect(VIDEO_ASPECT_RATIOS);
         setVideoParams(prev => ({
@@ -571,7 +661,6 @@ const FloatingCommandCenter: React.FC = () => {
         }));
       }
 
-      // 6. Descargar refs y convertirlas a File objects
       if (Array.isArray(detail.refUrls) && detail.refUrls.length > 0) {
         try {
           const files: File[] = [];
@@ -583,7 +672,6 @@ const FloatingCommandCenter: React.FC = () => {
             const f = new File([blob], `ref_${i + 1}.${ext}`, { type: blob.type });
             files.push(f);
           }
-          // Aplicar al panel (Krea no usa refs, así que si es Flux las metemos)
           if (isFlux && files.length > 0) {
             handleFluxRefFilesChange(files);
           }
@@ -601,6 +689,10 @@ const FloatingCommandCenter: React.FC = () => {
     setVideoParams(prev => ({ ...prev, [type === 'start' ? 'imageStartFile' : type === 'end' ? 'imageEndFile' : 'audioFile']: file }));
   };
 
+  const handleWanFileChange = (type: 'start' | 'end', file: File | null) => {
+    setWanParams(prev => ({ ...prev, [type === 'start' ? 'imageStartFile' : 'imageEndFile']: file }));
+  };
+
   const handleFluxRefFilesChange = (files: File[]) => {
     const validFiles = Array.from(files).filter(f => f instanceof File);
     if (validFiles.length === 0) {
@@ -610,21 +702,12 @@ const FloatingCommandCenter: React.FC = () => {
     if (validFiles.length > 4) {
       alert("Máximo 4 imágenes de referencia permitidas.");
     }
-    
     const slicedFiles = validFiles.slice(0, 4);
-    
-    // Lógica: Si hay referencias y el modo actual es "Ninguna" (ya eliminado de UI pero posible en estado viejo)
-    // o si es la primera vez que se agregan, forzar a KI.
     setFluxParams(prev => {
       const newMode = slicedFiles.length > 0 && !prev.refModeLabel.includes('(I)') 
         ? 'Sujeto/Escenario + Personas u Objetos (KI)' 
         : prev.refModeLabel;
-      
-      return { 
-        ...prev, 
-        refFiles: slicedFiles,
-        refModeLabel: newMode 
-      };
+      return { ...prev, refFiles: slicedFiles, refModeLabel: newMode };
     });
   };
 
@@ -633,14 +716,67 @@ const FloatingCommandCenter: React.FC = () => {
     setExpandedAudio(null);
   };
 
+  const handleAddLora = async () => {
+    const url = newLoraUrl.trim();
+    if (!url) return;
+    setLoraAdding(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { alert('Sesión no válida'); return; }
+      const client = await getClient();
+      if (!client) { alert('Sin conexión al runtime'); return; }
+      const result = await client.predict('/add_lora_url', [url, wanParams.mode, token]);
+      const status = Array.isArray(result.data) ? result.data[0] : result.data;
+      if (typeof status === 'string' && status.startsWith('✅')) {
+        const name = status.replace('✅ Descargado:', '').trim();
+        setWanParams(prev => ({
+          ...prev,
+          loraItems: [...prev.loraItems, { name, mult: '0.5' }],
+        }));
+        setNewLoraUrl('');
+      } else {
+        alert(status || 'Error al descargar la LoRA');
+      }
+    } catch (err) {
+      console.error('[FCM] add_lora_url error:', err);
+      alert('Error de conexión al agregar la LoRA.');
+    } finally {
+      setLoraAdding(false);
+    }
+  };
+
+  const removeLoraItem = (idx: number) => {
+    setWanParams(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const updateLoraMult = (idx: number, mult: string) => {
+    setWanParams(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.map((it, i) => i === idx ? { ...it, mult } : it),
+    }));
+  };
+
   const handleModelChange = (modelId: string, isComingSoon: boolean) => {
     if (isComingSoon) return;
     if (activeTab === 'image') {
       setSelectedImageModelId(modelId);
       if (setActiveImageModelId) setActiveImageModelId(modelId);
+    } else if (activeTab === 'video') {
+      setSelectedVideoModelId(modelId);
+      // Mapear al runtimeId real vía config centralizado
+      setActiveVideoModelId(getRuntimeId(modelId));
+      // Ajustar modo de Wan según el modelo elegido
+      if (modelId === 'wan-i2v') {
+        setWanParams(prev => ({ ...prev, mode: 'i2v' }));
+      } else if (modelId === 'wan-t2v') {
+        setWanParams(prev => ({ ...prev, mode: 't2v' }));
+      }
     } else if (activeTab === 'audio') {
       setSelectedTtsModelId(modelId);
-      // Reset de params dependientes del modo
       setTtsParams(prev => ({
         ...prev,
         voiceMode: modelId === 'omnivoice' ? 'VD' : 'A',
@@ -655,7 +791,7 @@ const FloatingCommandCenter: React.FC = () => {
 
     const ratioLabel =
       activeTab === 'video'
-        ? videoParams.aspectRatio
+        ? (isVideoWan ? wanParams.aspectRatio : videoParams.aspectRatio)
         : activeTab === 'image'
           ? (isFluxActive ? fluxParams.aspectRatio : kreaParams.aspectRatio)
           : '1:1';
@@ -679,7 +815,30 @@ const FloatingCommandCenter: React.FC = () => {
 
     try {
       if (activeTab === 'video') {
-        await handleGenerate({ prompt, ...videoParams });
+        if (isVideoLtx) {
+          await handleGenerate({ prompt, videoModelId: 'ltx-2.3', ...videoParams });
+        } else {
+          // Wan 2.1 I2V o T2V
+          await handleGenerate({
+            prompt,
+            videoModelId: selectedVideoModelId,
+            wanMode: wanParams.mode,
+            imageStartFile: wanParams.imageStartFile,
+            imageEndFile: wanParams.imageEndFile,
+            durationLabel: wanParams.duration,
+            resolution: wanParams.resolution,
+            aspectRatio: wanParams.aspectRatio,
+            steps: wanParams.steps,
+            guideScale: wanParams.guideScale,
+            wanShift: wanParams.shift,
+            wanSampler: wanParams.sampler,
+            wanForcePreset: wanParams.forcePreset,
+            seed: wanParams.seed,
+            negativePrompt: '',
+            extraLoras: wanParams.loraItems.map(x => x.name),
+            loraMults: wanParams.loraItems.map(x => x.mult).join(' '),
+          });
+        }
       } else if (activeTab === 'image') {
         if (isFluxActive) {
           await handleGenerate({ 
@@ -691,9 +850,9 @@ const FloatingCommandCenter: React.FC = () => {
             seed: fluxParams.seed,
             numImages: fluxParams.numImages,
             refFiles: fluxParams.refFiles,
-            refModeLabel: fluxParams.refModeLabel, // Siempre enviado
-            maskFile: null, // Fijo
-            modelModeLabel: fluxParams.modelModeLabel, // Fijo interno
+            refModeLabel: fluxParams.refModeLabel,
+            maskFile: null,
+            modelModeLabel: fluxParams.modelModeLabel,
             fluxGuideScale: fluxParams.fluxGuideScale,
             embeddedGuidance: fluxParams.embeddedGuidance,
           });
@@ -710,7 +869,6 @@ const FloatingCommandCenter: React.FC = () => {
           });
         }
       } else if (activeTab === 'audio') {
-        // Mapear el voiceMode legible a letra del backend
         const voiceModeMap: Record<string, string> = {
           'Auto Voice (sin referencia)': '',
           'Voice Design (solo tags)': 'VD',
@@ -746,7 +904,7 @@ const FloatingCommandCenter: React.FC = () => {
     } catch (error) {
       console.error("Error initiating generation:", error);
     }
-  }, [prompt, activeTab, isFluxActive, videoParams, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate]);
+  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoWan, videoParams, wanParams, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -755,7 +913,6 @@ const FloatingCommandCenter: React.FC = () => {
     }
   };
 
-  // Helper para renderizar thumbnails
   const renderFileThumbnail = (file: File, type: string) => {
     const url = getObjectUrl(file);
     const isAudio = type.includes('audio');
@@ -774,7 +931,9 @@ const FloatingCommandCenter: React.FC = () => {
             if (type === 'video-start') handleVideoFileChange('start', null);
             if (type === 'video-end') handleVideoFileChange('end', null);
             if (type === 'video-audio') handleVideoFileChange('audio', null);
-            if (type === 'ref') handleFluxRefFilesChange([]); // Simplificación: limpia todo al borrar uno
+            if (type === 'wan-start') handleWanFileChange('start', null);
+            if (type === 'wan-end') handleWanFileChange('end', null);
+            if (type === 'ref') handleFluxRefFilesChange([]);
             if (type === 'tts-audio-1') setTtsParams(prev => ({ ...prev, audioGuide: null }));
             if (type === 'tts-audio-2') setTtsParams(prev => ({ ...prev, audioGuide2: null }));
           }}
@@ -804,7 +963,7 @@ const FloatingCommandCenter: React.FC = () => {
         : selectedVideoModelId;
 
     return (
-      <div style={{ display: 'flex', gap: '6px' }}>
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
         {models.map(model => (
           <button
             key={model.id}
@@ -847,6 +1006,7 @@ const FloatingCommandCenter: React.FC = () => {
               <button
                 key={tab}
                 onClick={() => {
+                  userTouchedTabRef.current = true;
                   setActiveTab(tab);
                   setCapability(tab);
                 }}
@@ -901,147 +1061,171 @@ const FloatingCommandCenter: React.FC = () => {
         )}
 
         <div style={{ padding: '12px 14px' }}>
-          {(activeTab === 'video' || (activeTab === 'image' && isFluxActive) || activeTab === 'audio') && (
+          {/* Bloque de chips de upload para Video LTX */}
+          {activeTab === 'video' && isVideoLtx && (
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              {activeTab === 'video' && (
-                <>
-                  <label style={{ position: 'relative', cursor: 'pointer' }}>
-                    <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                      <span>{videoParams.imageStartFile ? 'Start Loaded' : '+ Start'}</span>
-                    </div>
-                  </label>
-                  {videoParams.imageStartFile && renderFileThumbnail(videoParams.imageStartFile, 'video-start')}
-                  
-                  <label style={{ position: 'relative', cursor: 'pointer' }}>
-                    <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                      <span>{videoParams.imageEndFile ? 'End Loaded' : '+ End'}</span>
-                    </div>
-                  </label>
-                  {videoParams.imageEndFile && renderFileThumbnail(videoParams.imageEndFile, 'video-end')}
-                  
-                  <label style={{ position: 'relative', cursor: 'pointer' }}>
-                    <input type="file" accept="audio/*" onChange={(e) => handleVideoFileChange('audio', e.target.files?.[0] || null)} style={{ display: 'none' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                      <span>{videoParams.audioFile ? 'Audio Loaded' : '+ Audio'}</span>
-                    </div>
-                  </label>
-                  {videoParams.audioFile && renderFileThumbnail(videoParams.audioFile, 'video-audio')}
-                </>
-              )}
+              <label style={{ position: 'relative', cursor: 'pointer' }}>
+                <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageStartFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                  <span>{videoParams.imageStartFile ? 'Start Loaded' : '+ Start'}</span>
+                </div>
+              </label>
+              {videoParams.imageStartFile && renderFileThumbnail(videoParams.imageStartFile, 'video-start')}
               
-              {activeTab === 'image' && isFluxActive && (
+              <label style={{ position: 'relative', cursor: 'pointer' }}>
+                <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.imageEndFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                  <span>{videoParams.imageEndFile ? 'End Loaded' : '+ End'}</span>
+                </div>
+              </label>
+              {videoParams.imageEndFile && renderFileThumbnail(videoParams.imageEndFile, 'video-end')}
+              
+              <label style={{ position: 'relative', cursor: 'pointer' }}>
+                <input type="file" accept="audio/*" onChange={(e) => handleVideoFileChange('audio', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: videoParams.audioFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                  <span>{videoParams.audioFile ? 'Audio Loaded' : '+ Audio'}</span>
+                </div>
+              </label>
+              {videoParams.audioFile && renderFileThumbnail(videoParams.audioFile, 'video-audio')}
+            </div>
+          )}
+
+          {/* Bloque de chips de upload para Wan */}
+          {activeTab === 'video' && isVideoWan && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              {wanParams.mode === 'i2v' && (
                 <>
                   <label style={{ position: 'relative', cursor: 'pointer' }}>
-                    <input 
-                      type="file" 
-                      multiple 
-                      accept="image/*" 
-                      onChange={(e) => {
-                        if (e.target.files) {
-                          handleFluxRefFilesChange(Array.from(e.target.files));
-                        }
-                      }} 
-                      style={{ display: 'none' }} 
-                    />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                      <Paperclip size={12} />
-                      <span>{fluxParams.refFiles.length > 0 ? `${fluxParams.refFiles.length} Refs` : 'Referencias'}</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleWanFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: wanParams.imageStartFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                      <span>{wanParams.imageStartFile ? 'Start Loaded' : '+ Start (requerido)'}</span>
                     </div>
                   </label>
-                  {fluxParams.refFiles.slice(0, 4).map((f, idx) => (
-                    <div key={`${f.name}-${f.lastModified}-${idx}`} style={{ position: 'relative' }}>
-                      {renderFileThumbnail(f, 'ref')}
-                      <span style={{ position: 'absolute', bottom: '0', right: '0', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '1px 3px', borderRadius: '4px' }}>{idx + 1}</span>
+                  {wanParams.imageStartFile && renderFileThumbnail(wanParams.imageStartFile, 'wan-start')}
+                  
+                  <label style={{ position: 'relative', cursor: 'pointer' }}>
+                    <input type="file" accept="image/*" onChange={(e) => handleWanFileChange('end', e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: wanParams.imageEndFile ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                      <span>{wanParams.imageEndFile ? 'End Loaded' : '+ End (opcional)'}</span>
                     </div>
-                  ))}
-                </>
-              )}
-
-              {activeTab === 'audio' && (
-                <>
-                  {!ttsParams.audioGuide && (
-                    <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        onChange={(e) => setTtsParams(prev => ({ ...prev, audioGuide: e.target.files?.[0] || null }))}
-                        style={{ display: 'none' }}
-                      />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                        <Mic size={12} />
-                        <span>+ Audio 1</span>
-                      </div>
-                    </label>
-                  )}
-                  {ttsParams.audioGuide && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedAudio(expandedAudio === 'audioGuide' ? null : 'audioGuide')}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          padding: '6px 10px',
-                          background: expandedAudio === 'audioGuide' ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
-                          border: '1px solid var(--pf-border-default)',
-                          borderRadius: '8px', fontSize: '12px',
-                          fontFamily: 'var(--pf-font-ui)',
-                          color: expandedAudio === 'audioGuide' ? 'var(--pf-bg-elevated)' : 'var(--pf-text-secondary)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Mic size={12} />
-                        <span>Audio 1</span>
-                        <Pencil size={10} />
-                      </button>
-                      {renderFileThumbnail(ttsParams.audioGuide, 'tts-audio-1')}
-                    </>
-                  )}
-
-                  {!ttsParams.audioGuide2 && (
-                    <label style={{ position: 'relative', cursor: 'pointer' }}>
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        onChange={(e) => setTtsParams(prev => ({ ...prev, audioGuide2: e.target.files?.[0] || null }))}
-                        style={{ display: 'none' }}
-                      />
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                        <Mic2 size={12} />
-                        <span>+ Audio 2</span>
-                      </div>
-                    </label>
-                  )}
-                  {ttsParams.audioGuide2 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedAudio(expandedAudio === 'audioGuide2' ? null : 'audioGuide2')}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          padding: '6px 10px',
-                          background: expandedAudio === 'audioGuide2' ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
-                          border: '1px solid var(--pf-border-default)',
-                          borderRadius: '8px', fontSize: '12px',
-                          fontFamily: 'var(--pf-font-ui)',
-                          color: expandedAudio === 'audioGuide2' ? 'var(--pf-bg-elevated)' : 'var(--pf-text-secondary)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Mic2 size={12} />
-                        <span>Audio 2</span>
-                        <Pencil size={10} />
-                      </button>
-                      {renderFileThumbnail(ttsParams.audioGuide2, 'tts-audio-2')}
-                    </>
-                  )}
+                  </label>
+                  {wanParams.imageEndFile && renderFileThumbnail(wanParams.imageEndFile, 'wan-end')}
                 </>
               )}
             </div>
           )}
 
-          {/* AudioTrimmer expandido — solo en tab Audio, 1 activo a la vez */}
+          {/* Bloque de chips para Imagen (Flux) */}
+          {activeTab === 'image' && isFluxActive && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <label style={{ position: 'relative', cursor: 'pointer' }}>
+                <input 
+                  type="file" 
+                  multiple 
+                  accept="image/*" 
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      handleFluxRefFilesChange(Array.from(e.target.files));
+                    }
+                  }} 
+                  style={{ display: 'none' }} 
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: fluxParams.refFiles.length > 0 ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                  <Paperclip size={12} />
+                  <span>{fluxParams.refFiles.length > 0 ? `${fluxParams.refFiles.length} Refs` : 'Referencias'}</span>
+                </div>
+              </label>
+              {fluxParams.refFiles.slice(0, 4).map((f, idx) => (
+                <div key={`${f.name}-${f.lastModified}-${idx}`} style={{ position: 'relative' }}>
+                  {renderFileThumbnail(f, 'ref')}
+                  <span style={{ position: 'absolute', bottom: '0', right: '0', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '1px 3px', borderRadius: '4px' }}>{idx + 1}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Bloque de chips para Audio */}
+          {activeTab === 'audio' && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              {!ttsParams.audioGuide && (
+                <label style={{ position: 'relative', cursor: 'pointer' }}>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => setTtsParams(prev => ({ ...prev, audioGuide: e.target.files?.[0] || null }))}
+                    style={{ display: 'none' }}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                    <Mic size={12} />
+                    <span>+ Audio 1</span>
+                  </div>
+                </label>
+              )}
+              {ttsParams.audioGuide && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedAudio(expandedAudio === 'audioGuide' ? null : 'audioGuide')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '6px 10px',
+                      background: expandedAudio === 'audioGuide' ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px', fontSize: '12px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      color: expandedAudio === 'audioGuide' ? 'var(--pf-bg-elevated)' : 'var(--pf-text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Mic size={12} />
+                    <span>Audio 1</span>
+                    <Pencil size={10} />
+                  </button>
+                  {renderFileThumbnail(ttsParams.audioGuide, 'tts-audio-1')}
+                </>
+              )}
+
+              {!ttsParams.audioGuide2 && (
+                <label style={{ position: 'relative', cursor: 'pointer' }}>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => setTtsParams(prev => ({ ...prev, audioGuide2: e.target.files?.[0] || null }))}
+                    style={{ display: 'none' }}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                    <Mic2 size={12} />
+                    <span>+ Audio 2</span>
+                  </div>
+                </label>
+              )}
+              {ttsParams.audioGuide2 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedAudio(expandedAudio === 'audioGuide2' ? null : 'audioGuide2')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '6px 10px',
+                      background: expandedAudio === 'audioGuide2' ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px', fontSize: '12px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      color: expandedAudio === 'audioGuide2' ? 'var(--pf-bg-elevated)' : 'var(--pf-text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Mic2 size={12} />
+                    <span>Audio 2</span>
+                    <Pencil size={10} />
+                  </button>
+                  {renderFileThumbnail(ttsParams.audioGuide2, 'tts-audio-2')}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* AudioTrimmer expandido */}
           {activeTab === 'audio' && expandedAudio && ttsParams[expandedAudio] && (
             <AudioTrimmer
               src={getObjectUrl(ttsParams[expandedAudio] as File)}
@@ -1051,7 +1235,7 @@ const FloatingCommandCenter: React.FC = () => {
             />
           )}
 
-          {/* Selector de Reference Mode visible inmediatamente si hay refs (Solo Flux) */}
+          {/* Reference Mode para Flux */}
           {activeTab === 'image' && isFluxActive && fluxParams.refFiles.length > 0 && (
             <div style={{ marginTop: '8px', marginBottom: '8px' }}>
                <DropdownButton 
@@ -1130,7 +1314,7 @@ const FloatingCommandCenter: React.FC = () => {
             </button>
           </div>
 
-          {/* Voice / Emotion instruction — visible solo en tab Audio */}
+          {/* Voice / Emotion instruction (Audio) */}
           {activeTab === 'audio' && (
             <details style={{ marginTop: '10px' }}>
               <summary style={{
@@ -1194,7 +1378,7 @@ const FloatingCommandCenter: React.FC = () => {
             </details>
           )}
 
-          {/* Negative prompt — visible solo en tab Imagen (Krea / Flux) */}
+          {/* Negative prompt (Imagen) */}
           {activeTab === 'image' && (
             <details style={{ marginTop: '10px' }}>
               <summary style={{
@@ -1258,7 +1442,8 @@ const FloatingCommandCenter: React.FC = () => {
           )}
 
           <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--pf-border-subtle)' }}>
-            {activeTab === 'video' && (
+            {/* Video LTX — fila inferior */}
+            {activeTab === 'video' && isVideoLtx && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <DropdownButton options={VIDEO_DURATIONS} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + 's'} />
                 <DropdownButton options={VIDEO_RESOLUTIONS} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
@@ -1271,6 +1456,183 @@ const FloatingCommandCenter: React.FC = () => {
               </div>
             )}
 
+            {/* Wan I2V/T2V — fila inferior */}
+            {activeTab === 'video' && isVideoWan && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <DropdownButton options={WAN_DURATIONS} value={wanParams.duration} onChange={(v: string) => setWanParams({...wanParams, duration: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <DropdownButton options={WAN_RESOLUTIONS} value={wanParams.resolution} onChange={(v: string) => setWanParams({...wanParams, resolution: v})} />
+                <DropdownButton options={WAN_ASPECTS} value={wanParams.aspectRatio} onChange={(v: string) => setWanParams({...wanParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <NumberInput label="Seed" value={wanParams.seed} onChange={(v: number) => setWanParams({...wanParams, seed: v})} min={-1} max={2147483647} step={1} />
+                <div style={{ position: 'relative' }}>
+                  <details style={{ display: 'inline-block' }}>
+                    <summary style={{
+                      listStyle: 'none',
+                      background: 'var(--pf-bg-secondary)',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px',
+                      padding: '5px 10px',
+                      fontSize: '12px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      color: 'var(--pf-text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      Avanzado ▼
+                    </summary>
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 8px)',
+                      left: 0,
+                      background: 'white',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                      zIndex: 1000,
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      width: '280px'
+                    }}>
+                      <div>
+                        <NumberInput label="Steps" value={wanParams.steps} onChange={(v: number) => setWanParams({...wanParams, steps: v})} min={1} max={20} step={1} />
+                      </div>
+                      <div>
+                        <NumberInput label="Guide" value={wanParams.guideScale} onChange={(v: number) => setWanParams({...wanParams, guideScale: v})} min={0.5} max={10} step={0.5} />
+                      </div>
+                      <div>
+                        <NumberInput label="Shift" value={wanParams.shift} onChange={(v: number) => setWanParams({...wanParams, shift: v})} min={1} max={15} step={0.5} />
+                      </div>
+                      <div>
+                        <DropdownButton options={WAN_SAMPLERS} value={wanParams.sampler} onChange={(v: string) => setWanParams({...wanParams, sampler: v})} />
+                      </div>
+                      <div style={{ borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                          LoRAs adicionales
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                          <input
+                            type="text"
+                            value={newLoraUrl}
+                            onChange={(e) => setNewLoraUrl(e.target.value)}
+                            placeholder="https://huggingface.co/..."
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              padding: '5px 7px',
+                              background: 'var(--pf-bg-secondary)',
+                              border: '1px solid var(--pf-border-default)',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontFamily: 'var(--pf-font-ui)',
+                              color: 'var(--pf-text-primary)',
+                              outline: 'none',
+                            }}
+                            disabled={loraAdding || isLoading}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddLora}
+                            disabled={loraAdding || !newLoraUrl.trim() || isLoading}
+                            style={{
+                              padding: '5px 9px',
+                              background: (!newLoraUrl.trim() || loraAdding) ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)',
+                              color: (!newLoraUrl.trim() || loraAdding) ? 'var(--pf-text-muted)' : 'var(--pf-bg-elevated)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontFamily: 'var(--pf-font-ui)',
+                              fontWeight: 600,
+                              cursor: (!newLoraUrl.trim() || loraAdding) ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {loraAdding ? '...' : 'Add'}
+                          </button>
+                        </div>
+                        {wanParams.loraItems.length === 0 ? (
+                          <div style={{ fontSize: '10px', color: 'var(--pf-text-muted)', fontStyle: 'italic', lineHeight: 1.4 }}>
+                            Sin LoRAs adicionales. Se aplicará solo la LoRA aceleradora del modo.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {wanParams.loraItems.map((item, i) => (
+                              <div key={`${item.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span
+                                  title={item.name}
+                                  style={{
+                                    flex: 1,
+                                    fontSize: '10px',
+                                    fontFamily: 'var(--pf-font-ui)',
+                                    color: 'var(--pf-text-secondary)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  {item.name}
+                                </span>
+                                <input
+                                  type="number"
+                                  value={item.mult}
+                                  min={0}
+                                  max={2}
+                                  step={0.05}
+                                  onChange={(e) => updateLoraMult(i, e.target.value)}
+                                  style={{
+                                    width: '42px',
+                                    padding: '3px 5px',
+                                    background: 'var(--pf-bg-secondary)',
+                                    border: '1px solid var(--pf-border-default)',
+                                    borderRadius: '5px',
+                                    fontSize: '11px',
+                                    fontFamily: 'var(--pf-font-ui)',
+                                    color: 'var(--pf-text-primary)',
+                                    textAlign: 'center',
+                                    outline: 'none',
+                                  }}
+                                  disabled={isLoading}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeLoraItem(i)}
+                                  disabled={isLoading}
+                                  style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    background: '#EF4444',
+                                    color: 'white',
+                                    border: 'none',
+                                    fontSize: '10px',
+                                    lineHeight: 1,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: 0,
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                            <div style={{ fontSize: '9px', color: 'var(--pf-text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
+                              El orden importa: cada multiplicador aplica a su LoRA.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            )}
+
+            {/* Imagen Krea */}
             {activeTab === 'image' && !isFluxActive && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <DropdownButton options={KREA_STYLES} value={kreaParams.stylePreset} onChange={(v: string) => setKreaParams({...kreaParams, stylePreset: v})} />
@@ -1281,6 +1643,7 @@ const FloatingCommandCenter: React.FC = () => {
               </div>
             )}
 
+            {/* Imagen Flux */}
             {activeTab === 'image' && isFluxActive && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <DropdownButton options={FLUX_RESOLUTIONS} value={fluxParams.resolution} onChange={(v: string) => setFluxParams({...fluxParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
@@ -1321,7 +1684,6 @@ const FloatingCommandCenter: React.FC = () => {
                         gap: '12px',
                         width: '200px'
                       }}>
-                        {/* Solo Guide Scale y Embedded Guidance quedan aquí */}
                         <div>
                           <NumberInput label="Guide Scale" value={fluxParams.fluxGuideScale} onChange={(v: number) => setFluxParams({...fluxParams, fluxGuideScale: v})} min={0.5} max={10} step={0.5} />
                         </div>
@@ -1334,6 +1696,7 @@ const FloatingCommandCenter: React.FC = () => {
               </div>
             )}
 
+            {/* Audio */}
             {activeTab === 'audio' && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <DropdownButton

@@ -5,3 +5,4 @@ dist/
 
 # Env
 .env
+*.bak*

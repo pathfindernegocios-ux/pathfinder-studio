@@ -43,13 +43,14 @@ const StudioPage: React.FC = () => {
     removeSessionItem,
     capability,
     activeImageModelId,
+    activeVideoModelId,
     stationStatusMap,
   } = useGenerationContext();
 
   const currentModelId = capability === 'image'
     ? activeImageModelId
     : capability === 'video'
-      ? 'ltx-2.3'
+      ? activeVideoModelId
       : capability === 'audio'
         ? 'tts-dual'
         : null;

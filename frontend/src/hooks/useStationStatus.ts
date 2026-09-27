@@ -20,7 +20,7 @@ interface UseStationStatusResult {
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const POLL_MS = 30_000;
-const TIMEOUT_MS = 3_000;
+const TIMEOUT_MS = 10_000;
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -56,13 +56,16 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
         return;
       }
 
-      // 2. Deduplicar: por cada model_id, tomar la fila más reciente
+      // 2. Deduplicar: por cada model_id, tomar la fila más reciente (explícito por created_at)
       const latestByModel = new Map<string, RuntimeRow>();
       for (const row of data as RuntimeRow[]) {
-        if (row.model_id && !latestByModel.has(row.model_id)) {
+        if (!row.model_id) continue;
+        const existing = latestByModel.get(row.model_id);
+        if (!existing || new Date(row.created_at).getTime() > new Date(existing.created_at).getTime()) {
           latestByModel.set(row.model_id, row);
         }
       }
+      console.log(`[useStationStatus] Filas totales: ${data.length} | Modelos únicos: ${latestByModel.size}`);
 
       // 3. Obtener JWT una sola vez
       const { data: { session } } = await supabase.auth.getSession();
@@ -86,11 +89,15 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
           }
 
           try {
+            console.log(`[useStationStatus] Checking ${modelId} @ ${row.gradio_url}...`);
             const client = await withTimeout(Client.connect(row.gradio_url), TIMEOUT_MS);
+            console.log(`[useStationStatus] ✓ ${modelId} connected`);
             const statusResult = await withTimeout(client.predict('/status', [token]), TIMEOUT_MS);
             const statusVal = Array.isArray(statusResult.data) ? statusResult.data[0] : statusResult.data;
+            console.log(`[useStationStatus] ✓ ${modelId} status=${statusVal}`);
             results[modelId] = (statusVal === 'READY' || statusVal === 'BUSY') ? 'online' : 'offline';
-          } catch {
+          } catch (e: any) {
+            console.error(`[useStationStatus] ✗ ${modelId} failed:`, e?.message || e);
             results[modelId] = 'offline';
           }
         })
