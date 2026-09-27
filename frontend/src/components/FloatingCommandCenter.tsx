@@ -45,7 +45,7 @@ const WAN_DURATIONS = [
   '2s (33 frames)', '3s (49 frames)', '4s (65 frames)', '5s (81 frames)',
   '6s (97 frames)', '8s (129 frames)', '10s (161 frames)',
 ];
-const WAN_RESOLUTIONS = ['480p', '540p', '720p'];
+const WAN_RESOLUTIONS = ['360p', '480p', '540p', '720p'];
 const WAN_ASPECTS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
 const WAN_SAMPLERS = ['UniPC (recomendado)', 'Euler', 'Euler a', 'DPM++ 2M', 'DPM++ 2M SDE', 'Heun', 'LMS'];
 
@@ -83,11 +83,19 @@ const DISCLAIMER_MESSAGES = [
 // ── Persistencia de selección (sobrevive refresh y navegación) ──
 const STUDIO_SELECTION_KEY = 'pf_studio_selection_v1';
 
+interface PersistedLoraItem {
+  name: string;
+  mult: string;
+  enabled?: boolean;
+}
+
 interface PersistedStudioSelection {
   activeTab: 'video' | 'image' | 'audio';
   selectedVideoModelId: string;
   selectedImageModelId: string;
   selectedTtsModelId: string;
+  wanLoras?: PersistedLoraItem[];
+  ltx25Loras?: PersistedLoraItem[];
 }
 
 function loadPersistedStudioSelection(): PersistedStudioSelection | null {
@@ -101,6 +109,31 @@ function loadPersistedStudioSelection(): PersistedStudioSelection | null {
   } catch {
     return null;
   }
+}
+
+/** Carga las LoRAs de Wan desde localStorage, normalizando el shape. */
+function loadWanLoras(): { name: string; mult: string }[] {
+  const persisted = loadPersistedStudioSelection()?.wanLoras;
+  if (!Array.isArray(persisted)) return [];
+  return persisted
+    .filter((x) => x && typeof x.name === 'string' && typeof x.mult === 'string')
+    .map((x) => ({ name: x.name, mult: x.mult }));
+}
+
+/** Carga las LoRAs de LTX 2.5 MSR desde localStorage.
+ *  Si no hay persistidas, devuelve el default: Product Commercial enabled. */
+const LTX25_DEFAULT_LORAS = [
+  { name: 'LTX23_Product_Commercial_LoRA.safetensors', mult: '1.0', enabled: true },
+];
+function loadLtx25Loras(): { name: string; mult: string; enabled: boolean }[] {
+  const persisted = loadPersistedStudioSelection()?.ltx25Loras;
+  if (!Array.isArray(persisted) || persisted.length === 0) {
+    return [...LTX25_DEFAULT_LORAS];
+  }
+  const normalized = persisted
+    .filter((x) => x && typeof x.name === 'string' && typeof x.mult === 'string')
+    .map((x) => ({ name: x.name, mult: x.mult, enabled: x.enabled ?? true }));
+  return normalized.length > 0 ? normalized : [...LTX25_DEFAULT_LORAS];
 }
 
 const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'];
@@ -489,7 +522,7 @@ const FloatingCommandCenter: React.FC = () => {
     sampler: 'UniPC (recomendado)',
     seed: -1,
     forcePreset: false,
-    loraItems: [],
+    loraItems: loadWanLoras(),
   });
 
   const [ltx25Params, setLtx25Params] = useState<Ltx25Params>({
@@ -507,7 +540,7 @@ const FloatingCommandCenter: React.FC = () => {
     audioCfg: 1.0,
     steps: 8,
     seed: -1,
-    loraItems: [{ name: 'LTX23_Product_Commercial_LoRA.safetensors', mult: '1.0', enabled: true }],
+    loraItems: loadLtx25Loras(),
   });
 
   const [kreaParams, setKreaParams] = useState<KreaParams>({
@@ -632,11 +665,20 @@ const FloatingCommandCenter: React.FC = () => {
         selectedVideoModelId,
         selectedImageModelId,
         selectedTtsModelId,
+        wanLoras: wanParams.loraItems,
+        ltx25Loras: ltx25Params.loraItems,
       }));
     } catch {
       // noop (localStorage puede fallar en modo privado)
     }
-  }, [activeTab, selectedVideoModelId, selectedImageModelId, selectedTtsModelId]);
+  }, [
+    activeTab,
+    selectedVideoModelId,
+    selectedImageModelId,
+    selectedTtsModelId,
+    wanParams.loraItems,
+    ltx25Params.loraItems,
+  ]);
 
   // ── AUTO-SELECT ──
   // Reglas:
