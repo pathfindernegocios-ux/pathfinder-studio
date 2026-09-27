@@ -73,6 +73,29 @@ const LTX25_MODES = [
   { label: 'Up to 4 Subjects / Objects', value: 'I' },
 ];
 
+// ── Persistencia de selección (sobrevive refresh y navegación) ──
+const STUDIO_SELECTION_KEY = 'pf_studio_selection_v1';
+
+interface PersistedStudioSelection {
+  activeTab: 'video' | 'image' | 'audio';
+  selectedVideoModelId: string;
+  selectedImageModelId: string;
+  selectedTtsModelId: string;
+}
+
+function loadPersistedStudioSelection(): PersistedStudioSelection | null {
+  try {
+    const raw = localStorage.getItem(STUDIO_SELECTION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!['video', 'image', 'audio'].includes(parsed.activeTab)) return null;
+    return parsed as PersistedStudioSelection;
+  } catch {
+    return null;
+  }
+}
+
 const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'];
 const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High)', '2048px (2K Ultra)'];
 const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait'];
@@ -357,7 +380,12 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
 );
 
 const FloatingCommandCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('video');
+  const isFirstRenderRef = useRef(true);
+  // Auto-select: corre la 1ra vez que ve stationStatusMap con datos, y también
+  // cuando aparece un modelo NUEVO online.
+  const hasAutoSelectedRef = useRef(false);
+  const lastOnlineIdsRef = useRef<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<TabType>(() => loadPersistedStudioSelection()?.activeTab || 'video');
   const [prompt, setPrompt] = useState('');
   
   const objectUrlCacheRef = useRef<Map<File, string>>(new Map());
@@ -385,17 +413,12 @@ const FloatingCommandCenter: React.FC = () => {
     getClient,
   } = useGenerationContext();
 
-  const [selectedImageModelId, setSelectedImageModelId] = useState<string>('krea-2-turbo');
-  const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>(activeVideoModelId || 'ltx-2.3');
-  const [selectedTtsModelId, setSelectedTtsModelId] = useState<string>('omnivoice');
+  const [selectedImageModelId, setSelectedImageModelId] = useState<string>(() => loadPersistedStudioSelection()?.selectedImageModelId || 'krea-2-turbo');
+  const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>(() => loadPersistedStudioSelection()?.selectedVideoModelId || activeVideoModelId || 'ltx-2.3');
+  const [selectedTtsModelId, setSelectedTtsModelId] = useState<string>(() => loadPersistedStudioSelection()?.selectedTtsModelId || 'omnivoice');
   const [expandedAudio, setExpandedAudio] = useState<'audioGuide' | 'audioGuide2' | null>(null);
   const [newLoraUrl, setNewLoraUrl] = useState('');
   const [loraAdding, setLoraAdding] = useState(false);
-
-  // Marca si el usuario tocó manualmente una tab durante esta sesión.
-  // Mientras sea false, permitimos auto-select según backend online.
-  // Se reinicia al desmontar el FCM (ej: ir al landing y volver).
-  const userTouchedTabRef = useRef(false);
 
   const isVideoWan = selectedVideoModelId.startsWith('wan-');
   const isVideoLtx = selectedVideoModelId === 'ltx-2.3';
@@ -550,6 +573,15 @@ const FloatingCommandCenter: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      // En el primer render, FCM manda: sincronizamos el contexto con la
+      // selección restaurada de localStorage.
+      if (activeTab !== capability) {
+        setCapability(activeTab);
+      }
+      return;
+    }
     if (capability !== activeTab) {
       setActiveTab(capability);
     }
@@ -567,49 +599,137 @@ const FloatingCommandCenter: React.FC = () => {
     return () => window.removeEventListener('pathfinder-set-prompt', handleSetPrompt as EventListener);
   }, []);
 
-  // ── AUTO-SELECT: si el usuario no tocó una tab manualmente y el tab actual
-  //    no tiene ningún backend online, saltar al que sí lo tenga.
-  //    Al desmontar el FCM (ir al landing y volver), userTouchedTabRef se reinicia.
+  // ── Sync del contexto con la selección restaurada (una sola vez al montar) ──
   useEffect(() => {
-    if (userTouchedTabRef.current) return;
-    if (!stationStatusMap || Object.keys(stationStatusMap).length === 0) return;
-
-    const currentTabHasOnline = MODELS_BY_CAPABILITY[activeTab].some(
-      m => stationStatusMap[m.runtimeId] === 'online',
-    );
-    if (currentTabHasOnline) return;
-
-    const onlineCap = getOnlineCapability(stationStatusMap);
-    if (!onlineCap) return;
-
-    setActiveTab(onlineCap);
-    setCapability(onlineCap);
-
-    const firstOnline = getFirstOnlineModel(onlineCap, stationStatusMap);
-    if (!firstOnline) return;
-
-    if (onlineCap === 'video') {
-      setSelectedVideoModelId(firstOnline.id);
-      setActiveVideoModelId(firstOnline.runtimeId);
-      if (firstOnline.id === 'wan-i2v') {
-        setWanParams(prev => ({ ...prev, mode: 'i2v' }));
-      } else if (firstOnline.id === 'wan-t2v') {
-        setWanParams(prev => ({ ...prev, mode: 't2v' }));
+    if (selectedVideoModelId) {
+      const runtimeId = getRuntimeId(selectedVideoModelId);
+      if (runtimeId !== activeVideoModelId) {
+        setActiveVideoModelId(runtimeId);
       }
-    } else if (onlineCap === 'image') {
-      setSelectedImageModelId(firstOnline.id);
-      if (setActiveImageModelId) setActiveImageModelId(firstOnline.id);
-    } else if (onlineCap === 'audio') {
-      setSelectedTtsModelId(firstOnline.id);
-      setTtsParams(prev => ({
-        ...prev,
-        voiceMode: firstOnline.id === 'omnivoice' ? 'VD' : 'A',
-        language: firstOnline.id === 'omnivoice' ? 'Auto' : 'Spanish',
-        steps: firstOnline.id === 'omnivoice' ? 32 : 25,
-      }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stationStatusMap]);
+  }, []);
+
+  // ── Persistir la selección actual (sobrevive refresh y navegación) ──
+  useEffect(() => {
+    try {
+      localStorage.setItem(STUDIO_SELECTION_KEY, JSON.stringify({
+        activeTab,
+        selectedVideoModelId,
+        selectedImageModelId,
+        selectedTtsModelId,
+      }));
+    } catch {
+      // noop (localStorage puede fallar en modo privado)
+    }
+  }, [activeTab, selectedVideoModelId, selectedImageModelId, selectedTtsModelId]);
+
+  // ── AUTO-SELECT ──
+  // Reglas:
+  //   1. Primera vez que vemos stationStatusMap con datos → auto-select si el
+  //      modelo actual está offline.
+  //   2. Aparece un modelo NUEVO online (pasó de offline a online) → auto-select
+  //      si el actual está offline. En este caso, prefiere ESE modelo nuevo
+  //      (no el primero de la lista) — así al arrancar Flux después de Krea
+  //      el FCM salta a Flux, no a Krea.
+  //   3. Resto del tiempo → no forzamos, el usuario navega libremente.
+  useEffect(() => {
+    if (!stationStatusMap || Object.keys(stationStatusMap).length === 0) return;
+
+    // Snapshot de los IDs online actuales
+    const onlineIds = new Set<string>(
+      Object.entries(stationStatusMap)
+        .filter(([, s]) => s === 'online')
+        .map(([id]) => id)
+    );
+    const prevOnlineIds = lastOnlineIdsRef.current;
+    const newOnlineIds = [...onlineIds].filter((id) => !prevOnlineIds.has(id));
+    const hasNewOnline = newOnlineIds.length > 0;
+    const isFirstPoll = !hasAutoSelectedRef.current;
+    lastOnlineIdsRef.current = onlineIds;
+
+    // ¿El modelo actualmente seleccionado está online?
+    let currentModelUiId: string | null = null;
+    if (activeTab === 'image') currentModelUiId = selectedImageModelId || activeImageModelId;
+    else if (activeTab === 'video') currentModelUiId = selectedVideoModelId;
+    else if (activeTab === 'audio') currentModelUiId = selectedTtsModelId;
+
+    const currentIsOnline = currentModelUiId
+      ? stationStatusMap[getRuntimeId(currentModelUiId)] === 'online'
+      : false;
+
+    // ¿Debemos auto-seleccionar?
+    const shouldAutoSelect =
+      (isFirstPoll && !currentIsOnline) ||
+      (hasNewOnline && !currentIsOnline);
+
+    if (!shouldAutoSelect) return;
+
+    // ── Elegir modelo target ──
+    // Prioridad:
+    //   1. Si hay modelos NUEVOS online → preferir ese (el que acaba de arrancar).
+    //   2. Si no → el primero online dentro del tab actual.
+    //   3. Si no → el primero online de la capability con prioridad (video > image > audio).
+    let targetCap: 'video' | 'image' | 'audio' | null = null;
+    let targetModel: { id: string; runtimeId: string } | null = null;
+
+    if (hasNewOnline) {
+      for (const runtimeId of newOnlineIds) {
+        for (const cap of ['video', 'image', 'audio'] as const) {
+          const model = MODELS_BY_CAPABILITY[cap].find(
+            m => m.runtimeId === runtimeId && !m.comingSoon
+          );
+          if (model) {
+            targetCap = cap;
+            targetModel = { id: model.id, runtimeId: model.runtimeId };
+            break;
+          }
+        }
+        if (targetModel) break;
+      }
+    }
+
+    if (!targetModel) {
+      const currentTabHasOnline = MODELS_BY_CAPABILITY[activeTab].some(
+        m => stationStatusMap[m.runtimeId] === 'online',
+      );
+      const cap = currentTabHasOnline ? activeTab : getOnlineCapability(stationStatusMap);
+      if (!cap) return;
+      const firstOnline = getFirstOnlineModel(cap, stationStatusMap);
+      if (!firstOnline) return;
+      targetCap = cap;
+      targetModel = { id: firstOnline.id, runtimeId: firstOnline.runtimeId };
+    }
+
+    if (!targetCap || !targetModel) return;
+
+    // Solo cambiamos de tab si hace falta
+    if (targetCap !== activeTab) {
+      setActiveTab(targetCap);
+      setCapability(targetCap);
+    }
+
+    if (targetCap === 'video') {
+      setSelectedVideoModelId(targetModel.id);
+      setActiveVideoModelId(targetModel.runtimeId);
+      if (targetModel.id === 'wan-i2v') setWanParams(prev => ({ ...prev, mode: 'i2v' }));
+      else if (targetModel.id === 'wan-t2v') setWanParams(prev => ({ ...prev, mode: 't2v' }));
+    } else if (targetCap === 'image') {
+      setSelectedImageModelId(targetModel.id);
+      if (setActiveImageModelId) setActiveImageModelId(targetModel.id);
+    } else if (targetCap === 'audio') {
+      setSelectedTtsModelId(targetModel.id);
+      setTtsParams(prev => ({
+        ...prev,
+        voiceMode: targetModel!.id === 'omnivoice' ? 'VD' : 'A',
+        language: targetModel!.id === 'omnivoice' ? 'Auto' : 'Spanish',
+        steps: targetModel!.id === 'omnivoice' ? 32 : 25,
+      }));
+    }
+
+    hasAutoSelectedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationStatusMap, activeTab, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, activeImageModelId]);
 
   // FASE 3: escuchar pathfinder-load-config — repoblar prompt, params y refs
   useEffect(() => {
@@ -1194,7 +1314,6 @@ const FloatingCommandCenter: React.FC = () => {
               <button
                 key={tab}
                 onClick={() => {
-                  userTouchedTabRef.current = true;
                   setActiveTab(tab);
                   setCapability(tab);
                 }}
