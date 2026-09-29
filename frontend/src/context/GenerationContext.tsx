@@ -779,7 +779,9 @@ export function GenerationProvider({
           const result = await client.predict("/generate", [
             params.prompt, params.imageStartFile, params.imageEndFile || undefined,
             params.audioFile || undefined, params.seed, params.duration, params.resolution,
-            params.aspectRatio, params.guideScale, params.matchAudioDur, token,
+            params.aspectRatio, params.guideScale, params.matchAudioDur,
+            params.extraLoras || [], params.loraMults || "",
+            token,
           ]);
 
           const data = result.data as unknown[];

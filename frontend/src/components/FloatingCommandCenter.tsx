@@ -96,6 +96,7 @@ interface PersistedStudioSelection {
   selectedTtsModelId: string;
   wanLoras?: PersistedLoraItem[];
   ltx25Loras?: PersistedLoraItem[];
+  videoLoras?: PersistedLoraItem[];
 }
 
 function loadPersistedStudioSelection(): PersistedStudioSelection | null {
@@ -114,6 +115,15 @@ function loadPersistedStudioSelection(): PersistedStudioSelection | null {
 /** Carga las LoRAs de Wan desde localStorage, normalizando el shape. */
 function loadWanLoras(): { name: string; mult: string }[] {
   const persisted = loadPersistedStudioSelection()?.wanLoras;
+  if (!Array.isArray(persisted)) return [];
+  return persisted
+    .filter((x) => x && typeof x.name === 'string' && typeof x.mult === 'string')
+    .map((x) => ({ name: x.name, mult: x.mult }));
+}
+
+/** Carga las LoRAs de LTX 2.3 desde localStorage, normalizando el shape. */
+function loadVideoLoras(): { name: string; mult: string }[] {
+  const persisted = loadPersistedStudioSelection()?.videoLoras;
   if (!Array.isArray(persisted)) return [];
   return persisted
     .filter((x) => x && typeof x.name === 'string' && typeof x.mult === 'string')
@@ -199,6 +209,7 @@ interface VideoParams {
   guideScale: number;
   seed: number;
   matchAudioDur: boolean;
+  loraItems: { name: string; mult: string }[];
 }
 
 interface WanParams {
@@ -507,6 +518,7 @@ const FloatingCommandCenter: React.FC = () => {
     guideScale: 4.0,
     seed: -1,
     matchAudioDur: false,
+    loraItems: loadVideoLoras(),
   });
 
   const [wanParams, setWanParams] = useState<WanParams>({
@@ -667,6 +679,7 @@ const FloatingCommandCenter: React.FC = () => {
         selectedTtsModelId,
         wanLoras: wanParams.loraItems,
         ltx25Loras: ltx25Params.loraItems,
+        videoLoras: videoParams.loraItems,
       }));
     } catch {
       // noop (localStorage puede fallar en modo privado)
@@ -678,6 +691,7 @@ const FloatingCommandCenter: React.FC = () => {
     selectedTtsModelId,
     wanParams.loraItems,
     ltx25Params.loraItems,
+    videoParams.loraItems,
   ]);
 
   // ── AUTO-SELECT ──
@@ -1090,6 +1104,51 @@ const FloatingCommandCenter: React.FC = () => {
     }));
   };
 
+  // ── LoRA handlers para LTX 2.3 ──
+  const handleAddLoraLtx23 = async () => {
+    const url = newLoraUrl.trim();
+    if (!url) return;
+    setLoraAdding(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { alert('Sesión no válida'); return; }
+      const client = await getClient();
+      if (!client) { alert('Sin conexión al runtime'); return; }
+      const result = await client.predict('/add_lora_url', [url, token]);
+      const status = Array.isArray(result.data) ? result.data[0] : result.data;
+      if (typeof status === 'string' && status.startsWith('✅')) {
+        const name = status.replace('✅ Descargado:', '').trim();
+        setVideoParams(prev => ({
+          ...prev,
+          loraItems: [...prev.loraItems, { name, mult: '1.0' }],
+        }));
+        setNewLoraUrl('');
+      } else {
+        alert(status || 'Error al descargar la LoRA');
+      }
+    } catch (err) {
+      console.error('[FCM] add_lora_url (LTX23) error:', err);
+      alert('Error de conexión al agregar la LoRA.');
+    } finally {
+      setLoraAdding(false);
+    }
+  };
+
+  const removeLoraItemLtx23 = (idx: number) => {
+    setVideoParams(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const updateLoraMultLtx23 = (idx: number, mult: string) => {
+    setVideoParams(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.map((it, i) => i === idx ? { ...it, mult } : it),
+    }));
+  };
+
   // ── LoRA handlers para LTX 2.5 MSR ──
   const handleAddLoraLtx25 = async () => {
     const url = newLoraUrl.trim();
@@ -1199,7 +1258,13 @@ const FloatingCommandCenter: React.FC = () => {
     try {
       if (activeTab === 'video') {
         if (isVideoLtx) {
-          await handleGenerate({ prompt, videoModelId: 'ltx-2.3', ...videoParams });
+          await handleGenerate({
+            prompt,
+            videoModelId: 'ltx-2.3',
+            ...videoParams,
+            extraLoras: videoParams.loraItems.map(x => x.name),
+            loraMults: videoParams.loraItems.map(x => x.mult || '1.0').join(' '),
+          });
         } else if (isVideoLtx25Msr) {
           // LTX 2.5 MSR (Multi-Subject Reference)
           await handleGenerate({
@@ -1915,6 +1980,128 @@ const FloatingCommandCenter: React.FC = () => {
                   <input type="checkbox" checked={videoParams.matchAudioDur} onChange={(e) => setVideoParams({...videoParams, matchAudioDur: e.target.checked})} style={{ marginRight: '4px' }} />
                   Match Audio
                 </label>
+              </div>
+            )}
+
+            {/* LTX 2.3 — panel de LoRAs adicionales */}
+            {activeTab === 'video' && isVideoLtx && (
+              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--pf-border-subtle)' }}>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  LoRAs adicionales
+                </div>
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                  <input
+                    type="text"
+                    value={newLoraUrl}
+                    onChange={(e) => setNewLoraUrl(e.target.value)}
+                    placeholder="https://huggingface.co/..."
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: '5px 7px',
+                      background: 'var(--pf-bg-secondary)',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      color: 'var(--pf-text-primary)',
+                      outline: 'none',
+                    }}
+                    disabled={loraAdding || isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddLoraLtx23}
+                    disabled={loraAdding || !newLoraUrl.trim() || isLoading}
+                    style={{
+                      padding: '5px 9px',
+                      background: (!newLoraUrl.trim() || loraAdding) ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)',
+                      color: (!newLoraUrl.trim() || loraAdding) ? 'var(--pf-text-muted)' : 'var(--pf-bg-elevated)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      fontWeight: 600,
+                      cursor: (!newLoraUrl.trim() || loraAdding) ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {loraAdding ? '...' : 'Add'}
+                  </button>
+                </div>
+                {videoParams.loraItems.length === 0 ? (
+                  <div style={{ fontSize: '10px', color: 'var(--pf-text-muted)', fontStyle: 'italic', lineHeight: 1.4 }}>
+                    Sin LoRAs adicionales.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {videoParams.loraItems.map((item, i) => (
+                      <div key={`${item.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span
+                          title={item.name}
+                          style={{
+                            flex: 1,
+                            fontSize: '10px',
+                            fontFamily: 'var(--pf-font-ui)',
+                            color: 'var(--pf-text-secondary)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            minWidth: 0,
+                          }}
+                        >
+                          {item.name}
+                        </span>
+                        <input
+                          type="number"
+                          value={item.mult}
+                          min={0}
+                          max={2}
+                          step={0.05}
+                          onChange={(e) => updateLoraMultLtx23(i, e.target.value)}
+                          style={{
+                            width: '42px',
+                            padding: '3px 5px',
+                            background: 'var(--pf-bg-secondary)',
+                            border: '1px solid var(--pf-border-default)',
+                            borderRadius: '5px',
+                            fontSize: '11px',
+                            fontFamily: 'var(--pf-font-ui)',
+                            color: 'var(--pf-text-primary)',
+                            textAlign: 'center',
+                            outline: 'none',
+                          }}
+                          disabled={isLoading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeLoraItemLtx23(i)}
+                          disabled={isLoading}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            background: '#EF4444',
+                            color: 'white',
+                            border: 'none',
+                            fontSize: '10px',
+                            lineHeight: 1,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <div style={{ fontSize: '9px', color: 'var(--pf-text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
+                      El orden importa: cada multiplicador aplica a su LoRA.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
