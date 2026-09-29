@@ -471,7 +471,6 @@ const StationPage: React.FC = () => {
       style={{
         height: '100%',
         overflowY: 'auto',
-        background: 'var(--pf-bg-primary)',
         color: 'var(--pf-text-primary)',
       }}
     >

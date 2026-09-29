@@ -4,7 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
 import { useTheme } from "../hooks/useTheme";
 import { supabase } from "../lib/supabaseClient";
-import { Monitor, Sun, Moon, Loader2, ExternalLink, Crown } from "lucide-react";
+import { Monitor, Sun, Moon, Loader2, ExternalLink, Crown, Sparkles } from "lucide-react";
 import AvatarPicker from "../components/AvatarPicker";
 
 type Tab = "profile" | "account" | "security";
@@ -456,6 +456,7 @@ const AccountSettingsPage: React.FC = () => {
                   { id: "light" as const, Icon: Sun, label: "Claro" },
                   { id: "system" as const, Icon: Monitor, label: "Sistema" },
                   { id: "dark" as const, Icon: Moon, label: "Oscuro" },
+                  { id: "neon" as const, Icon: Sparkles, label: "Neón" },
                 ].map((opt) => {
                   const isActive = preference === opt.id;
                   return (

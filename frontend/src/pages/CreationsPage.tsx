@@ -54,7 +54,6 @@ const CreationsPage: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center', 
         justifyContent: 'center', 
-        background: 'var(--pf-bg-primary)',
         gap: '24px'
       }}>
         {/* Skeleton del Header */}
@@ -106,7 +105,6 @@ const CreationsPage: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center', 
         justifyContent: 'center', 
-        background: 'var(--pf-bg-primary)',
         textAlign: 'center',
         padding: '40px'
       }}>
@@ -125,7 +123,6 @@ const CreationsPage: React.FC = () => {
     <div style={{ 
       height: '100%', 
       overflowY: 'auto', 
-      background: 'var(--pf-bg-primary)',
       scrollBehavior: 'smooth'
     }}>
       {/* Hero Section: La Bóveda */}

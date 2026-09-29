@@ -16,6 +16,7 @@ import type { Profile } from "./types";
 
 // Componentes
 import Sidebar from "./components/Sidebar";
+import { NeonBackdrop } from "./components/NeonBackdrop";
 import AuthScreen from "./components/AuthScreen";
 
 // Páginas públicas
@@ -44,6 +45,7 @@ import { AssetsPage } from "./pages/placeholders/AssetsPage";
 import TermsPage from "./pages/legal/TermsPage";
 import HowItWorksPage, { HowItWorksContent } from "./pages/HowItWorksPage";
 import WhatIsPathfinderPage from "./pages/WhatIsPathfinderPage";
+import WelcomePage from "./pages/WelcomePage";
 import AcademyPage, { AcademyContent } from "./pages/AcademyPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 
@@ -154,8 +156,12 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
         height: "100vh",
         background: "var(--pf-bg-primary)",
         overflow: "hidden",
+        position: "relative",
       }}
     >
+      {/* Blobs neón (solo tema "neon") */}
+      <NeonBackdrop />
+
       {/* Backdrop (solo móvil, cuando el drawer está abierto) */}
       {isMobile && mobileMenuOpen && (
         <div
@@ -190,6 +196,7 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
           height: "100%",
           overflow: "hidden",
           position: "relative",
+          zIndex: 1,
         }}
       >
         {/* Botón hamburguesa (solo móvil) */}
@@ -298,7 +305,7 @@ function App() {
             }
           />
           <Route path="/login" element={<Navigate to="/auth" replace />} />
-          <Route path="/welcome" element={<Navigate to="/studio" replace />} />
+          <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/legal/terms" element={<TermsPage />} />
           <Route path="/legal/privacy" element={<PrivacyPage />} />
           <Route

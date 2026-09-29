@@ -37,7 +37,7 @@ const VIDEO_DURATIONS = [
   '25 Seconds (601 frames)',
   '30 Seconds (721 frames)',
 ];
-const VIDEO_RESOLUTIONS = ['1080p', '720p', '540p', '480p'];
+const VIDEO_RESOLUTIONS = ['720p', '540p', '480p'];
 const VIDEO_ASPECT_RATIOS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
 
 // Arrays de opciones — Wan 2.1
@@ -62,7 +62,6 @@ const LTX25_RESOLUTIONS = [
   'Fast Preview (384p - ~1-2 min)',
   'Balanced (480p - ~3-5 min)',
   'High Quality (704p - ~6-8 min)',
-  'Cinema 1080p (1088p - High Detail)',
 ];
 const LTX25_ASPECTS = ['16:9 Landscape', '4:3 Standard', '1:1 Square', '3:4 Portrait', '9:16 Portrait'];
 const LTX25_PIPELINES = [
@@ -360,10 +359,10 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
           bottom: openUp ? 'calc(100% + 4px)' : 'auto',
           top: openUp ? 'auto' : 'calc(100% + 4px)',
           left: 0,
-          background: 'white',
+          background: 'var(--pf-bg-elevated)',
           border: '1px solid var(--pf-border-default)',
           borderRadius: '8px',
-          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3)',
           zIndex: 1000,
           minWidth: '140px',
           maxHeight: '200px',
@@ -513,7 +512,7 @@ const FloatingCommandCenter: React.FC = () => {
     imageEndFile: null,
     audioFile: null,
     duration: '5 Seconds (121 frames)',
-    resolution: '1080p',
+    resolution: '480p',
     aspectRatio: '16:9 Landscape',
     guideScale: 1.0,
     seed: -1,
@@ -546,7 +545,7 @@ const FloatingCommandCenter: React.FC = () => {
     ref4: null,
     ref5: null,
     duration: '3 Seconds (73 frames - Standard)',
-    resolution: 'Fast Preview (384p - ~1-2 min)',
+    resolution: 'Balanced (480p - ~3-5 min)',
     aspectRatio: '16:9 Landscape',
     pipeline: 'Single stage (fast - recommended for T4)',
     audioCfg: 1.0,
@@ -1996,7 +1995,7 @@ const FloatingCommandCenter: React.FC = () => {
                       bottom: 'calc(100% + 8px)',
                       left: isMobile ? 'auto' : 0,
                       right: isMobile ? 0 : 'auto',
-                      background: 'white',
+                      background: 'var(--pf-bg-elevated)',
                       border: '1px solid var(--pf-border-default)',
                       borderRadius: '8px',
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
@@ -2162,7 +2161,7 @@ const FloatingCommandCenter: React.FC = () => {
                       bottom: 'calc(100% + 8px)',
                       left: isMobile ? 'auto' : 0,
                       right: isMobile ? 0 : 'auto',
-                      background: 'white',
+                      background: 'var(--pf-bg-elevated)',
                       border: '1px solid var(--pf-border-default)',
                       borderRadius: '8px',
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
@@ -2365,7 +2364,7 @@ const FloatingCommandCenter: React.FC = () => {
                       bottom: 'calc(100% + 8px)',
                       left: isMobile ? 'auto' : 0,
                       right: isMobile ? 0 : 'auto',
-                      background: 'white',
+                      background: 'var(--pf-bg-elevated)',
                       border: '1px solid var(--pf-border-default)',
                       borderRadius: '8px',
                       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
@@ -2619,7 +2618,7 @@ const FloatingCommandCenter: React.FC = () => {
                         bottom: 'calc(100% + 8px)',
                         left: isMobile ? 'auto' : 0,
                         right: isMobile ? 0 : 'auto',
-                        background: 'white',
+                        background: 'var(--pf-bg-elevated)',
                         border: '1px solid var(--pf-border-default)',
                         borderRadius: '8px',
                         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
@@ -2710,7 +2709,7 @@ const FloatingCommandCenter: React.FC = () => {
                         bottom: 'calc(100% + 8px)',
                         left: isMobile ? 'auto' : 0,
                         right: isMobile ? 0 : 'auto',
-                        background: 'white',
+                        background: 'var(--pf-bg-elevated)',
                         border: '1px solid var(--pf-border-default)',
                         borderRadius: '8px',
                         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',

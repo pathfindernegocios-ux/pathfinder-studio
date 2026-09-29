@@ -166,13 +166,13 @@ const OnboardingUsernamePage: React.FC = () => {
         // Full reload porque useAuth de App.tsx mantiene el profile stale
         // (no refetchea al UPDATE). Sin reload, el guard de "/" vería
         // username=null y devolvería al usuario a /onboarding → loop.
-        // Primera vez: enviar a /how-it-works.
+        // Primera vez: enviar a /welcome (onboarding premium obligatorio).
         // Si ya tenía un redirect pendiente (ej: venía de /pricing), respetarlo.
         const pending = consumePostAuthRedirect();
         if (pending) {
           window.location.href = pending;
         } else {
-          window.location.href = "/how-it-works";
+          window.location.href = "/welcome";
         }
       } catch (err) {
         void 0;

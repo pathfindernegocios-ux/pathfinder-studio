@@ -5,6 +5,8 @@ import { useCreations } from '../hooks/useCreations';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Creation } from '../types';
 import { ArrowLeft, Clock, Cpu, Film, Frown, Image as ImageIcon, Maximize2, Trash2, X } from "lucide-react";
+import VideoPlayer from "../components/VideoPlayer";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 const CreationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +18,7 @@ const CreationDetailPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [mediaBroken, setMediaBroken] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [, setTick] = useState(0);
 
   // Usamos el hook optimizado para la URL del media principal
@@ -48,19 +51,22 @@ const CreationDetailPage: React.FC = () => {
     return () => window.clearInterval(t);
   }, []);
 
-  const handleDelete = useCallback(async () => {
+  const handleDelete = useCallback(() => {
     if (!creation) return;
-    
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta creación? Esta acción no se puede deshacer.')) {
-      setIsDeleting(true);
-      try {
-        await deleteCreation(creation.id);
-        navigate('/creations', { replace: true });
-      } catch (error) {
-        void 0;
-        alert('No se pudo eliminar la creación. Inténtalo de nuevo.');
-        setIsDeleting(false);
-      }
+    setShowDeleteDialog(true);
+  }, [creation]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!creation) return;
+    setIsDeleting(true);
+    try {
+      await deleteCreation(creation.id);
+      navigate('/creations', { replace: true });
+    } catch (error) {
+      void 0;
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      alert('No se pudo eliminar la creación. Inténtalo de nuevo.');
     }
   }, [creation, deleteCreation, navigate]);
 
@@ -77,8 +83,7 @@ const CreationDetailPage: React.FC = () => {
         height: '100%', 
         display: 'flex', 
         alignItems: 'center', 
-        justifyContent: 'center', 
-        background: 'var(--pf-bg-primary)' 
+        justifyContent: 'center' 
       }}>
         <div style={{ 
           fontFamily: 'var(--pf-font-ui)', 
@@ -103,7 +108,6 @@ const CreationDetailPage: React.FC = () => {
         flexDirection: 'column', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        background: 'var(--pf-bg-primary)', 
         padding: '40px 20px', 
         textAlign: 'center' 
       }}>
@@ -146,7 +150,6 @@ const CreationDetailPage: React.FC = () => {
     <div style={{ 
       height: '100%', 
       overflowY: 'auto', 
-      background: 'var(--pf-bg-primary)',
       scrollBehavior: 'smooth'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px 80px' }}>
@@ -214,8 +217,8 @@ const CreationDetailPage: React.FC = () => {
             style={{ 
               background: 'var(--pf-bg-secondary)', // Fondo gris muy suave en lugar de negro
               width: '100%', 
-              minHeight: '400px', 
-              maxHeight: '70vh',
+              height: '70vh',
+              minHeight: '400px',
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
@@ -237,17 +240,7 @@ const CreationDetailPage: React.FC = () => {
             ) : mediaUrl ? (
               <>
                 {isVideo ? (
-                  <video
-                    src={mediaUrl}
-                    controls
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                    onError={() => setMediaBroken(true)}
-                    style={{ width: '100%', height: '100%', maxHeight: '70vh', objectFit: 'contain', display: 'block' }}
-                  />
+                  <VideoPlayer src={mediaUrl} objectFit="contain" />
                 ) : (
                   <img
                     src={mediaUrl}
@@ -435,6 +428,18 @@ const CreationDetailPage: React.FC = () => {
           />
         </div>
       )}
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="¿Eliminar esta creación?"
+        description="Esta acción no se puede deshacer. La creación y su archivo se eliminarán de forma permanente."
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Cancelar"
+        danger
+        loading={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

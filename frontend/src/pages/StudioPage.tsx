@@ -7,7 +7,11 @@ import { useCreations } from '../hooks/useCreations';
 import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Sparkles } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle } from 'lucide-react';
+import AssistantAvatar from '../components/AssistantAvatar';
+import NebulaLoader from '../components/NebulaLoader';
+import VideoPlayer from '../components/VideoPlayer';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -21,8 +25,8 @@ const frameWidthStyle = (aspectRatioCss: string): string => {
   const [wRaw, hRaw] = aspectRatioCss.split('/');
   const w = parseFloat(wRaw);
   const h = parseFloat(hRaw);
-  if (!w || !h) return 'min(220px, 55vw)';
-  return `min(220px, 55vw, calc(38vh * ${w} / ${h}))`;
+  if (!w || !h) return 'min(360px, 75vw)';
+  return `min(360px, 75vw, calc(52vh * ${w} / ${h}))`;
 };
 
 const StudioPage: React.FC = () => {
@@ -65,6 +69,8 @@ const StudioPage: React.FC = () => {
   const [selectedImageIndexByItem, setSelectedImageIndexByItem] = useState<Record<string, number>>({});
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
 
   // Banner de error de guardado — se auto-limpia a los 8s
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -103,15 +109,24 @@ const StudioPage: React.FC = () => {
     setSelectedImageIndexByItem(prev => ({ ...prev, [itemId]: idx }));
   };
 
-  // SCROLL AUTOMÁTICO
+  // SCROLL AUTOMÁTICO INTELIGENTE
+  // Solo scrollea al final si el usuario ya estaba al final (respeta
+  // cuando está leyendo historial arriba).
+  const lastItem = sessionHistory[sessionHistory.length - 1];
+  const lastItemIsGenerating = lastItem?.isGenerating ?? false;
+  const lastItemMediaCount = lastItem?.mediaUrls.length ?? 0;
+
   useEffect(() => {
-    if (isLoading) {
-      const timer = setTimeout(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, sessionHistory.length]);
+    if (!isAtBottomRef.current) return;
+
+    // Doble rAF: esperar a que el DOM tenga la altura final del skeleton
+    // o del resultado antes de scrollear.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      });
+    });
+  }, [sessionHistory.length, lastItemIsGenerating, lastItemMediaCount]);
 
   const handleSave = async (item: SessionItem) => {
     if (item.status === 'saved' || item.mediaUrls.length === 0) return;
@@ -149,7 +164,13 @@ const StudioPage: React.FC = () => {
     }
   };
 
-  const handleDiscard = (id: string) => removeSessionItem(id);
+  // ── Confirmación de eliminación ──
+  const [discardTargetId, setDiscardTargetId] = useState<string | null>(null);
+  const handleDiscard = (id: string) => setDiscardTargetId(id);
+  const handleConfirmDiscard = () => {
+    if (discardTargetId) removeSessionItem(discardTargetId);
+    setDiscardTargetId(null);
+  };
 
   const handleDownload = async (url: string, filename: string) => {
     try {
@@ -193,7 +214,7 @@ const StudioPage: React.FC = () => {
     // le da el <main> de App.tsx (que a su vez mide exactamente el viewport).
     // No crece con el contenido (los hijos de abajo son position:absolute),
     // así que el panel flotante nunca se desincroniza del borde real.
-    <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden', background: 'var(--pf-bg-primary)' }}>
+    <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
 
       {/* ESTACIÓN INDICATOR — pill minimal arriba a la derecha */}
       {currentModelId && (
@@ -233,6 +254,14 @@ const StudioPage: React.FC = () => {
 
       {/* ÁREA DE SCROLL — el único elemento que puede scrollear en esta página */}
       <div
+        ref={scrollContainerRef}
+        onScroll={() => {
+          const el = scrollContainerRef.current;
+          if (!el) return;
+          // "Al final" si está a menos de 80px del fondo (tolerancia)
+          const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+          isAtBottomRef.current = distanceFromBottom < 80;
+        }}
         style={{
           position: 'absolute',
           inset: 0,
@@ -300,9 +329,9 @@ const StudioPage: React.FC = () => {
                       borderRadius: '16px',
                       borderTopRightRadius: '4px',
                       color: 'var(--pf-text-primary)',
-                      fontFamily: 'var(--pf-font-ui)',
+                      fontFamily: 'var(--pf-font-chat)',
                       fontSize: '0.9rem',
-                      lineHeight: '1.4',
+                      lineHeight: '1.5',
                       maxWidth: '85%',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                     }}>
@@ -320,8 +349,8 @@ const StudioPage: React.FC = () => {
 
                 {/* Respuesta IA */}
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', width: '100%' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--pf-text-primary, #0A0A0A)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--pf-bg-elevated)' }}>
-                    <Sparkles size={16} />
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'radial-gradient(circle at 50% 45%, #0A1628 0%, #020617 60%, #000000 100%)', border: '1px solid rgba(34, 211, 238, 0.3)', boxShadow: '0 0 10px rgba(34, 211, 238, 0.2), inset 0 0 8px rgba(34, 211, 238, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#67E8F9', overflow: 'visible' }}>
+                    <AssistantAvatar />
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -347,37 +376,29 @@ const StudioPage: React.FC = () => {
                         <div style={{
                           width: frameWidth,
                           aspectRatio: item.aspectRatio || '1/1',
-                          background: '#1a1a1a',
+                          background: '#000000',
                           borderRadius: '10px',
                           position: 'relative',
                           overflow: 'hidden',
-                          border: '1px solid var(--pf-border-subtle)',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                          border: '1px solid rgba(34, 211, 238, 0.2)',
+                          boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)'
                         }}>
-                          <div style={{
-                            position: 'absolute', inset: 0,
-                            background: 'linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%)',
-                            backgroundSize: '200% 100%',
-                            animation: 'shimmer 1.5s infinite',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '6px'
-                          }}>
-                            <Loader2 size={18} className="animate-spin" style={{ color: 'var(--pf-text-muted)' }} />
-                            <span style={{ fontSize: '0.65rem', color: 'var(--pf-text-muted)', letterSpacing: '1px' }}>CREANDO...</span>
-                          </div>
+                          <NebulaLoader />
                         </div>
                       )}
 
                       {item.isGenerating && item.mediaType === 'audio' && (
                         <div style={{
                           width: frameWidthStyle('1/1'),
-                          padding: '18px',
-                          background: '#1a1a1a',
+                          aspectRatio: '1/1',
+                          background: '#000000',
                           borderRadius: '10px',
-                          border: '1px solid var(--pf-border-subtle)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '6px'
+                          border: '1px solid rgba(34, 211, 238, 0.2)',
+                          boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)',
+                          position: 'relative',
+                          overflow: 'hidden'
                         }}>
-                          <Loader2 size={18} className="animate-spin" style={{ color: 'var(--pf-text-muted)' }} />
-                          <span style={{ fontSize: '0.65rem', color: 'var(--pf-text-muted)', letterSpacing: '1px' }}>CREANDO...</span>
+                          <NebulaLoader />
                         </div>
                       )}
 
@@ -392,11 +413,7 @@ const StudioPage: React.FC = () => {
                             boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                           }}>
                             {item.mediaType === 'video' ? (
-                              <video
-                                src={currentUrl}
-                                controls
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                              />
+                              <VideoPlayer src={currentUrl} />
                             ) : (
                               <img
                                 src={currentUrl}
@@ -465,7 +482,7 @@ const StudioPage: React.FC = () => {
                         <ActionButton onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'mp3' : 'png'}`)} icon={<Download size={14} />} label="Descargar" />
                         <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label="Variación" />
                         <ActionButton onClick={() => handleDiscard(item.id)} icon={<Trash2 size={14} />} label="Eliminar" danger />
-                        {item.mediaType !== 'audio' && (
+                        {item.mediaType === 'image' && (
                           <ActionButton onClick={() => openLightbox(item, currentIdx)} icon={<Maximize2 size={14} />} label="Pantalla Completa" />
                         )}
                       </div>
@@ -605,6 +622,17 @@ const StudioPage: React.FC = () => {
           <HelpCircle size={18} />
         </Link>
       )}
+
+      <ConfirmDialog
+        open={discardTargetId !== null}
+        title="¿Eliminar esta creación?"
+        description="Se eliminará de tu sesión actual. Si ya la guardaste, seguirá en Mis Creaciones."
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Cancelar"
+        danger
+        onConfirm={handleConfirmDiscard}
+        onCancel={() => setDiscardTargetId(null)}
+      />
 
       <style>{`
         @keyframes shimmer { to { background-position: -200% 0; } }

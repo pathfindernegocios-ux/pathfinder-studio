@@ -9,8 +9,8 @@
 // sesión activa de Supabase. En páginas públicas (landing, pricing,
 // auth, etc.) el tema es siempre light.
 
-export type ThemePreference = "light" | "dark" | "system";
-export type ResolvedTheme = "light" | "dark";
+export type ThemePreference = "light" | "dark" | "system" | "neon";
+export type ResolvedTheme = "light" | "dark" | "neon";
 
 export const THEME_STORAGE_KEY = "pf_theme_preference";
 
@@ -37,7 +37,7 @@ export function getStoredThemePreference(): ThemePreference {
   if (typeof window === "undefined") return "system";
   try {
     const v = localStorage.getItem(THEME_STORAGE_KEY);
-    if (v === "light" || v === "dark" || v === "system") return v;
+    if (v === "light" || v === "dark" || v === "system" || v === "neon") return v;
   } catch {
     /* ignore */
   }

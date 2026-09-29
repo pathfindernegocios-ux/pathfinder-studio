@@ -1033,8 +1033,8 @@ const PricingPage: React.FC = () => {
       <section
         style={{
           padding: "100px 24px",
-          background: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-text-inverse, #FFFFFF)",
+          background: "#0A0A0A",
+          color: "#FFFFFF",
           textAlign: "center",
         }}
       >
@@ -1047,7 +1047,7 @@ const PricingPage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "var(--pf-text-inverse, #FFFFFF)",
+              color: "#FFFFFF",
             }}
           >
             Empieza gratis hoy
@@ -1070,8 +1070,8 @@ const PricingPage: React.FC = () => {
               textDecoration: "none",
               display: "inline-block",
               padding: "16px 40px",
-              background: "var(--pf-bg-elevated)",
-              color: "var(--pf-text-primary, #0A0A0A)",
+              background: "#FFFFFF",
+              color: "#0A0A0A",
               borderRadius: "9999px",
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "1rem",

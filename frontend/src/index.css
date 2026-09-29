@@ -32,6 +32,9 @@
   --pf-font-display: 'Satoshi', 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
   --pf-font-ui: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
   --pf-font-prompt: 'Satoshi', 'Inter Tight', sans-serif;
+  /* Fuentes del contenido del chat (prompt + respuesta de la IA) */
+  --pf-font-chat: 'Geist', 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
+  --pf-font-chat-mono: 'Geist Mono', 'Geist', 'Inter Tight', monospace;
 }
 
 /* ============================================================
@@ -76,6 +79,53 @@
   color-scheme: dark;
 }
 
+/* ============================================================
+   NEON THEME — Estación creativa (negro puro + acentos indigo)
+   Identidad visual de la Welcome. Continuidad psicológica.
+   Se activa con: document.documentElement.dataset.theme = "neon"
+   ============================================================ */
+:root[data-theme="neon"] {
+  --pf-bg-primary: #000000;
+  --pf-bg-secondary: #0A0A0A;
+  --pf-bg-tertiary: #141414;
+
+  --pf-text-primary: #F5F5F5;
+  --pf-text-secondary: #A1A1AA;
+  --pf-text-muted: #6E747D;
+
+  --pf-border-default: #1F1F1F;
+  --pf-border-subtle: #141414;
+
+  --pf-accent-primary: #6366F1;
+  --pf-accent-secondary: #8B5CF6;
+
+  /* Estados mantienen su color (funcionan en ambos temas) */
+  --pf-success: #10B981;
+  --pf-warning: #F59E0B;
+  --pf-error: #EF4444;
+
+  --pf-glass-surface: rgba(99, 102, 241, 0.06);
+  --pf-shadow-floating: 0 24px 48px -12px rgba(99, 102, 241, 0.35);
+
+  /* Superficies específicas */
+  --pf-bg-input: #0A0A0A;
+  --pf-bg-elevated: #0A0A0A;
+  --pf-overlay-backdrop: rgba(0, 0, 0, 0.85);
+  --pf-text-inverse: #000000;
+  --pf-chip-bg: #0A0A0A;
+  --pf-chip-bg-hover: #141414;
+  --pf-chip-border: #1F1F1F;
+  --pf-skeleton-base: #0A0A0A;
+  --pf-skeleton-highlight: #141414;
+
+  color-scheme: dark;
+}
+
+/* Glow neón sutil en elementos activos (solo en tema Neón) */
+:root[data-theme="neon"] .pf-glow {
+  box-shadow: 0 0 24px -4px rgba(99, 102, 241, 0.35);
+}
+
 /* Suavizar transición cuando cambia el tema */
 html {
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -92,6 +142,196 @@ html {
   font-family: 'Satoshi', sans-serif;
   font-size: 1.125rem;
   letter-spacing: -0.025em;
+}
+
+/* ============================================================
+   Assistant Avatar — colisión de estrellas de neutrones
+   con ondas gravitacionales neón cyan.
+   Ciclo 3s:
+     0-40%   → núcleos cyan orbitan y se acercan
+     40-55%  → colisión (flash cyan)
+     55-100% → ondas gravitacionales + eyección + separación
+   ============================================================ */
+.pf-ns-orbit-a {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: pf-ns-spin 3s linear infinite;
+}
+.pf-ns-orbit-b {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: pf-ns-spin 3s linear infinite reverse;
+}
+.pf-ns-approach-a {
+  animation: pf-ns-approach-a 3s ease-in-out infinite;
+}
+.pf-ns-approach-b {
+  animation: pf-ns-approach-b 3s ease-in-out infinite;
+}
+.pf-ns-flash {
+  transform-box: view-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: pf-ns-flash 3s ease-out infinite;
+}
+.pf-ns-eject {
+  opacity: 0;
+  animation: pf-ns-eject 3s ease-out infinite;
+}
+.pf-ns-wave {
+  transform-box: view-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: pf-ns-wave 3s ease-out infinite;
+}
+
+@keyframes pf-ns-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Acercamiento radial: mueve el círculo al centro del viewBox */
+@keyframes pf-ns-approach-a {
+  0%   { transform: translateX(0); }
+  40%  { transform: translateX(-8px); }
+  55%  { transform: translateX(-8px); }
+  100% { transform: translateX(0); }
+}
+@keyframes pf-ns-approach-b {
+  0%   { transform: translateX(0); }
+  40%  { transform: translateX(8px); }
+  55%  { transform: translateX(8px); }
+  100% { transform: translateX(0); }
+}
+
+/* Flash de colisión */
+@keyframes pf-ns-flash {
+  0%, 35%   { opacity: 0;    transform: scale(0.3); }
+  40%       { opacity: 1;    transform: scale(1); }
+  50%       { opacity: 0.6;  transform: scale(1.6); }
+  60%       { opacity: 0;    transform: scale(2); }
+  100%      { opacity: 0;    transform: scale(0.3); }
+}
+
+/* Eyección radial de partículas */
+@keyframes pf-ns-eject {
+  0%, 40%   { opacity: 0;   transform: translateX(0); }
+  45%       { opacity: 1;   transform: translateX(3px); }
+  70%       { opacity: 0.5; transform: translateX(9px); }
+  100%      { opacity: 0;   transform: translateX(13px); }
+}
+
+/* Ondas gravitacionales — anillos que se expanden desde el centro */
+@keyframes pf-ns-wave {
+  0%, 35%   { opacity: 0;    r: 2;   stroke-width: 0.9; }
+  45%       { opacity: 0.95; r: 5;   stroke-width: 0.9; }
+  70%       { opacity: 0.5;  r: 10;  stroke-width: 0.6; }
+  100%      { opacity: 0;    r: 16;  stroke-width: 0.3; }
+}
+
+/* ============================================================
+   NebulaLoader — nebulosa animada para estado "CREANDO..."
+   ============================================================ */
+.pf-nebula-wrap {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, #05070F 0%, #000000 100%);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-nebula-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(24px);
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.pf-nebula-blob-1 {
+  width: 55%;
+  height: 55%;
+  top: -10%;
+  left: -10%;
+  background: radial-gradient(circle, #22D3EE 0%, transparent 70%);
+  animation: pf-nebula-drift-1 8s ease-in-out infinite;
+}
+
+.pf-nebula-blob-2 {
+  width: 60%;
+  height: 60%;
+  bottom: -15%;
+  right: -12%;
+  background: radial-gradient(circle, #8B5CF6 0%, transparent 70%);
+  animation: pf-nebula-drift-2 10s ease-in-out infinite;
+}
+
+.pf-nebula-blob-3 {
+  width: 45%;
+  height: 45%;
+  top: 30%;
+  right: 20%;
+  background: radial-gradient(circle, #3B82F6 0%, transparent 70%);
+  animation: pf-nebula-drift-3 12s ease-in-out infinite;
+}
+
+.pf-nebula-grain {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 15% 25%, rgba(165, 243, 252, 0.5) 0.5px, transparent 1px),
+    radial-gradient(circle at 78% 18%, rgba(165, 243, 252, 0.4) 0.4px, transparent 1px),
+    radial-gradient(circle at 42% 78%, rgba(165, 243, 252, 0.5) 0.6px, transparent 1px),
+    radial-gradient(circle at 88% 62%, rgba(165, 243, 252, 0.3) 0.4px, transparent 1px),
+    radial-gradient(circle at 12% 88%, rgba(165, 243, 252, 0.4) 0.5px, transparent 1px);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.pf-nebula-label {
+  position: relative;
+  z-index: 2;
+  font-family: var(--pf-font-ui, system-ui);
+  font-size: 0.65rem;
+  color: rgba(165, 243, 252, 0.9);
+  letter-spacing: 1.5px;
+  font-weight: 500;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
+  animation: pf-nebula-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pf-nebula-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(15%, 10%) scale(1.1); }
+  66%      { transform: translate(8%, -8%) scale(0.95); }
+}
+@keyframes pf-nebula-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(-12%, -8%) scale(1.15); }
+  66%      { transform: translate(-5%, 12%) scale(0.9); }
+}
+@keyframes pf-nebula-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-15%, 15%) scale(1.2); }
+}
+
+@keyframes pf-nebula-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* ============================================================
+   ConfirmDialog — keyframes
+   ============================================================ */
+@keyframes pf-confirm-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pf-confirm-scale {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 * {
