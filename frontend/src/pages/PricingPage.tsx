@@ -654,8 +654,9 @@ const PricingPage: React.FC = () => {
               margin: 0,
             }}
           >
-            Una gran variedad de modelos IA y workflows a tu medida, a un precio
-            accesible. Sin créditos, sin tokens, sin sorpresas.
+            Accede a una estación con GPU dedicada y workflows preconfigurados
+            para imagen, video y audio. Sin créditos por imagen o video, sin
+            tokens, sin sorpresas.
           </p>
         </div>
       </section>
@@ -716,7 +717,7 @@ const PricingPage: React.FC = () => {
               "Studio de creación",
               "Mis Creaciones (retención 7 días)",
               "Acceso a la guía de inicio",
-              "Requiere cuenta de Kaggle",
+              "Hasta 120 horas de estación al mes, 30 por semana",
             ]}
             disclaimer="Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo con todos los modelos, elige Creator o Founder."
             cta={
@@ -770,16 +771,18 @@ const PricingPage: React.FC = () => {
             badgeVariant="recommended"
             highlighted
             features={[
+              "Estación con GPU dedicada bajo demanda",
+              "Hasta 120 horas de estación al mes, 30 por semana",
+              "Sin créditos por imagen o video",
               "Estudio completo desbloqueado",
               "Flux 2 Klein 4B (imagen con referencias)",
               "LTX 2.3 (video con audio y lipsync)",
               "LTX 2.5 MSR (5 refs + LoRA de producto)",
-              "Wan 2.1 i2v + Wan 2.1 t2v",
-              "OmniVoice (voz y clonación)",
+              "Wan 2.1 i2v + t2v — cambio rápido sin reiniciar",
+              "OmniVoice + Index TTS — cambio rápido sin reiniciar",
               "Modelos nuevos incluidos sin pago extra",
               "Mis Creaciones completo",
               "Soporte prioritario",
-              "Requiere cuenta de Kaggle",
             ]}
             cta={
               hasCreator ? (
@@ -843,15 +846,17 @@ const PricingPage: React.FC = () => {
             badgeVariant="priority"
             features={[
               "Todo lo del plan Creator",
+              "Estación con GPU dedicada bajo demanda",
+              "Hasta 120 horas de estación al mes, 30 por semana",
+              "Sin créditos por imagen o video",
               "Flux 2 Klein 4B (imagen con referencias)",
               "LTX 2.3 (video con audio y lipsync)",
               "LTX 2.5 MSR (5 refs + LoRA de producto)",
-              "Wan 2.1 i2v + Wan 2.1 t2v",
-              "OmniVoice (voz y clonación)",
+              "Wan 2.1 i2v + t2v — cambio rápido sin reiniciar",
+              "OmniVoice + Index TTS — cambio rápido sin reiniciar",
               "Modelos nuevos incluidos sin pago extra",
               "★ Acceso prioritario a nuevos modelos",
               "★ Primeros accesos a plantillas y funcionalidades",
-              "Requiere cuenta de Kaggle",
             ]}
             cta={
               hasFounder ? (
@@ -936,6 +941,18 @@ const PricingPage: React.FC = () => {
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {[
               {
+                q: "¿Qué son las 120 horas al mes?",
+                a: "Cada plan incluye hasta 120 horas al mes de estación activa, con un límite de 30 horas por semana. Las horas se descuentan solo cuando tu estación está encendida: si no generas nada durante una hora, se apaga sola para no consumir tu cuota. El tiempo de carga de cada modelo también se descuenta, porque la estación permanece encendida durante el proceso. Las horas no utilizadas no se acumulan para el siguiente mes.",
+              },
+              {
+                q: "¿Qué pasa cuando cambio de modelo?",
+                a: "Depende del modelo. Wan 2.1 (i2v y t2v), OmniVoice e Index TTS cambian sin reiniciar la estación: alternas entre ellos con un clic. Krea 2 Turbo, Flux 2 Klein 4B y LTX 2.5 MSR requieren volver a cargar pesos, lo que consume unos minutos de estación. LTX 2.3 reinicia la estación por completo, porque es el modelo más pesado. En todos los casos, el tiempo que la estación permanece encendida durante el cambio se descuenta de tu cuota.",
+              },
+              {
+                q: "¿Necesito algo para empezar?",
+                a: "Sí. Además de tu cuenta en Pathfinder, necesitas una cuenta de Kaggle (gratuita) para activar tu estación. La primera vez que uses un modelo vas a configurar tu entorno; a partir de ahí, cada sesión es más rápida. La guía paso a paso te lleva de cero a tu primera imagen en menos de 15 minutos.",
+              },
+              {
                 q: "¿Qué incluye el plan Free?",
                 a: "Krea 2 Turbo (imagen), Wan 2.1 i2v (imagen a video) y Wan 2.1 t2v (texto a video). Incluye el Studio de creación y acceso a Mis Creaciones con retención de 7 días. Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo con todos los modelos, elige Creator o Founder.",
               },
@@ -961,7 +978,7 @@ const PricingPage: React.FC = () => {
               },
               {
                 q: "¿Cómo funciona la activación de una estación?",
-                a: "Cada estación de Pathfinder corre en un entorno de ejecución externo que el usuario activa. Desde 'Mi Estación' descargas el notebook del modelo que quieras usar, lo ejecutas en tu cuenta de Kaggle, y Pathfinder lo detecta automáticamente cuando está listo. Es un proceso único por sesión. Cuando esté listo el modo sin fricción (próximamente), esta activación desaparecerá.",
+                a: "Desde 'Mi Estación' descargas el workflow del modelo que quieras usar, lo ejecutas en tu plataforma de cómputo y Pathfinder lo detecta automáticamente cuando está listo. El proceso se hace una vez por sesión. Si tienes el Studio abierto, el selector de modelo se actualiza solo y puedes empezar a generar.",
               },
               {
                 q: "¿Puedo pedir reembolso?",
@@ -1044,8 +1061,8 @@ const PricingPage: React.FC = () => {
               lineHeight: 1.6,
             }}
           >
-            Sin tarjeta. Sin compromiso. Tres modelos disponibles desde el
-            primer minuto.
+            Sin tarjeta. Sin compromiso. Tu estación con GPU dedicada, lista
+            para crear desde el primer minuto.
           </p>
           <Link
             to={session ? "/studio" : "/auth"}

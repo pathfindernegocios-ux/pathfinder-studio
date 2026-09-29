@@ -58,9 +58,9 @@ const HomePage: React.FC = () => {
               textShadow: "0 2px 24px rgba(0,0,0,0.5)",
             }}
           >
-            Crea imágenes y videos
+            Tu estación creativa de IA
             <br />
-            con IA de última generación
+            para imagen, video y audio
           </h1>
 
           <p
@@ -73,9 +73,9 @@ const HomePage: React.FC = () => {
               margin: "0 auto 40px",
             }}
           >
-            Pathfinder te da acceso a los modelos de inteligencia artificial
-            más avanzados en una interfaz simple, profesional y sin tarjeta de
-            crédito.
+            Imagen, video y audio en un mismo lugar. Elige tu modelo, enciende
+            tu estación y crea sin créditos por generación — con workflows ya
+            preparados, listos para usar.
           </p>
 
           <div
@@ -121,7 +121,7 @@ const HomePage: React.FC = () => {
                 backdropFilter: "blur(8px)",
               }}
             >
-              Ver precios
+              Ver planes
             </Link>
           </div>
 
@@ -134,11 +134,11 @@ const HomePage: React.FC = () => {
               marginBottom: "16px",
             }}
           >
-            Sin tarjeta · Sin compromiso · Registro en 20 segundos con Google
+            Sin tarjeta · Sin créditos por generación · Registro en 20 segundos con Google
           </p>
 
           <Link
-            to="/how-it-works"
+            to="/what-is-pathfinder"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -158,7 +158,7 @@ const HomePage: React.FC = () => {
             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
           >
-            ¿Cómo funciona? →
+            Qué es Pathfinder →
           </Link>
         </div>
       </HeroMediaWall>
@@ -176,7 +176,7 @@ const HomePage: React.FC = () => {
               marginBottom: "12px",
             }}
           >
-            Todo lo que necesitás para crear
+            Todo lo que necesitas para crear
           </h2>
           <p
             style={{
@@ -187,8 +187,7 @@ const HomePage: React.FC = () => {
               margin: "0 auto",
             }}
           >
-            Modelos de última generación, infraestructura profesional y una
-            interfaz que no estorba.
+            Modelos curados, workflows listos y una estación que responde solo a ti.
           </p>
         </div>
 
@@ -202,23 +201,23 @@ const HomePage: React.FC = () => {
           {[
             {
               icon: <IconImage />,
-              title: "Generación de imágenes",
-              body: "Krea 2 Turbo y Flux 2 Klein 4B. Dos modelos de última generación para texto-a-imagen y edición.",
+              title: "Estudio completo",
+              body: "Seis modelos curados para imagen, video y audio. Krea 2 Turbo, Flux 2 Klein 4B, LTX 2.3, LTX 2.5 MSR, Wan 2.1 Dual y TTS Dual.",
             },
             {
               icon: <IconVideo />,
-              title: "Video con audio",
-              body: "LTX 2.3 genera videos con audio sincronizado. Sin configuración, sin curva de aprendizaje.",
+              title: "Workers duales",
+              body: "Cambia entre tareas sin reiniciar la estación. Wan i2v + t2v en un mismo notebook. OmniVoice + Index TTS en otro.",
             },
             {
               icon: <IconSparkles />,
-              title: "Interfaz simple",
-              body: "Todo en el navegador. Sin descargas, sin instalar nada, sin complicaciones técnicas.",
+              title: "Sin créditos por generación",
+              body: "Dentro de tu cuota mensual, generas lo que quieras. Sin tokens, sin unidades, sin sorpresas al final del mes.",
             },
             {
               icon: <IconZap />,
-              title: "Cómputo profesional",
-              body: "Infraestructura optimizada en GPUs NVIDIA T4. Rendimiento real, sin tiempos de espera absurdos.",
+              title: "Tu propia estación",
+              body: "Enciendes tu cómputo cuando lo necesitas y lo apagas cuando terminas. Dedicado solo para ti durante tu sesión.",
             },
           ].map((f, i) => (
             <div
@@ -306,7 +305,7 @@ const HomePage: React.FC = () => {
               margin: "0 auto",
             }}
           >
-            De la idea al resultado en cuatro pasos.
+            De la idea al resultado en cuatro pasos. La primera vez incluye preparar tu estación; después es directo.
           </p>
         </div>
 
@@ -318,10 +317,10 @@ const HomePage: React.FC = () => {
           }}
         >
           {[
-            { n: "01", title: "Crear tu cuenta", body: "Registrate con Google en 20 segundos. Sin formularios largos." },
-            { n: "02", title: "Elegir un modelo", body: "Krea para imágenes rápidas, Flux para edición, LTX para video." },
-            { n: "03", title: "Describir tu idea", body: "Escribe un prompt y ajustá parámetros si quieres. O déjalo simple." },
-            { n: "04", title: "Generar y descargar", body: "En segundos tienes tu resultado listo para usar donde quieras." },
+            { n: "01", title: "Crea tu cuenta", body: "Regístrate con Google en 20 segundos. Sin formularios largos." },
+            { n: "02", title: "Elige tu modelo", body: "Imagen, video o audio. Seis modelos curados, cada uno con su workflow listo." },
+            { n: "03", title: "Enciende tu estación", body: "Descarga el workflow, actívalo en tu cómputo y conecta. La primera vez tarda unos minutos; después, cada sesión arranca más rápido." },
+            { n: "04", title: "Crea y descarga", body: "Genera todo lo que quieras dentro de tu cuota. Descarga tus resultados desde Mis Creaciones." },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: "left" }}>
               <div
@@ -385,7 +384,7 @@ const HomePage: React.FC = () => {
               color: "var(--pf-text-inverse, #FFFFFF)",
             }}
           >
-            ¿Listo para empezar?
+            Empieza gratis hoy
           </h2>
           <p
             style={{
@@ -396,8 +395,7 @@ const HomePage: React.FC = () => {
               lineHeight: 1.5,
             }}
           >
-            Pathfinder Free es gratis, no requiere tarjeta y se activa en
-            segundos.
+            Plan Free con 3 modelos, sin tarjeta y sin fecha de vencimiento. Cuando quieras el Estudio completo, Creator o Founder están a un clic.
           </p>
           <Link
             to="/auth"

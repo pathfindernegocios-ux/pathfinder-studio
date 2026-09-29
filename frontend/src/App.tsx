@@ -43,6 +43,7 @@ import { AssetsPage } from "./pages/placeholders/AssetsPage";
 // Legal
 import TermsPage from "./pages/legal/TermsPage";
 import HowItWorksPage, { HowItWorksContent } from "./pages/HowItWorksPage";
+import WhatIsPathfinderPage from "./pages/WhatIsPathfinderPage";
 import AcademyPage, { AcademyContent } from "./pages/AcademyPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 
@@ -274,6 +275,7 @@ function App() {
               ============================================================ */}
           <Route path="/" element={<HomePage />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/what-is-pathfinder" element={<WhatIsPathfinderPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route
             path="/auth"
