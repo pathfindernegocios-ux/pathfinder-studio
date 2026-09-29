@@ -24,8 +24,8 @@ const Section: React.FC<{ children: React.ReactNode; bg?: string; border?: boole
   <section
     style={{
       padding: "80px 24px",
-      background: bg,
-      borderTop: border ? "1px solid var(--pf-border-subtle, #F4F4F5)" : undefined,
+      background: bg ?? "#000000",
+      borderTop: border ? "1px solid rgba(139, 92, 246, 0.1)" : undefined,
     }}
   >
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>{children}</div>
@@ -42,8 +42,8 @@ const FeatureCard: React.FC<{
 }> = ({ Icon, title, body }) => (
   <div
     style={{
-      background: "var(--pf-bg-elevated, #FFFFFF)",
-      border: "1px solid var(--pf-border-default, #E5E5E5)",
+      background: "rgba(139, 92, 246, 0.04)",
+      border: "1px solid rgba(139, 92, 246, 0.15)",
       borderRadius: "16px",
       padding: "28px",
     }}
@@ -56,10 +56,11 @@ const FeatureCard: React.FC<{
         width: "44px",
         height: "44px",
         borderRadius: "12px",
-        background: "var(--pf-bg-secondary, #FAFAFA)",
-        border: "1px solid var(--pf-border-default, #E5E5E5)",
-        color: "var(--pf-text-primary, #0A0A0A)",
+        background: "rgba(34, 211, 238, 0.08)",
+        border: "1px solid rgba(34, 211, 238, 0.25)",
+        color: "#67E8F9",
         marginBottom: "16px",
+        boxShadow: "0 0 20px -8px rgba(34, 211, 238, 0.5)",
       }}
     >
       <Icon size={20} strokeWidth={2} />
@@ -72,7 +73,7 @@ const FeatureCard: React.FC<{
         letterSpacing: "-0.02em",
         margin: 0,
         marginBottom: "8px",
-        color: "var(--pf-text-primary, #0A0A0A)",
+        color: "#FFFFFF",
       }}
     >
       {title}
@@ -82,7 +83,7 @@ const FeatureCard: React.FC<{
         fontFamily: "var(--pf-font-ui, system-ui)",
         fontSize: "0.875rem",
         lineHeight: 1.55,
-        color: "var(--pf-text-secondary, #525252)",
+        color: "rgba(255,255,255,0.6)",
         margin: 0,
       }}
     >
@@ -102,8 +103,8 @@ const CapabilityCard: React.FC<{
 }> = ({ Icon, title, body, models }) => (
   <div
     style={{
-      background: "var(--pf-bg-elevated, #FFFFFF)",
-      border: "1px solid var(--pf-border-default, #E5E5E5)",
+      background: "rgba(139, 92, 246, 0.04)",
+      border: "1px solid rgba(139, 92, 246, 0.15)",
       borderRadius: "20px",
       padding: "36px 32px",
       display: "flex",
@@ -118,9 +119,11 @@ const CapabilityCard: React.FC<{
         width: "56px",
         height: "56px",
         borderRadius: "16px",
-        background: "var(--pf-text-primary, #0A0A0A)",
-        color: "var(--pf-text-inverse, #FFFFFF)",
+        background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15))",
+        border: "1px solid rgba(139, 92, 246, 0.25)",
+        color: "#A5B4FC",
         marginBottom: "24px",
+        boxShadow: "0 0 24px -8px rgba(139, 92, 246, 0.5)",
       }}
     >
       <Icon size={26} strokeWidth={2} />
@@ -133,7 +136,7 @@ const CapabilityCard: React.FC<{
         letterSpacing: "-0.03em",
         margin: 0,
         marginBottom: "12px",
-        color: "var(--pf-text-primary, #0A0A0A)",
+        color: "#FFFFFF",
       }}
     >
       {title}
@@ -143,7 +146,7 @@ const CapabilityCard: React.FC<{
         fontFamily: "var(--pf-font-ui, system-ui)",
         fontSize: "0.9375rem",
         lineHeight: 1.6,
-        color: "var(--pf-text-secondary, #525252)",
+        color: "rgba(255,255,255,0.65)",
         margin: 0,
         marginBottom: "20px",
         flex: 1,
@@ -154,14 +157,14 @@ const CapabilityCard: React.FC<{
     <div
       style={{
         paddingTop: "16px",
-        borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
+        borderTop: "1px solid rgba(139, 92, 246, 0.15)",
         fontFamily: "var(--pf-font-ui, system-ui)",
         fontSize: "0.8125rem",
-        color: "var(--pf-text-muted, #A1A1AA)",
+        color: "rgba(255,255,255,0.45)",
         lineHeight: 1.5,
       }}
     >
-      <span style={{ fontWeight: 600, color: "var(--pf-text-secondary, #525252)" }}>Modelos: </span>
+      <span style={{ fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>Modelos: </span>
       {models}
     </div>
   </div>
@@ -176,9 +179,9 @@ const CompareTable: React.FC<{
   <div
     style={{
       overflowX: "auto",
-      border: "1px solid var(--pf-border-default, #E5E5E5)",
+      border: "1px solid rgba(139, 92, 246, 0.18)",
       borderRadius: "16px",
-      background: "var(--pf-bg-elevated, #FFFFFF)",
+      background: "rgba(139, 92, 246, 0.03)",
     }}
   >
     <table
@@ -192,19 +195,19 @@ const CompareTable: React.FC<{
     >
       <thead>
         <tr>
-          <th style={{ width: "16%", padding: "18px 20px", textAlign: "left", borderBottom: "1px solid var(--pf-border-subtle, #F4F4F5)" }}></th>
-          <th style={{ padding: "18px 20px", textAlign: "left", borderBottom: "1px solid var(--pf-border-subtle, #F4F4F5)", fontWeight: 500, color: "var(--pf-text-secondary, #525252)" }}>Plataformas de créditos</th>
-          <th style={{ padding: "18px 20px", textAlign: "left", borderBottom: "1px solid var(--pf-border-subtle, #F4F4F5)", fontWeight: 500, color: "var(--pf-text-secondary, #525252)" }}>ComfyUI o GPU alquilada</th>
-          <th style={{ padding: "18px 20px", textAlign: "left", borderBottom: "2px solid var(--pf-text-primary, #0A0A0A)", fontWeight: 700, color: "var(--pf-text-primary, #0A0A0A)", background: "rgba(0,0,0,0.02)" }}>Pathfinder</th>
+          <th style={{ width: "16%", padding: "18px 20px", textAlign: "left", borderBottom: "1px solid rgba(139, 92, 246, 0.15)" }}></th>
+          <th style={{ padding: "18px 20px", textAlign: "left", borderBottom: "1px solid rgba(139, 92, 246, 0.15)", fontWeight: 500, color: "rgba(255,255,255,0.5)" }}>Plataformas de créditos</th>
+          <th style={{ padding: "18px 20px", textAlign: "left", borderBottom: "1px solid rgba(139, 92, 246, 0.15)", fontWeight: 500, color: "rgba(255,255,255,0.5)" }}>ComfyUI o GPU alquilada</th>
+          <th style={{ padding: "18px 20px", textAlign: "left", borderBottom: "2px solid #22D3EE", fontWeight: 700, color: "#67E8F9", background: "rgba(34, 211, 238, 0.05)" }}>Pathfinder</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((r, i) => (
           <tr key={i}>
-            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid var(--pf-border-subtle, #F4F4F5)" : "none", fontWeight: 600, color: "var(--pf-text-primary, #0A0A0A)" }}>{r.label}</td>
-            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid var(--pf-border-subtle, #F4F4F5)" : "none", color: "var(--pf-text-secondary, #525252)" }}>{r.a}</td>
-            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid var(--pf-border-subtle, #F4F4F5)" : "none", color: "var(--pf-text-secondary, #525252)" }}>{r.b}</td>
-            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid var(--pf-border-subtle, #F4F4F5)" : "none", color: "var(--pf-text-primary, #0A0A0A)", fontWeight: 500, background: "rgba(0,0,0,0.02)" }}>{r.c}</td>
+            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid rgba(139, 92, 246, 0.1)" : "none", fontWeight: 600, color: "#FFFFFF" }}>{r.label}</td>
+            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid rgba(139, 92, 246, 0.1)" : "none", color: "rgba(255,255,255,0.55)" }}>{r.a}</td>
+            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid rgba(139, 92, 246, 0.1)" : "none", color: "rgba(255,255,255,0.55)" }}>{r.b}</td>
+            <td style={{ padding: "16px 20px", borderBottom: i < rows.length - 1 ? "1px solid rgba(139, 92, 246, 0.1)" : "none", color: "#FFFFFF", fontWeight: 500, background: "rgba(34, 211, 238, 0.04)" }}>{r.c}</td>
           </tr>
         ))}
       </tbody>
@@ -225,11 +228,12 @@ const HighlightCard: React.FC<{
       display: "flex",
       gap: "24px",
       alignItems: "flex-start",
-      background: "var(--pf-bg-elevated, #FFFFFF)",
-      border: "1px solid var(--pf-border-default, #E5E5E5)",
+      background: "rgba(34, 211, 238, 0.04)",
+      border: "1px solid rgba(34, 211, 238, 0.2)",
       borderRadius: "20px",
       padding: "32px",
       marginTop: "32px",
+      boxShadow: "0 0 40px -20px rgba(34, 211, 238, 0.4)",
     }}
   >
     <div
@@ -240,9 +244,11 @@ const HighlightCard: React.FC<{
         width: "56px",
         height: "56px",
         borderRadius: "16px",
-        background: "var(--pf-text-primary, #0A0A0A)",
-        color: "var(--pf-text-inverse, #FFFFFF)",
+        background: "rgba(34, 211, 238, 0.12)",
+        border: "1px solid rgba(34, 211, 238, 0.3)",
+        color: "#67E8F9",
         flexShrink: 0,
+        boxShadow: "0 0 24px -8px rgba(34, 211, 238, 0.6)",
       }}
     >
       <Icon size={26} strokeWidth={2} />
@@ -256,7 +262,7 @@ const HighlightCard: React.FC<{
           letterSpacing: "-0.02em",
           margin: 0,
           marginBottom: "10px",
-          color: "var(--pf-text-primary, #0A0A0A)",
+          color: "#FFFFFF",
         }}
       >
         {title}
@@ -266,7 +272,7 @@ const HighlightCard: React.FC<{
           fontFamily: "var(--pf-font-ui, system-ui)",
           fontSize: "0.9375rem",
           lineHeight: 1.6,
-          color: "var(--pf-text-secondary, #525252)",
+          color: "rgba(255,255,255,0.65)",
           margin: 0,
         }}
       >
@@ -326,22 +332,22 @@ const WhatIsPathfinderPage: React.FC = () => {
   return (
     <MarketingLayout>
       {/* HERO */}
-      <section style={{ padding: "80px 24px 40px", textAlign: "center" }}>
+      <section style={{ padding: "80px 24px 40px", textAlign: "center", background: "#000000" }}>
         <div style={{ maxWidth: "720px", margin: "0 auto" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 14px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-default, #E5E5E5)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.75rem", fontWeight: 600, color: "var(--pf-text-secondary, #525252)", marginBottom: "24px" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 14px", background: "rgba(139, 92, 246, 0.08)", border: "1px solid rgba(139, 92, 246, 0.25)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.75rem", fontWeight: 600, color: "#C4B5FD", marginBottom: "24px" }}>
             Qué es Pathfinder
           </div>
-          <h1 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(2.25rem, 4.5vw, 3.5rem)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.05, margin: 0, marginBottom: "20px", color: "var(--pf-text-primary, #0A0A0A)" }}>
+          <h1 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(2.25rem, 4.5vw, 3.5rem)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.05, margin: 0, marginBottom: "20px", color: "#FFFFFF" }}>
             Tu estación creativa de IA
           </h1>
-          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1.0625rem", lineHeight: 1.6, color: "var(--pf-text-secondary, #525252)", margin: 0, marginBottom: "32px" }}>
+          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1.0625rem", lineHeight: 1.6, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "32px" }}>
             Una estación con workflows curados para imagen, video y audio. Eliges tu modelo, activas tu estación y creas sin créditos por generación.
           </p>
           <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link to={session ? "/studio" : "/auth"} style={{ textDecoration: "none", padding: "14px 32px", background: "var(--pf-text-primary, #0A0A0A)", color: "var(--pf-text-inverse, #FFFFFF)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", fontWeight: 700, display: "inline-block" }}>
+            <Link to={session ? "/studio" : "/auth"} style={{ textDecoration: "none", padding: "14px 32px", background: "#FFFFFF", color: "#0A0A0A", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", fontWeight: 700, display: "inline-block" }}>
               {session ? "Ir al Studio" : "Empezar gratis"}
             </Link>
-            <Link to="/pricing" style={{ textDecoration: "none", padding: "14px 32px", background: "transparent", color: "var(--pf-text-primary, #0A0A0A)", border: "1px solid var(--pf-border-default, #E5E5E5)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", fontWeight: 600, display: "inline-block" }}>
+            <Link to="/pricing" style={{ textDecoration: "none", padding: "14px 32px", background: "transparent", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.25)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", fontWeight: 600, display: "inline-block" }}>
               Ver planes
             </Link>
           </div>
@@ -351,10 +357,10 @@ const WhatIsPathfinderPage: React.FC = () => {
       {/* QUÉ ES PATHFINDER */}
       <Section>
         <div style={{ maxWidth: "780px", margin: "0 auto", textAlign: "center" }}>
-          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "20px", color: "var(--pf-text-primary, #0A0A0A)" }}>
+          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "20px", color: "#FFFFFF" }}>
             ¿Qué es Pathfinder?
           </h2>
-          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1.125rem", lineHeight: 1.7, color: "var(--pf-text-secondary, #525252)", margin: 0 }}>
+          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1.125rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0 }}>
             Pathfinder es una plataforma para crear imágenes, videos y audio con inteligencia artificial. Eliges el modelo, describes lo que quieres y generas desde tu navegador. Cada sesión corre en una estación dedicada que activas cuando la necesitas, con workflows ya preparados y sin créditos por generación.
           </p>
         </div>
@@ -362,8 +368,8 @@ const WhatIsPathfinderPage: React.FC = () => {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginTop: "48px", maxWidth: "900px", margin: "48px auto 0" }}>
           {whatItSolves.map((text, i) => (
             <div key={i} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-              <CheckCircle2 size={20} strokeWidth={2.2} style={{ color: "#10B981", flexShrink: 0, marginTop: "2px" }} />
-              <span style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", lineHeight: 1.6, color: "var(--pf-text-secondary, #525252)" }}>
+              <CheckCircle2 size={20} strokeWidth={2.2} style={{ color: "#67E8F9", flexShrink: 0, marginTop: "2px" }} />
+              <span style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", lineHeight: 1.6, color: "rgba(255,255,255,0.65)" }}>
                 {text}
               </span>
             </div>
@@ -372,12 +378,12 @@ const WhatIsPathfinderPage: React.FC = () => {
       </Section>
 
       {/* QUÉ PUEDES HACER */}
-      <Section bg="var(--pf-bg-secondary, #FAFAFA)" border>
+      <Section bg="#050505" border>
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "var(--pf-text-primary, #0A0A0A)" }}>
+          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "#FFFFFF" }}>
             ¿Qué puedes hacer en Pathfinder?
           </h2>
-          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "var(--pf-text-secondary, #525252)", maxWidth: "520px", margin: "0 auto" }}>
+          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "rgba(255,255,255,0.6)", maxWidth: "520px", margin: "0 auto" }}>
             Tres tipos de contenido, un mismo lugar.
           </p>
         </div>
@@ -390,9 +396,9 @@ const WhatIsPathfinderPage: React.FC = () => {
       </Section>
 
       {/* QUÉ SOLUCIONA */}
-      <section style={{ padding: "100px 24px", background: "var(--pf-text-primary, #0A0A0A)", color: "var(--pf-text-inverse, #FFFFFF)", textAlign: "center" }}>
-        <div style={{ maxWidth: "780px", margin: "0 auto" }}>
-          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "24px", color: "var(--pf-text-inverse, #FFFFFF)" }}>
+      <section style={{ padding: "100px 24px", background: "#000000", color: "#FFFFFF", textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ maxWidth: "780px", margin: "0 auto", position: "relative", zIndex: 1 }}>
+          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.25rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "24px", color: "#FFFFFF" }}>
             ¿Qué soluciona Pathfinder?
           </h2>
           <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1.125rem", lineHeight: 1.7, color: "rgba(255,255,255,0.85)", margin: 0 }}>
@@ -404,10 +410,10 @@ const WhatIsPathfinderPage: React.FC = () => {
       {/* CÓMO SE COMPARA */}
       <Section border>
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "var(--pf-text-primary, #0A0A0A)" }}>
+          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "#FFFFFF" }}>
             Cómo se compara Pathfinder
           </h2>
-          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "var(--pf-text-secondary, #525252)", maxWidth: "520px", margin: "0 auto" }}>
+          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "rgba(255,255,255,0.6)", maxWidth: "520px", margin: "0 auto" }}>
             Tres formas de crear con IA. Tres modelos distintos.
           </p>
         </div>
@@ -420,15 +426,15 @@ const WhatIsPathfinderPage: React.FC = () => {
           body="Tu estación corre sobre Kaggle, una plataforma gratuita de cómputo. Tú trabajas siempre desde Pathfinder Studio, en tu navegador. Cualquier computadora con acceso a internet funciona — sin comprar hardware, sin configurar drivers, sin pagar por cómputo."
         />
 
-        <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", lineHeight: 1.6, color: "var(--pf-text-secondary, #525252)", maxWidth: "720px", margin: "32px auto 0", textAlign: "center" }}>
+        <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", lineHeight: 1.6, color: "rgba(255,255,255,0.55)", maxWidth: "720px", margin: "32px auto 0", textAlign: "center" }}>
           Si ya usas ComfyUI, Pathfinder se siente familiar. Si vienes de plataformas de créditos, el modelo es distinto: aquí pagas por acceso, no por generación.
         </p>
       </Section>
 
       {/* QUÉ INCLUYE */}
-      <Section bg="var(--pf-bg-secondary, #FAFAFA)" border>
+      <Section bg="#050505" border>
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "var(--pf-text-primary, #0A0A0A)" }}>
+          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "#FFFFFF" }}>
             Qué incluye tu estación
           </h2>
         </div>
@@ -446,10 +452,10 @@ const WhatIsPathfinderPage: React.FC = () => {
       {/* CÓMO SE USA */}
       <Section>
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "var(--pf-text-primary, #0A0A0A)" }}>
+          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, marginBottom: "12px", color: "#FFFFFF" }}>
             Cómo se usa
           </h2>
-          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "var(--pf-text-secondary, #525252)", maxWidth: "620px", margin: "0 auto" }}>
+          <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "rgba(255,255,255,0.6)", maxWidth: "620px", margin: "0 auto" }}>
             De la idea al resultado en tres pasos. La primera vez incluye preparar tu estación; después, cada sesión arranca en segundos.
           </p>
         </div>
@@ -457,13 +463,13 @@ const WhatIsPathfinderPage: React.FC = () => {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "28px" }}>
           {steps.map((s) => (
             <div key={s.n}>
-              <div style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "2rem", fontWeight: 800, color: "var(--pf-text-muted, #A1A1AA)", letterSpacing: "-0.04em", marginBottom: "12px" }}>
+              <div style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "2rem", fontWeight: 800, color: "#67E8F9", letterSpacing: "-0.04em", marginBottom: "12px", textShadow: "0 0 24px rgba(34, 211, 238, 0.45)" }}>
                 {s.n}
               </div>
-              <h3 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, marginBottom: "8px", color: "var(--pf-text-primary, #0A0A0A)" }}>
+              <h3 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.02em", margin: 0, marginBottom: "8px", color: "#FFFFFF" }}>
                 {s.title}
               </h3>
-              <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", lineHeight: 1.55, color: "var(--pf-text-secondary, #525252)", margin: 0 }}>
+              <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", lineHeight: 1.55, color: "rgba(255,255,255,0.6)", margin: 0 }}>
                 {s.body}
               </p>
             </div>
@@ -471,26 +477,26 @@ const WhatIsPathfinderPage: React.FC = () => {
         </div>
 
         <div style={{ textAlign: "center", marginTop: "40px" }}>
-          <Link to="/how-it-works" style={{ textDecoration: "none", display: "inline-block", padding: "12px 28px", background: "transparent", color: "var(--pf-text-primary, #0A0A0A)", border: "1px solid var(--pf-border-default, #E5E5E5)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", fontWeight: 600 }}>
-            Ver la guía paso a paso →
+          <Link to="/how-it-works" style={{ textDecoration: "none", display: "inline-block", padding: "12px 28px", background: "transparent", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", fontWeight: 600 }}>
+            Ver la guía paso a paso
           </Link>
         </div>
       </Section>
 
       {/* CTA FINAL */}
-      <section style={{ padding: "100px 24px", background: "var(--pf-text-primary, #0A0A0A)", color: "var(--pf-text-inverse, #FFFFFF)", textAlign: "center" }}>
+      <section style={{ padding: "100px 24px", background: "#000000", color: "#FFFFFF", textAlign: "center" }}>
         <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.5rem)", fontWeight: 700, letterSpacing: "-0.03em", margin: 0, marginBottom: "16px", color: "var(--pf-text-inverse, #FFFFFF)" }}>
+          <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3vw, 2.5rem)", fontWeight: 700, letterSpacing: "-0.03em", margin: 0, marginBottom: "16px", color: "#FFFFFF" }}>
             Empieza gratis hoy
           </h2>
           <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "rgba(255,255,255,0.7)", marginBottom: "32px", lineHeight: 1.6 }}>
             Plan Free con 3 modelos, sin tarjeta y sin fecha de vencimiento. Cuando quieras el Estudio completo, Creator o Founder están a un clic.
           </p>
           <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link to={session ? "/studio" : "/auth"} style={{ textDecoration: "none", display: "inline-block", padding: "16px 40px", background: "var(--pf-bg-elevated, #FFFFFF)", color: "var(--pf-text-primary, #0A0A0A)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", fontWeight: 700 }}>
+            <Link to={session ? "/studio" : "/auth"} style={{ textDecoration: "none", display: "inline-block", padding: "16px 40px", background: "#FFFFFF", color: "#0A0A0A", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", fontWeight: 700 }}>
               {session ? "Ir al Studio" : "Empezar gratis"}
             </Link>
-            <Link to="/pricing" style={{ textDecoration: "none", display: "inline-block", padding: "16px 40px", background: "transparent", color: "var(--pf-text-inverse, #FFFFFF)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", fontWeight: 600 }}>
+            <Link to="/pricing" style={{ textDecoration: "none", display: "inline-block", padding: "16px 40px", background: "transparent", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.4)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", fontWeight: 600 }}>
               Ver planes
             </Link>
           </div>

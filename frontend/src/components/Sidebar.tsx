@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import PathfinderLogo from './PathfinderLogo';
 import { supabase } from '../lib/supabaseClient';
 import { 
   StudioIcon, 
@@ -71,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
     { path: '/creations', label: 'Mis Creaciones', icon: CreationsIcon, featured: true },
     { path: '/station', label: 'Mi Estación', icon: StationIcon, featured: true },
     { path: '/how-it-works', label: 'Cómo funciona', icon: HowItWorksIcon, featured: true },
-    { path: '/academy', label: 'Academy', icon: AcademyIcon, featured: false },
+    { path: '/academy', label: 'Aprende a crear', icon: AcademyIcon, featured: false },
     { path: '/settings', label: 'Configuración', icon: SettingsIcon, featured: false },
   ];
 
@@ -96,50 +97,74 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
         padding: '0 20px',
         borderBottom: '1px solid var(--pf-border-subtle, #2A2D31)' 
       }}>
-        <Link 
-          to="/"
-          style={{ 
-            opacity: collapsed ? 0 : 1, 
-            transform: collapsed ? 'translateX(-10px)' : 'translateX(0)',
-            transition: 'all 0.2s ease',
-            fontFamily: 'var(--pf-font-display, system-ui)', 
-            fontSize: '1.25rem', 
-            fontWeight: 800, 
-            color: 'var(--pf-text-primary, #F2F2F2)', 
-            letterSpacing: '-0.03em',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textDecoration: 'none',
-            pointerEvents: collapsed ? 'none' : 'auto'
-          }}
-        >
-          Pathfinder
-        </Link>
+        {collapsed ? (
+          <button
+            onClick={onToggleCollapsed}
+            title="Expandir sidebar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <PathfinderLogo size={40} />
+          </button>
+        ) : (
+          <Link 
+            to="/"
+            style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              textDecoration: 'none',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
+            <PathfinderLogo size={40} />
+            <span
+              style={{
+                fontFamily: 'var(--pf-font-display, system-ui)', 
+                fontSize: '1.25rem', 
+                fontWeight: 800, 
+                color: 'var(--pf-text-primary, #F2F2F2)', 
+                letterSpacing: '-0.03em',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Pathfinder
+            </span>
+          </Link>
+        )}
         
-        <button 
-          onClick={onToggleCollapsed} 
-          style={{ 
-            background: 'transparent', 
-            border: 'none', 
-            cursor: 'pointer', 
-            padding: '8px', 
-            borderRadius: '8px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            color: 'var(--pf-text-secondary, #9EA4AA)',
-            transition: 'color 0.2s',
-            flexShrink: 0
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--pf-text-primary, #F2F2F2)'}
-          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)'}
-        >
-          {collapsed ? (
+        {!collapsed && (
+          <button 
+            onClick={onToggleCollapsed} 
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              cursor: 'pointer', 
+              padding: '8px', 
+              borderRadius: '8px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'var(--pf-text-secondary, #9EA4AA)',
+              transition: 'color 0.2s',
+              flexShrink: 0
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--pf-text-primary, #F2F2F2)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)'}
+            title="Colapsar sidebar"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-          )}
-        </button>
+          </button>
+        )}
       </div>
 
       {/* Navigation List */}

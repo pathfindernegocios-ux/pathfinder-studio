@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { Video, Image as ImageIcon, Music } from 'lucide-react';
+import AuthBackdrop from './AuthBackdrop';
 
 // ---------------------------------------------------------------------------
 // Pool de imágenes para el panel izquierdo.
@@ -119,10 +120,13 @@ const AuthScreen: React.FC = () => {
         minHeight: '100vh',
         width: '100vw',
         display: 'flex',
-        background: 'var(--pf-bg-primary)',
+        background: '#000000',
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
+      {/* Nebulosa animada (detrás de todo) */}
+      <AuthBackdrop />
       {/* ============================================================ */}
       {/* Lado Izquierdo: imagen random + overlay + contenido         */}
       {/* ============================================================ */}
@@ -132,7 +136,8 @@ const AuthScreen: React.FC = () => {
           position: 'relative',
           flex: '1',
           overflow: 'hidden',
-          borderRight: '1px solid var(--pf-border-subtle)',
+          borderRight: '1px solid rgba(139, 92, 246, 0.15)',
+          zIndex: 1,
         }}
       >
         {/* Imagen de fondo */}
@@ -286,8 +291,12 @@ const AuthScreen: React.FC = () => {
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '40px',
-          background: '#FFFFFF',
-          boxShadow: '-20px 0 40px -20px rgba(0,0,0,0.05)',
+          background: 'rgba(8, 4, 20, 0.55)',
+          backdropFilter: 'blur(24px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(140%)',
+          borderLeft: '1px solid rgba(139, 92, 246, 0.15)',
+          zIndex: 1,
+          position: 'relative',
         }}
       >
         <div style={{ marginBottom: '40px' }}>
@@ -297,13 +306,14 @@ const AuthScreen: React.FC = () => {
               fontWeight: 600,
               marginBottom: '8px',
               fontFamily: 'var(--pf-font-display)',
+              color: '#FFFFFF',
             }}
           >
             Empieza ahora
           </h2>
           <p
             style={{
-              color: 'var(--pf-text-secondary)',
+              color: 'rgba(255,255,255,0.7)',
               fontSize: '0.9375rem',
               lineHeight: 1.5,
             }}
@@ -350,11 +360,11 @@ const AuthScreen: React.FC = () => {
             style={{
               marginTop: '16px',
               padding: '12px',
-              background: '#FEF2F2',
-              color: '#EF4444',
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#F87171',
               borderRadius: '8px',
               fontSize: '0.875rem',
-              border: '1px solid #FEE2E2',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
               lineHeight: 1.5,
             }}
           >
@@ -371,11 +381,11 @@ const AuthScreen: React.FC = () => {
             marginBottom: '16px',
           }}
         >
-          <div style={{ flex: 1, height: '1px', background: 'var(--pf-border-subtle, #F4F4F5)' }} />
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.12)' }} />
           <span
             style={{
               fontSize: '0.75rem',
-              color: 'var(--pf-text-muted)',
+              color: 'rgba(255,255,255,0.5)',
               fontFamily: 'var(--pf-font-ui)',
               textTransform: 'uppercase',
               letterSpacing: '0.05em',
@@ -383,13 +393,13 @@ const AuthScreen: React.FC = () => {
           >
             Próximamente
           </span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--pf-border-subtle, #F4F4F5)' }} />
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.12)' }} />
         </div>
 
         <p
           style={{
             fontSize: '0.8125rem',
-            color: 'var(--pf-text-muted)',
+            color: 'rgba(255,255,255,0.5)',
             textAlign: 'center',
             lineHeight: 1.5,
             margin: 0,
@@ -402,7 +412,7 @@ const AuthScreen: React.FC = () => {
           style={{
             marginTop: '40px',
             fontSize: '0.75rem',
-            color: 'var(--pf-text-muted)',
+            color: 'rgba(255,255,255,0.45)',
             lineHeight: 1.5,
             textAlign: 'center',
           }}
@@ -410,14 +420,14 @@ const AuthScreen: React.FC = () => {
           Al continuar, aceptas nuestros{' '}
           <Link
             to="/legal/terms"
-            style={{ color: 'var(--pf-text-secondary)', textDecoration: 'underline' }}
+            style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'underline' }}
           >
             Términos de Servicio
           </Link>{' '}
           y reconoces haber leído el{' '}
           <Link
             to="/legal/privacy"
-            style={{ color: 'var(--pf-text-secondary)', textDecoration: 'underline' }}
+            style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'underline' }}
           >
             Aviso de Privacidad
           </Link>

@@ -34,14 +34,14 @@ export function hasSupabaseSession(): boolean {
 }
 
 export function getStoredThemePreference(): ThemePreference {
-  if (typeof window === "undefined") return "system";
+  if (typeof window === "undefined") return "neon";
   try {
     const v = localStorage.getItem(THEME_STORAGE_KEY);
     if (v === "light" || v === "dark" || v === "system" || v === "neon") return v;
   } catch {
     /* ignore */
   }
-  return "system";
+  return "neon";
 }
 
 export function setStoredThemePreference(pref: ThemePreference): void {
@@ -84,12 +84,7 @@ export function applyThemePreference(pref: ThemePreference): ResolvedTheme {
  * "se escape" a la landing / pricing / auth / páginas legales.
  */
 export function initTheme(): ResolvedTheme {
-  if (typeof window === "undefined") return "light";
-
-  if (!hasSupabaseSession()) {
-    applyTheme("light");
-    return "light";
-  }
+  if (typeof window === "undefined") return "neon";
 
   const pref = getStoredThemePreference();
   const resolved = resolveTheme(pref);

@@ -6,9 +6,8 @@ import {
   FlaskConical,
   Gauge,
   RefreshCw,
-  Sparkles,
-  Check as CheckIcon,
 } from "lucide-react";
+import PathfinderLogo from "../components/PathfinderLogo";
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
@@ -44,14 +43,6 @@ function useCountdown(target: Date) {
 // ============================================================
 // CHECK ICON
 // ============================================================
-const Check = () => (
-  <CheckIcon
-    size={16}
-    style={{ color: "#10B981", flexShrink: 0, marginTop: "3px" }}
-    strokeWidth={2.5}
-  />
-);
-
 // ============================================================
 // COUNTDOWN BAR
 // ============================================================
@@ -68,40 +59,50 @@ const CountdownBar: React.FC = () => {
   return (
     <div
       style={{
-        background: "var(--pf-text-primary, #0A0A0A)",
-        color: "var(--pf-text-inverse, #FFFFFF)",
-        padding: "10px 20px",
+        position: "relative",
+        background: "rgba(20, 10, 40, 0.7)",
+        backdropFilter: "blur(20px) saturate(160%)",
+        WebkitBackdropFilter: "blur(20px) saturate(160%)",
+        borderBottom: "1px solid rgba(139, 92, 246, 0.2)",
+        color: "rgba(255,255,255,0.9)",
+        padding: "12px 20px",
         textAlign: "center",
         fontFamily: "var(--pf-font-ui, system-ui)",
         fontSize: "0.8125rem",
         fontWeight: 500,
-        letterSpacing: "0.01em",
+        letterSpacing: "0.02em",
+        overflow: "hidden",
       }}
     >
+      {/* Blob sutil detrás del contenido */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at center, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
       <span
         style={{
+          position: "relative",
           display: "inline-flex",
           alignItems: "center",
-          gap: "8px",
+          gap: "10px",
           flexWrap: "wrap",
           justifyContent: "center",
+          zIndex: 1,
         }}
       >
-        <span
-          style={{
-            display: "inline-block",
-            width: "6px",
-            height: "6px",
-            borderRadius: "50%",
-            background: "#10B981",
-            boxShadow: "0 0 0 3px rgba(16,185,129,0.25)",
-          }}
-        />
-        <span style={{ fontWeight: 700 }}>Precio de lanzamiento</span>
-        <span style={{ opacity: 0.85 }}>·</span>
+        <span className="pf-countdown-dot" />
+        <span style={{ fontWeight: 700, color: "#FFFFFF" }}>Precio de lanzamiento</span>
+        <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
         <span>{timeText}</span>
-        <span style={{ opacity: 0.85 }}>·</span>
-        <span style={{ opacity: 0.85 }}>Hasta el 31 de diciembre</span>
+        <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
+        <span style={{ color: "rgba(255,255,255,0.65)" }}>Hasta el 31 de diciembre</span>
       </span>
     </div>
   );
@@ -110,16 +111,23 @@ const CountdownBar: React.FC = () => {
 // ============================================================
 // PLAN CARD
 // ============================================================
+interface PlanCategory {
+  title: string;
+  items: string[];
+}
+
 interface PlanProps {
   name: string;
   tagline: string;
   price: string;
+  priceSuffix?: string;
   priceNote?: string;
-  features: string[];
+  categories: PlanCategory[];
   cta: React.ReactNode;
   highlighted?: boolean;
   badge?: string;
-  badgeVariant?: "recommended" | "priority" | "trial";
+  accent: { from: string; to: string; text: string };
+  showCube?: boolean;
   disclaimer?: string;
 }
 
@@ -127,108 +135,115 @@ const PlanCard: React.FC<PlanProps> = ({
   name,
   tagline,
   price,
+  priceSuffix,
   priceNote,
-  features,
+  categories,
   cta,
   highlighted,
   badge,
-  badgeVariant = "recommended",
+  accent,
+  showCube,
   disclaimer,
 }) => {
-  const badgeStyles = (() => {
-    switch (badgeVariant) {
-      case "priority":
-        return {
-          bg: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-text-inverse, #FFFFFF)",
-          border: "none",
-        };
-      case "trial":
-        return {
-          bg: "var(--pf-bg-tertiary, #F5F5F5)",
-          color: "var(--pf-text-secondary, #525252)",
-          border: "1px solid var(--pf-border-default, #E5E5E5)",
-        };
-      default:
-        return {
-          bg: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-text-inverse, #FFFFFF)",
-          border: "none",
-        };
-    }
-  })();
-
   return (
     <div
       style={{
         position: "relative",
         background: "var(--pf-bg-elevated)",
-        border: highlighted
-          ? "2px solid var(--pf-text-primary, #0A0A0A)"
-          : "1px solid var(--pf-border-default, #E5E5E5)",
-        borderRadius: "20px",
-        padding: "40px 28px 32px 28px",
+        border: highlighted ? "1px solid transparent" : "1px solid var(--pf-border-subtle)",
+        borderRadius: "24px",
+        padding: "36px 28px 28px 28px",
         display: "flex",
         flexDirection: "column",
         boxShadow: highlighted
-          ? "0 20px 40px -12px rgba(0,0,0,0.15)"
+          ? `0 0 60px -15px ${accent.from}66, 0 20px 40px -12px rgba(0,0,0,0.12)`
           : "0 2px 8px rgba(0,0,0,0.03)",
         transition: "transform 0.2s, box-shadow 0.2s",
+        backgroundImage: highlighted
+          ? `linear-gradient(var(--pf-bg-elevated), var(--pf-bg-elevated)), linear-gradient(135deg, ${accent.from}, ${accent.to})`
+          : undefined,
+        backgroundOrigin: highlighted ? "border-box" : undefined,
+        backgroundClip: highlighted ? "padding-box, border-box" : undefined,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "translateY(-4px)";
         e.currentTarget.style.boxShadow = highlighted
-          ? "0 24px 48px -12px rgba(0,0,0,0.2)"
+          ? `0 0 80px -15px ${accent.from}88, 0 24px 48px -12px rgba(0,0,0,0.18)`
           : "0 12px 24px -8px rgba(0,0,0,0.08)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.boxShadow = highlighted
-          ? "0 20px 40px -12px rgba(0,0,0,0.15)"
+          ? `0 0 60px -15px ${accent.from}66, 0 20px 40px -12px rgba(0,0,0,0.12)`
           : "0 2px 8px rgba(0,0,0,0.03)";
       }}
     >
+      {showCube && (
+        <div
+          style={{
+            position: "absolute",
+            top: "20px",
+            right: "20px",
+            filter: `drop-shadow(0 0 12px ${accent.from})`,
+            opacity: 0.9,
+          }}
+        >
+          <PathfinderLogo size={28} />
+        </div>
+      )}
+
       {badge && (
         <div
           style={{
             position: "absolute",
             top: "-14px",
-            right: "24px",
+            left: "28px",
             padding: "6px 14px",
-            background: badgeStyles.bg,
-            color: badgeStyles.color,
-            border: badgeStyles.border,
+            background: `linear-gradient(135deg, ${accent.from}, ${accent.to})`,
+            color: "#FFFFFF",
             borderRadius: "9999px",
             fontFamily: "var(--pf-font-ui, system-ui)",
             fontSize: "0.6875rem",
             fontWeight: 700,
             textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            letterSpacing: "0.08em",
+            boxShadow: `0 4px 12px -4px ${accent.from}88`,
           }}
         >
           {badge}
         </div>
       )}
 
-      <div style={{ marginBottom: "24px" }}>
-        <h3
-          style={{
-            fontFamily: "var(--pf-font-display, system-ui)",
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-            margin: 0,
-            marginBottom: "6px",
-            color: "var(--pf-text-primary, #0A0A0A)",
-          }}
-        >
-          {name}
-        </h3>
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: accent.text,
+              boxShadow: `0 0 8px ${accent.text}99`,
+              flexShrink: 0,
+            }}
+          />
+          <h3
+            style={{
+              fontFamily: "var(--pf-font-display, system-ui)",
+              fontSize: "1.25rem",
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              margin: 0,
+              color: "var(--pf-text-primary)",
+            }}
+          >
+            {name}
+          </h3>
+        </div>
         <p
           style={{
             fontFamily: "var(--pf-font-ui, system-ui)",
             fontSize: "0.8125rem",
-            color: "var(--pf-text-secondary, #525252)",
+            color: "var(--pf-text-secondary)",
             margin: 0,
             lineHeight: 1.5,
           }}
@@ -237,26 +252,40 @@ const PlanCard: React.FC<PlanProps> = ({
         </p>
       </div>
 
-      <div style={{ marginBottom: "28px" }}>
-        <div
-          style={{
-            fontFamily: "var(--pf-font-display, system-ui)",
-            fontSize: "2.5rem",
-            fontWeight: 800,
-            letterSpacing: "-0.04em",
-            color: "var(--pf-text-primary, #0A0A0A)",
-            lineHeight: 1,
-          }}
-        >
-          {price}
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "6px", flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontFamily: "var(--pf-font-display, system-ui)",
+              fontSize: "2.75rem",
+              fontWeight: 800,
+              letterSpacing: "-0.04em",
+              color: "var(--pf-text-primary)",
+              lineHeight: 1,
+            }}
+          >
+            {price}
+          </span>
+          {priceSuffix && (
+            <span
+              style={{
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.8125rem",
+                color: "var(--pf-text-muted)",
+                fontWeight: 500,
+              }}
+            >
+              {priceSuffix}
+            </span>
+          )}
         </div>
         {priceNote && (
           <div
             style={{
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "0.75rem",
-              color: "var(--pf-text-muted, #A1A1AA)",
-              marginTop: "8px",
+              color: "var(--pf-text-muted)",
+              marginTop: "6px",
               lineHeight: 1.5,
             }}
           >
@@ -265,69 +294,84 @@ const PlanCard: React.FC<PlanProps> = ({
         )}
       </div>
 
-      <ul
+      <div
         style={{
-          listStyle: "none",
-          padding: 0,
-          margin: 0,
-          marginBottom: "32px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "11px",
-          flex: 1,
+          height: "1px",
+          background: "var(--pf-border-subtle)",
+          marginBottom: "20px",
         }}
-      >
-        {features.map((f, i) => {
-          const isPriority = f.startsWith("★");
-          const text = isPriority ? f.slice(1).trim() : f;
-          return (
-            <li
-              key={i}
+      />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px", flex: 1, marginBottom: "28px" }}>
+        {categories.map((cat, ci) => (
+          <div key={ci}>
+            <div
               style={{
-                display: "flex",
-                gap: "10px",
-                alignItems: "flex-start",
                 fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.875rem",
-                color: isPriority
-                  ? "var(--pf-text-primary, #0A0A0A)"
-                  : "var(--pf-text-secondary, #525252)",
-                fontWeight: isPriority ? 500 : 400,
-                lineHeight: 1.5,
+                fontSize: "0.625rem",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.12em",
+                color: accent.text,
+                opacity: 0.8,
+                marginBottom: "10px",
               }}
             >
-              {isPriority ? (
-                <span
+              {cat.title}
+            </div>
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              {cat.items.map((item, ii) => (
+                <li
+                  key={ii}
                   style={{
-                    flexShrink: 0,
-                    marginTop: "1px",
-                    color: "#4F46E5",
-                    fontSize: "0.875rem",
-                    lineHeight: "1.5",
+                    display: "flex",
+                    gap: "10px",
+                    alignItems: "flex-start",
+                    fontFamily: "var(--pf-font-ui, system-ui)",
+                    fontSize: "0.8125rem",
+                    color: "var(--pf-text-secondary)",
+                    lineHeight: 1.5,
                   }}
                 >
-                  ★
-                </span>
-              ) : (
-                <Check />
-              )}
-              <span>{text}</span>
-            </li>
-          );
-        })}
-      </ul>
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      marginTop: "8px",
+                      width: "4px",
+                      height: "4px",
+                      borderRadius: "50%",
+                      background: accent.text,
+                      opacity: 0.7,
+                    }}
+                  />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
 
       {disclaimer && (
         <div
           style={{
             marginBottom: "20px",
             padding: "10px 12px",
-            background: "var(--pf-bg-secondary, #FAFAFA)",
-            border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+            background: "var(--pf-bg-secondary)",
+            border: "1px solid var(--pf-border-subtle)",
             borderRadius: "8px",
             fontFamily: "var(--pf-font-ui, system-ui)",
             fontSize: "0.6875rem",
-            color: "var(--pf-text-muted, #A1A1AA)",
+            color: "var(--pf-text-muted)",
             lineHeight: 1.5,
             fontStyle: "italic",
           }}
@@ -431,9 +475,9 @@ const SignatureBlock: React.FC = () => {
     <section
       style={{
         padding: "64px 24px 56px",
-        background: "var(--pf-bg-secondary, #FAFAFA)",
-        borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
-        borderBottom: "1px solid var(--pf-border-subtle, #F4F4F5)",
+        background: "#050505",
+        borderTop: "1px solid rgba(139, 92, 246, 0.1)",
+        borderBottom: "1px solid rgba(139, 92, 246, 0.1)",
       }}
     >
       <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
@@ -446,7 +490,7 @@ const SignatureBlock: React.FC = () => {
             textAlign: "center",
             margin: 0,
             marginBottom: "8px",
-            color: "var(--pf-text-primary, #0A0A0A)",
+            color: "#FFFFFF",
           }}
         >
           Pathfinder ingeniería a tu medida
@@ -455,7 +499,7 @@ const SignatureBlock: React.FC = () => {
           style={{
             fontFamily: "var(--pf-font-ui, system-ui)",
             fontSize: "0.9375rem",
-            color: "var(--pf-text-secondary, #525252)",
+            color: "rgba(255,255,255,0.6)",
             textAlign: "center",
             maxWidth: "520px",
             margin: "0 auto 48px",
@@ -482,10 +526,11 @@ const SignatureBlock: React.FC = () => {
                   width: "44px",
                   height: "44px",
                   borderRadius: "12px",
-                  background: "var(--pf-bg-elevated, #FFFFFF)",
-                  border: "1px solid var(--pf-border-default, #E5E5E5)",
-                  color: "var(--pf-text-primary, #0A0A0A)",
+                  background: "rgba(34, 211, 238, 0.08)",
+                  border: "1px solid rgba(34, 211, 238, 0.25)",
+                  color: "#67E8F9",
                   marginBottom: "16px",
+                  boxShadow: "0 0 20px -8px rgba(34, 211, 238, 0.5)",
                 }}
               >
                 <s.Icon size={20} strokeWidth={2} />
@@ -498,7 +543,7 @@ const SignatureBlock: React.FC = () => {
                   letterSpacing: "-0.02em",
                   margin: 0,
                   marginBottom: "8px",
-                  color: "var(--pf-text-primary, #0A0A0A)",
+                  color: "#FFFFFF",
                 }}
               >
                 {s.title}
@@ -508,7 +553,7 @@ const SignatureBlock: React.FC = () => {
                   fontFamily: "var(--pf-font-ui, system-ui)",
                   fontSize: "0.8125rem",
                   lineHeight: 1.6,
-                  color: "var(--pf-text-secondary, #525252)",
+                  color: "rgba(255,255,255,0.6)",
                   margin: 0,
                 }}
               >
@@ -526,22 +571,20 @@ const SignatureBlock: React.FC = () => {
 // NEW MODELS BLOCK
 // ============================================================
 const NewModelsBlock: React.FC = () => (
-  <section style={{ padding: "80px 24px" }}>
+  <section style={{ padding: "80px 24px", background: "#000000" }}>
     <div style={{ maxWidth: "780px", margin: "0 auto", textAlign: "center" }}>
       <div
         style={{
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          width: "56px",
-          height: "56px",
-          borderRadius: "16px",
-          background: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-text-inverse, #FFFFFF)",
+          width: "72px",
+          height: "72px",
           marginBottom: "24px",
+          filter: "drop-shadow(0 0 24px rgba(34, 211, 238, 0.55))",
         }}
       >
-        <Sparkles size={24} />
+        <PathfinderLogo size={72} />
       </div>
       <h2
         style={{
@@ -551,7 +594,7 @@ const NewModelsBlock: React.FC = () => (
           letterSpacing: "-0.03em",
           margin: 0,
           marginBottom: "16px",
-          color: "var(--pf-text-primary, #0A0A0A)",
+          color: "#FFFFFF",
         }}
       >
         Los modelos nuevos entran a tu plan sin costo extra
@@ -560,7 +603,7 @@ const NewModelsBlock: React.FC = () => (
         style={{
           fontFamily: "var(--pf-font-ui, system-ui)",
           fontSize: "1.0625rem",
-          color: "var(--pf-text-secondary, #525252)",
+          color: "rgba(255,255,255,0.65)",
           lineHeight: 1.6,
           margin: 0,
           maxWidth: "620px",
@@ -629,7 +672,7 @@ const PricingPage: React.FC = () => {
       <CountdownBar />
 
       {/* Hero */}
-      <section style={{ padding: "80px 24px 40px", textAlign: "center" }}>
+      <section style={{ padding: "80px 24px 40px", textAlign: "center", background: "#000000" }}>
         <div style={{ maxWidth: "720px", margin: "0 auto" }}>
           <h1
             style={{
@@ -640,7 +683,7 @@ const PricingPage: React.FC = () => {
               lineHeight: 1.05,
               margin: 0,
               marginBottom: "20px",
-              color: "var(--pf-text-primary, #0A0A0A)",
+              color: "#FFFFFF",
             }}
           >
             Pathfinder para todos
@@ -650,7 +693,7 @@ const PricingPage: React.FC = () => {
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "1.0625rem",
               lineHeight: 1.6,
-              color: "var(--pf-text-secondary, #525252)",
+              color: "rgba(255,255,255,0.65)",
               margin: 0,
             }}
           >
@@ -705,19 +748,25 @@ const PricingPage: React.FC = () => {
           {/* Plan Free */}
           <PlanCard
             name="Free"
-            tagline="Descubre qué puedes crear. Sin tarjeta."
+            tagline="Descubre qué puedes crear."
             price="$0"
-            priceNote="Sin fecha de vencimiento."
+            priceSuffix="· sin vencimiento"
+            accent={{ from: "#22D3EE", to: "#06B6D4", text: "#22D3EE" }}
             badge="Prueba Pathfinder"
-            badgeVariant="trial"
-            features={[
-              "Krea 2 Turbo (imagen)",
-              "Wan 2.1 i2v (imagen a video)",
-              "Wan 2.1 t2v (texto a video)",
-              "Studio de creación",
-              "Mis Creaciones (retención 7 días)",
-              "Acceso a la guía de inicio",
-              "Hasta 120 horas de estación al mes, 30 por semana",
+            categories={[
+              {
+                title: "Incluido",
+                items: [
+                  "3 modelos de entrada",
+                  "Studio + Mis Creaciones",
+                  "Retención 7 días",
+                  "Guía de inicio",
+                ],
+              },
+              {
+                title: "Estación",
+                items: ["120 h/mes · 30 por semana"],
+              },
             ]}
             disclaimer="Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo con todos los modelos, elige Creator o Founder."
             cta={
@@ -729,12 +778,22 @@ const PricingPage: React.FC = () => {
                     textAlign: "center",
                     textDecoration: "none",
                     padding: "12px 24px",
-                    background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "var(--pf-text-inverse, #FFFFFF)",
+                    background: "transparent",
+                    color: "var(--pf-text-primary)",
+                    border: "1px solid var(--pf-border-default)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
                     fontWeight: 600,
+                    transition: "background 0.15s, border-color 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--pf-bg-secondary)";
+                    e.currentTarget.style.borderColor = "#22D3EE";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.borderColor = "var(--pf-border-default)";
                   }}
                 >
                   Ir al Studio
@@ -747,12 +806,22 @@ const PricingPage: React.FC = () => {
                     textAlign: "center",
                     textDecoration: "none",
                     padding: "12px 24px",
-                    background: "var(--pf-text-primary, #0A0A0A)",
-                    color: "var(--pf-text-inverse, #FFFFFF)",
+                    background: "transparent",
+                    color: "var(--pf-text-primary)",
+                    border: "1px solid var(--pf-border-default)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
                     fontWeight: 600,
+                    transition: "background 0.15s, border-color 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--pf-bg-secondary)";
+                    e.currentTarget.style.borderColor = "#22D3EE";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.borderColor = "var(--pf-border-default)";
                   }}
                 >
                   Empezar gratis
@@ -764,25 +833,37 @@ const PricingPage: React.FC = () => {
           {/* Plan Creator */}
           <PlanCard
             name="Creator"
-            tagline="El Estudio completo. Todos los modelos."
-            price="$249 MXN"
-            priceNote="Por mes. Sin contrato, cancelas cuando quieras."
+            tagline="El Estudio completo."
+            price="$249"
+            priceSuffix="MXN · por mes"
+            priceNote="Sin contrato, cancelas cuando quieras."
             badge="Recomendado"
-            badgeVariant="recommended"
             highlighted
-            features={[
-              "Estación con GPU dedicada bajo demanda",
-              "Hasta 120 horas de estación al mes, 30 por semana",
-              "Sin créditos por imagen o video",
-              "Estudio completo desbloqueado",
-              "Flux 2 Klein 4B (imagen con referencias)",
-              "LTX 2.3 (video con audio y lipsync)",
-              "LTX 2.5 MSR (5 refs + LoRA de producto)",
-              "Wan 2.1 i2v + t2v — cambio rápido sin reiniciar",
-              "OmniVoice + Index TTS — cambio rápido sin reiniciar",
-              "Modelos nuevos incluidos sin pago extra",
-              "Mis Creaciones completo",
-              "Soporte prioritario",
+            showCube
+            accent={{ from: "#6366F1", to: "#8B5CF6", text: "#A5B4FC" }}
+            categories={[
+              {
+                title: "Estación",
+                items: [
+                  "GPU dedicada bajo demanda",
+                  "120 h/mes · 30 por semana",
+                  "Sin créditos por imagen o video",
+                  "Workers duales (Wan, TTS)",
+                ],
+              },
+              {
+                title: "Modelos",
+                items: [
+                  "Krea · Flux · LTX 2.3 · LTX 2.5 MSR",
+                  "Wan 2.1 i2v + t2v",
+                  "OmniVoice + Index TTS",
+                  "Modelos nuevos sin pago extra",
+                ],
+              },
+              {
+                title: "Extras",
+                items: ["Mis Creaciones completo", "Soporte prioritario"],
+              },
             ]}
             cta={
               hasCreator ? (
@@ -791,9 +872,9 @@ const PricingPage: React.FC = () => {
                     width: "100%",
                     boxSizing: "border-box",
                     padding: "12px 24px",
-                    background: "rgba(16,185,129,0.1)",
-                    color: "#059669",
-                    border: "1px solid rgba(16,185,129,0.4)",
+                    background: "rgba(99,102,241,0.12)",
+                    color: "#A5B4FC",
+                    border: "1px solid rgba(99,102,241,0.4)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -813,12 +894,12 @@ const PricingPage: React.FC = () => {
                     padding: "12px 24px",
                     background:
                       loadingPlan !== null
-                        ? "var(--pf-bg-tertiary, #F5F5F5)"
-                        : "var(--pf-text-primary, #0A0A0A)",
+                        ? "var(--pf-bg-tertiary)"
+                        : "var(--pf-text-primary)",
                     color:
                       loadingPlan !== null
-                        ? "var(--pf-text-muted, #A1A1AA)"
-                        : "var(--pf-text-inverse, #FFFFFF)",
+                        ? "var(--pf-text-muted)"
+                        : "var(--pf-text-inverse)",
                     border: "none",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
@@ -826,11 +907,15 @@ const PricingPage: React.FC = () => {
                     fontWeight: 600,
                     cursor: loadingPlan !== null ? "wait" : "pointer",
                     transition: "opacity 0.15s",
+                    boxShadow:
+                      loadingPlan !== null
+                        ? "none"
+                        : "0 0 24px -6px rgba(99,102,241,0.5)",
                   }}
                 >
                   {loadingPlan === "creator"
                     ? "Redirigiendo a Stripe..."
-                    : "Suscribirme a Creator — $249/mes"}
+                    : "Suscribirme — $249/mes"}
                 </button>
               )
             }
@@ -839,24 +924,28 @@ const PricingPage: React.FC = () => {
           {/* Plan Founder */}
           <PlanCard
             name="Founder"
-            tagline="Todo lo de Creator, con acceso prioritario."
-            price="$999 MXN"
-            priceNote="Pago único por 6 meses. Ahorras $495 MXN vs. mensual."
+            tagline="El Estudio completo, con prioridad."
+            price="$999"
+            priceSuffix="MXN · 6 meses"
+            priceNote="Ahorras $495 MXN vs. mensual."
             badge="Acceso prioritario"
-            badgeVariant="priority"
-            features={[
-              "Todo lo del plan Creator",
-              "Estación con GPU dedicada bajo demanda",
-              "Hasta 120 horas de estación al mes, 30 por semana",
-              "Sin créditos por imagen o video",
-              "Flux 2 Klein 4B (imagen con referencias)",
-              "LTX 2.3 (video con audio y lipsync)",
-              "LTX 2.5 MSR (5 refs + LoRA de producto)",
-              "Wan 2.1 i2v + t2v — cambio rápido sin reiniciar",
-              "OmniVoice + Index TTS — cambio rápido sin reiniciar",
-              "Modelos nuevos incluidos sin pago extra",
-              "★ Acceso prioritario a nuevos modelos",
-              "★ Primeros accesos a plantillas y funcionalidades",
+            accent={{ from: "#8B5CF6", to: "#EC4899", text: "#C4B5FD" }}
+            categories={[
+              {
+                title: "Todo de Creator",
+                items: [
+                  "Mismos modelos, misma estación",
+                  "Sin créditos por imagen o video",
+                ],
+              },
+              {
+                title: "Prioridad Founder",
+                items: [
+                  "Acceso anticipado a nuevos modelos",
+                  "Primeros accesos a plantillas y funciones",
+                  "Soporte directo",
+                ],
+              },
             ]}
             cta={
               hasFounder ? (
@@ -865,9 +954,9 @@ const PricingPage: React.FC = () => {
                     width: "100%",
                     boxSizing: "border-box",
                     padding: "12px 24px",
-                    background: "rgba(16,185,129,0.1)",
-                    color: "#059669",
-                    border: "1px solid rgba(16,185,129,0.4)",
+                    background: "rgba(139,92,246,0.12)",
+                    color: "#C4B5FD",
+                    border: "1px solid rgba(139,92,246,0.4)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
@@ -885,21 +974,25 @@ const PricingPage: React.FC = () => {
                     width: "100%",
                     boxSizing: "border-box",
                     padding: "12px 24px",
-                    background:
-                      loadingPlan !== null
-                        ? "var(--pf-bg-tertiary, #F5F5F5)"
-                        : "var(--pf-text-primary, #0A0A0A)",
-                    color:
-                      loadingPlan !== null
-                        ? "var(--pf-text-muted, #A1A1AA)"
-                        : "var(--pf-text-inverse, #FFFFFF)",
-                    border: "none",
+                    background: "transparent",
+                    color: "var(--pf-text-primary)",
+                    border: "1px solid rgba(139,92,246,0.4)",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
                     fontWeight: 600,
                     cursor: loadingPlan !== null ? "wait" : "pointer",
-                    transition: "opacity 0.15s",
+                    transition: "border-color 0.15s, background 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (loadingPlan === null) {
+                      e.currentTarget.style.borderColor = "#8B5CF6";
+                      e.currentTarget.style.background = "rgba(139,92,246,0.06)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(139,92,246,0.4)";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   {loadingPlan === "founder"
@@ -918,8 +1011,8 @@ const PricingPage: React.FC = () => {
       <section
         style={{
           padding: "80px 24px",
-          background: "var(--pf-bg-secondary, #FAFAFA)",
-          borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
+          background: "#050505",
+          borderTop: "1px solid rgba(139, 92, 246, 0.1)",
         }}
       >
         <div style={{ maxWidth: "760px", margin: "0 auto" }}>
@@ -932,7 +1025,7 @@ const PricingPage: React.FC = () => {
               textAlign: "center",
               margin: 0,
               marginBottom: "40px",
-              color: "var(--pf-text-primary, #0A0A0A)",
+              color: "#FFFFFF",
             }}
           >
             Preguntas frecuentes
@@ -992,8 +1085,8 @@ const PricingPage: React.FC = () => {
               <details
                 key={i}
                 style={{
-                  background: "var(--pf-bg-elevated)",
-                  border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                  background: "rgba(139, 92, 246, 0.04)",
+                  border: "1px solid rgba(139, 92, 246, 0.15)",
                   borderRadius: "12px",
                   padding: "20px 24px",
                 }}
@@ -1004,7 +1097,7 @@ const PricingPage: React.FC = () => {
                     fontSize: "1rem",
                     fontWeight: 600,
                     letterSpacing: "-0.01em",
-                    color: "var(--pf-text-primary, #0A0A0A)",
+                    color: "#FFFFFF",
                     cursor: "pointer",
                     listStyle: "none",
                   }}
@@ -1016,7 +1109,7 @@ const PricingPage: React.FC = () => {
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
                     lineHeight: 1.6,
-                    color: "var(--pf-text-secondary, #525252)",
+                    color: "rgba(255,255,255,0.65)",
                     margin: 0,
                     marginTop: "12px",
                   }}

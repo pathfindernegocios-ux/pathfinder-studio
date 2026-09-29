@@ -80,8 +80,8 @@ const MediaPlaceholder: React.FC<{
     <div
       style={{
         aspectRatio: type === "video" ? "16 / 9" : "4 / 3",
-        background: "linear-gradient(135deg, #FAFAFA 0%, #F4F4F5 100%)",
-        border: "2px dashed var(--pf-border-default, #E5E5E5)",
+        background: "rgba(139, 92, 246, 0.04)",
+        border: "2px dashed rgba(139, 92, 246, 0.25)",
         borderRadius: "12px",
         display: "flex",
         flexDirection: "column",
@@ -166,9 +166,9 @@ const Callout: React.FC<{
   children: React.ReactNode;
 }> = ({ kind, children }) => {
   const config = {
-    tip:  { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.3)", color: "#059669", Icon: Lightbulb },
-    info: { bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.3)", color: "#4F46E5", Icon: AlertCircle },
-    warn: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)", color: "#B45309", Icon: AlertCircle },
+    tip:  { bg: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.3)", color: "#34D399", Icon: Lightbulb },
+    info: { bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.3)", color: "#A5B4FC", Icon: AlertCircle },
+    warn: { bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.3)", color: "#FBBF24", Icon: AlertCircle },
   }[kind];
 
   return (
@@ -209,7 +209,7 @@ const Step: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   >
     <CheckCircle2
       size={18}
-      style={{ color: "#10B981", flexShrink: 0, marginTop: "4px" }}
+      style={{ color: "#67E8F9", flexShrink: 0, marginTop: "4px" }}
     />
     <div style={{ flex: 1 }}>{children}</div>
   </div>
@@ -252,13 +252,13 @@ export const HowItWorksContent: React.FC = () => {
               alignItems: "center",
               gap: "8px",
               padding: "6px 14px",
-              background: "rgba(99,102,241,0.08)",
-              border: "1px solid rgba(99,102,241,0.3)",
+              background: "rgba(99,102,241,0.10)",
+              border: "1px solid rgba(139, 92, 246, 0.3)",
               borderRadius: "9999px",
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "0.75rem",
               fontWeight: 600,
-              color: "#4F46E5",
+              color: "#A5B4FC",
               marginBottom: "20px",
             }}
           >
@@ -819,8 +819,8 @@ export const HowItWorksContent: React.FC = () => {
           style={{
             marginTop: "60px",
             padding: "40px 32px",
-            background: "var(--pf-text-primary, #0A0A0A)",
-            color: "var(--pf-text-inverse, #FFFFFF)",
+            background: "#0A0A0A",
+            color: "#FFFFFF",
             borderRadius: "20px",
             textAlign: "center",
           }}
@@ -833,7 +833,7 @@ export const HowItWorksContent: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "var(--pf-text-inverse, #FFFFFF)",
+              color: "#FFFFFF",
             }}
           >
             {hasViewedBefore ? "¿Listo para seguir creando?" : "¿Listo para empezar?"}
@@ -860,8 +860,8 @@ export const HowItWorksContent: React.FC = () => {
               disabled={isMarking}
               style={{
                 padding: "16px 40px",
-                background: "var(--pf-bg-elevated)",
-                color: "var(--pf-text-primary, #0A0A0A)",
+                background: "#FFFFFF",
+                color: "#0A0A0A",
                 border: "none",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",
@@ -880,8 +880,8 @@ export const HowItWorksContent: React.FC = () => {
                 display: "inline-block",
                 textDecoration: "none",
                 padding: "16px 40px",
-                background: "var(--pf-bg-elevated)",
-                color: "var(--pf-text-primary, #0A0A0A)",
+                background: "#FFFFFF",
+                color: "#0A0A0A",
                 borderRadius: "9999px",
                 fontFamily: "var(--pf-font-ui, system-ui)",
                 fontSize: "1rem",

@@ -3,7 +3,8 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useGenerationContext } from '../context/GenerationContext';
 import { supabase } from '../lib/supabaseClient';
-import { Video, Image as ImageIcon, Music, Paperclip, Sparkles, X, Loader2, Mic, Mic2, Pencil } from 'lucide-react';
+import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil } from 'lucide-react';
+import PathfinderLogo from './PathfinderLogo';
 import AudioTrimmer from './AudioTrimmer';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -1816,7 +1817,9 @@ const FloatingCommandCenter: React.FC = () => {
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={14} className="animate-spin" />
+                  <span className="pf-logo-spin">
+                    <PathfinderLogo size={16} />
+                  </span>
                   <span>Generando</span>
                   <span className="pf-dots">
                     <span>.</span>
@@ -1826,8 +1829,8 @@ const FloatingCommandCenter: React.FC = () => {
                 </>
               ) : (
                 <>
-                  {activeTab === 'audio' ? 'Generar Audio' : 'Generar'}
-                  <Sparkles size={14} />
+                  <span>{activeTab === 'audio' ? 'Generar Audio' : 'Generar'}</span>
+                  <PathfinderLogo size={16} />
                 </>
               )}
             </button>

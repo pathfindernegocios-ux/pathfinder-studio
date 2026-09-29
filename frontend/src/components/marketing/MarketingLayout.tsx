@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabaseClient";
 import { ChevronDown } from "lucide-react";
+import PathfinderLogo from "../PathfinderLogo";
 
 interface MarketingLayoutProps {
   children: React.ReactNode;
@@ -64,10 +65,10 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          background: "rgba(8, 4, 18, 0.9)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid rgba(139, 92, 246, 0.12)",
+          background: "rgba(0, 0, 0, 0.65)",
+          backdropFilter: "blur(24px) saturate(140%)",
+          WebkitBackdropFilter: "blur(24px) saturate(140%)",
+          borderBottom: "1px solid rgba(139, 92, 246, 0.15)",
         }}
       >
         <div
@@ -79,20 +80,31 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
             alignItems: "center",
             justifyContent: "space-between",
             gap: "16px",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <Link
             to="/"
             style={{
               textDecoration: "none",
-              fontFamily: "var(--pf-font-display, system-ui)",
-              fontSize: "1.125rem",
-              fontWeight: 800,
-              letterSpacing: "-0.03em",
-              color: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
             }}
           >
-            Pathfinder
+            <PathfinderLogo size={40} />
+            <span
+              style={{
+                fontFamily: "var(--pf-font-display, system-ui)",
+                fontSize: "1.125rem",
+                fontWeight: 800,
+                letterSpacing: "-0.03em",
+                color: "#FFFFFF",
+              }}
+            >
+              Pathfinder
+            </span>
           </Link>
 
           <nav
@@ -115,7 +127,33 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
               onMouseEnter={(e) => (e.currentTarget.style.color = "#FFFFFF")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
             >
-              Precios
+              Ver planes
+            </Link>
+            <Link
+              to="/what-is-pathfinder"
+              style={{
+                textDecoration: "none",
+                color: "rgba(255,255,255,0.75)",
+                fontWeight: 500,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#FFFFFF")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
+            >
+              Qué es Pathfinder
+            </Link>
+            <Link
+              to="/how-it-works"
+              style={{
+                textDecoration: "none",
+                color: "rgba(255,255,255,0.75)",
+                fontWeight: 500,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#FFFFFF")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
+            >
+              Cómo funciona
             </Link>
             {session ? (
               <div ref={menuRef} style={{ position: "relative" }}>

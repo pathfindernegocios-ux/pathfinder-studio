@@ -90,7 +90,7 @@ const HeroMediaWall: React.FC<HeroMediaWallProps> = ({ children }) => {
         position: "relative",
         minHeight: "90vh",
         overflow: "hidden",
-        background: "#0A0A0A",
+        background: "#000000",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -107,9 +107,9 @@ const HeroMediaWall: React.FC<HeroMediaWallProps> = ({ children }) => {
           pointerEvents: "none",
         }}
       >
-        <MediaRow ids={ROW_TOP} direction="left" duration={90} blur={3} opacity={0.55} offsetY="6%" />
-        <MediaRow ids={ROW_MIDDLE} direction="right" duration={75} blur={2} opacity={0.7} offsetY="34%" />
-        <MediaRow ids={ROW_BOTTOM} direction="left" duration={100} blur={4} opacity={0.5} offsetY="62%" />
+        <MediaRow ids={ROW_TOP} direction="left" duration={90} blur={0} opacity={0.85} offsetY="6%" />
+        <MediaRow ids={ROW_MIDDLE} direction="right" duration={75} blur={0} opacity={1} offsetY="34%" />
+        <MediaRow ids={ROW_BOTTOM} direction="left" duration={100} blur={0} opacity={0.85} offsetY="62%" />
       </div>
 
       <div
@@ -118,7 +118,7 @@ const HeroMediaWall: React.FC<HeroMediaWallProps> = ({ children }) => {
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse at center, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.65) 35%, rgba(10,10,10,0.4) 65%, rgba(10,10,10,0.75) 100%)",
+            "radial-gradient(ellipse at center, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.45) 35%, rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.7) 100%)",
           pointerEvents: "none",
         }}
       />

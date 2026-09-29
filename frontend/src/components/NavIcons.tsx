@@ -4,10 +4,10 @@
 // Usamos lucide-react para consistencia con el resto de la app.
 import React from 'react';
 import {
-  Sparkles,
   LayoutGrid,
   Server,
-  GraduationCap,
+  BookOpen,
+  SquareTerminal,
   Settings as SettingsLucide,
   HelpCircle,
   Folder,
@@ -23,7 +23,7 @@ const DEFAULT_SIZE = 18;
 const DEFAULT_STROKE = 1.8;
 
 export const StudioIcon: React.FC<IconProps> = ({ className, size = DEFAULT_SIZE }) => (
-  <Sparkles className={className} size={size} strokeWidth={DEFAULT_STROKE} />
+  <SquareTerminal className={className} size={size} strokeWidth={DEFAULT_STROKE} />
 );
 
 export const ProjectsIcon: React.FC<IconProps> = ({ className, size = DEFAULT_SIZE }) => (
@@ -39,7 +39,7 @@ export const AssetsIcon: React.FC<IconProps> = ({ className, size = DEFAULT_SIZE
 );
 
 export const AcademyIcon: React.FC<IconProps> = ({ className, size = DEFAULT_SIZE }) => (
-  <GraduationCap className={className} size={size} strokeWidth={DEFAULT_STROKE} />
+  <BookOpen className={className} size={size} strokeWidth={DEFAULT_STROKE} />
 );
 
 export const StationIcon: React.FC<IconProps> = ({ className, size = DEFAULT_SIZE }) => (

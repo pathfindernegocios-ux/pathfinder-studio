@@ -272,7 +272,7 @@ function App() {
   const hasUsername = !!profile?.username;
 
   return (
-    <ThemeProvider enabled={!!session}>
+    <ThemeProvider enabled={true}>
       <GenerationProvider stationId={session?.user?.id || null}>
         <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>

@@ -84,7 +84,7 @@ const HomePage: React.FC = () => {
               gap: "12px",
               justifyContent: "center",
               flexWrap: "wrap",
-              marginBottom: "20px",
+              marginBottom: "12px",
             }}
           >
             <Link
@@ -106,7 +106,7 @@ const HomePage: React.FC = () => {
               {session ? "Ir al Studio" : "Empezar gratis"}
             </Link>
             <Link
-              to="/pricing"
+              to="/what-is-pathfinder"
               style={{
                 textDecoration: "none",
                 padding: "14px 32px",
@@ -121,6 +121,36 @@ const HomePage: React.FC = () => {
                 backdropFilter: "blur(8px)",
               }}
             >
+              Qué es Pathfinder
+            </Link>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: "16px",
+            }}
+          >
+            <Link
+              to="/pricing"
+              style={{
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "8px 16px",
+                background: "transparent",
+                border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: "9999px",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.8125rem",
+                fontWeight: 500,
+                color: "rgba(255,255,255,0.9)",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
               Ver planes
             </Link>
           </div>
@@ -131,40 +161,15 @@ const HomePage: React.FC = () => {
               fontSize: "0.8125rem",
               color: "rgba(255,255,255,0.7)",
               margin: 0,
-              marginBottom: "16px",
             }}
           >
             Sin tarjeta · Sin créditos por generación · Registro en 20 segundos con Google
           </p>
-
-          <Link
-            to="/what-is-pathfinder"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              textDecoration: "none",
-              padding: "8px 16px",
-              background: "rgba(255,255,255,0.08)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "9999px",
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "0.8125rem",
-              fontWeight: 500,
-              color: "rgba(255,255,255,0.9)",
-              backdropFilter: "blur(8px)",
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-          >
-            Qué es Pathfinder →
-          </Link>
         </div>
       </HeroMediaWall>
 
       {/* ============ FEATURES ============ */}
-      <Section bg="var(--pf-bg-secondary, #FAFAFA)">
+      <Section bg="#000000">
         <div style={{ textAlign: "center", marginBottom: "56px" }}>
           <h2
             style={{
@@ -174,6 +179,7 @@ const HomePage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "12px",
+              color: "#FFFFFF",
             }}
           >
             Todo lo que necesitas para crear
@@ -182,7 +188,7 @@ const HomePage: React.FC = () => {
             style={{
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "1rem",
-              color: "var(--pf-text-secondary, #525252)",
+              color: "rgba(255,255,255,0.65)",
               maxWidth: "520px",
               margin: "0 auto",
             }}
@@ -223,19 +229,21 @@ const HomePage: React.FC = () => {
             <div
               key={i}
               style={{
-                background: "var(--pf-bg-elevated)",
-                border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                background: "rgba(139, 92, 246, 0.04)",
+                border: "1px solid rgba(139, 92, 246, 0.15)",
                 borderRadius: "16px",
                 padding: "28px",
-                transition: "transform 0.2s, box-shadow 0.2s",
+                transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.06)";
+                e.currentTarget.style.boxShadow = "0 12px 32px rgba(139, 92, 246, 0.15)";
+                e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.35)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
                 e.currentTarget.style.boxShadow = "none";
+                e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.15)";
               }}
             >
               <div
@@ -243,12 +251,14 @@ const HomePage: React.FC = () => {
                   width: "44px",
                   height: "44px",
                   borderRadius: "12px",
-                  background: "var(--pf-bg-secondary, #FAFAFA)",
+                  background: "rgba(34, 211, 238, 0.08)",
+                  border: "1px solid rgba(34, 211, 238, 0.2)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "var(--pf-text-primary, #0A0A0A)",
+                  color: "#67E8F9",
                   marginBottom: "16px",
+                  boxShadow: "0 0 20px -8px rgba(34, 211, 238, 0.5)",
                 }}
               >
                 {f.icon}
@@ -261,6 +271,7 @@ const HomePage: React.FC = () => {
                   letterSpacing: "-0.02em",
                   margin: 0,
                   marginBottom: "8px",
+                  color: "#FFFFFF",
                 }}
               >
                 {f.title}
@@ -270,7 +281,7 @@ const HomePage: React.FC = () => {
                   fontFamily: "var(--pf-font-ui, system-ui)",
                   fontSize: "0.875rem",
                   lineHeight: 1.55,
-                  color: "var(--pf-text-secondary, #525252)",
+                  color: "rgba(255,255,255,0.6)",
                   margin: 0,
                 }}
               >
@@ -282,7 +293,7 @@ const HomePage: React.FC = () => {
       </Section>
 
       {/* ============ HOW IT WORKS ============ */}
-      <Section>
+      <Section bg="#000000">
         <div style={{ textAlign: "center", marginBottom: "56px" }}>
           <h2
             style={{
@@ -292,6 +303,7 @@ const HomePage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "12px",
+              color: "#FFFFFF",
             }}
           >
             Así de simple
@@ -300,7 +312,7 @@ const HomePage: React.FC = () => {
             style={{
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "1rem",
-              color: "var(--pf-text-secondary, #525252)",
+              color: "rgba(255,255,255,0.65)",
               maxWidth: "520px",
               margin: "0 auto",
             }}
@@ -328,9 +340,10 @@ const HomePage: React.FC = () => {
                   fontFamily: "var(--pf-font-display, system-ui)",
                   fontSize: "2rem",
                   fontWeight: 800,
-                  color: "var(--pf-text-muted, #A1A1AA)",
+                  color: "#67E8F9",
                   letterSpacing: "-0.04em",
                   marginBottom: "12px",
+                  textShadow: "0 0 24px rgba(34, 211, 238, 0.45)",
                 }}
               >
                 {s.n}
@@ -343,6 +356,7 @@ const HomePage: React.FC = () => {
                   letterSpacing: "-0.02em",
                   margin: 0,
                   marginBottom: "6px",
+                  color: "#FFFFFF",
                 }}
               >
                 {s.title}
@@ -352,7 +366,7 @@ const HomePage: React.FC = () => {
                   fontFamily: "var(--pf-font-ui, system-ui)",
                   fontSize: "0.875rem",
                   lineHeight: 1.55,
-                  color: "var(--pf-text-secondary, #525252)",
+                  color: "rgba(255,255,255,0.6)",
                   margin: 0,
                 }}
               >
@@ -367,8 +381,8 @@ const HomePage: React.FC = () => {
       <section
         style={{
           padding: "100px 24px",
-          background: "var(--pf-text-primary, #0A0A0A)",
-          color: "var(--pf-text-inverse, #FFFFFF)",
+          background: "#0A0A0A",
+          color: "#FFFFFF",
           textAlign: "center",
         }}
       >
@@ -381,7 +395,7 @@ const HomePage: React.FC = () => {
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
-              color: "var(--pf-text-inverse, #FFFFFF)",
+              color: "#FFFFFF",
             }}
           >
             Empieza gratis hoy
@@ -403,8 +417,8 @@ const HomePage: React.FC = () => {
               textDecoration: "none",
               display: "inline-block",
               padding: "16px 40px",
-              background: "var(--pf-bg-elevated)",
-              color: "var(--pf-text-primary, #0A0A0A)",
+              background: "#FFFFFF",
+              color: "#0A0A0A",
               borderRadius: "9999px",
               fontFamily: "var(--pf-font-ui, system-ui)",
               fontSize: "1rem",

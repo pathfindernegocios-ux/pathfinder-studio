@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, Rocket, Play, ArrowDown } from "lucide-react";
+import PathfinderLogo from "../components/PathfinderLogo";
 
 // ============================================================
 // MEDIA URLs — subí los videos a Storage y pegá las URLs acá.
@@ -324,11 +325,10 @@ const WelcomePage: React.FC = () => {
               alignItems: "center",
               justifyContent: "center",
               marginBottom: "32px",
-              color: "#a5b4fc",
-              filter: "drop-shadow(0 4px 20px rgba(99, 102, 241, 0.5))",
+              filter: "drop-shadow(0 4px 24px rgba(34, 211, 238, 0.55))",
             }}
           >
-            <Sparkles size={56} strokeWidth={1.5} />
+            <PathfinderLogo size={120} />
           </div>
 
           <h1
