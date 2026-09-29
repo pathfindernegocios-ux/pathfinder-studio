@@ -71,7 +71,7 @@ export function useModels(): UseModelsResult {
       setUnlocks((unlocksRes.data ?? []) as UserModelUnlock[]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error cargando modelos';
-      console.error('[useModels]', msg);
+      void 0;
       setError(msg);
     } finally {
       setLoading(false);

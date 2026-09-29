@@ -144,7 +144,7 @@ const StudioPage: React.FC = () => {
         updateSessionItem(item.id, { status: 'temporary' });
       }
     } catch (error) {
-      console.error('Error saving:', error);
+      void 0;
       updateSessionItem(item.id, { status: 'temporary' });
     }
   };
@@ -164,16 +164,12 @@ const StudioPage: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error("Error downloading:", error);
+      void 0;
     }
   };
 
   const handleRetry = (item: SessionItem) => {
-    console.log('[handleRetry] Variación disparada', {
-      modelId: item.modelId,
-      modelLabel: item.modelLabel,
-      params: item.params,
-    });
+    void 0;
     window.dispatchEvent(new CustomEvent('pathfinder-load-config', {
       detail: {
         prompt: item.prompt,

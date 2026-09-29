@@ -56,7 +56,7 @@ export const useSignedUrl = (creationId: string | null) => {
           }
         }
       } catch (err) {
-        console.error(`[useSignedUrl] Error fetching URL for ${creationId}:`, err);
+        void 0;
         if (isMounted) setError(true);
       } finally {
         if (isMounted) setLoading(false);

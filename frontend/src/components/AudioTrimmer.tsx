@@ -103,7 +103,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
         const max = Math.max(...newPeaks, 0.0001);
         setPeaks(newPeaks.map((p) => p / max));
       } catch (err) {
-        console.error("[AudioTrimmer] decode error:", err);
+        void 0;
         if (!cancelled) setPeaks(new Array(bars).fill(0.5));
       } finally {
         if (!cancelled) setLoading(false);
@@ -124,7 +124,7 @@ const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
       if (audio.currentTime < startSec || audio.currentTime >= endSec) {
         audio.currentTime = startSec;
       }
-      audio.play().catch((e) => console.error("[AudioTrimmer] play:", e));
+      audio.play().catch(() => void 0);
     }
   }, [isPlaying, startSec, endSec]);
 

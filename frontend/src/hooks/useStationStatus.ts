@@ -65,7 +65,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
           latestByModel.set(row.model_id, row);
         }
       }
-      console.log(`[useStationStatus] Filas totales: ${data.length} | Modelos únicos: ${latestByModel.size}`);
+      void 0;
 
       // 3. Obtener JWT una sola vez
       const { data: { session } } = await supabase.auth.getSession();
@@ -89,15 +89,15 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
           }
 
           try {
-            console.log(`[useStationStatus] Checking ${modelId} @ ${row.gradio_url}...`);
+            void 0;
             const client = await withTimeout(Client.connect(row.gradio_url), TIMEOUT_MS);
-            console.log(`[useStationStatus] ✓ ${modelId} connected`);
+            void 0;
             const statusResult = await withTimeout(client.predict('/status', [token]), TIMEOUT_MS);
             const statusVal = Array.isArray(statusResult.data) ? statusResult.data[0] : statusResult.data;
-            console.log(`[useStationStatus] ✓ ${modelId} status=${statusVal}`);
+            void 0;
             results[modelId] = (statusVal === 'READY' || statusVal === 'BUSY') ? 'online' : 'offline';
           } catch (e: any) {
-            console.error(`[useStationStatus] ✗ ${modelId} failed:`, e?.message || e);
+            void 0;
             results[modelId] = 'offline';
           }
         })
@@ -106,7 +106,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       setStatusMap(results);
       setLoading(false);
     } catch (err) {
-      console.error('[useStationStatus]', err);
+      void 0;
       setLoading(false);
     }
   }, [stationId]);

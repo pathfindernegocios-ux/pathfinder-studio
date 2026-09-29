@@ -172,7 +172,7 @@ const AccountSettingsPage: React.FC = () => {
           setLoadingSubscription(false);
         }
       } catch (e) {
-        console.error("[Settings] subscription fetch error:", e);
+        void 0;
         if (!cancelled) setLoadingSubscription(false);
       }
     };
@@ -241,7 +241,7 @@ const AccountSettingsPage: React.FC = () => {
       setProfileMsg({ type: "ok", text: "Cambios guardados." });
       setSavingProfile(false);
     } catch (err) {
-      console.error("[Settings] save profile error:", err);
+      void 0;
       setProfileMsg({ type: "err", text: "Ocurrió un error. Intenta de nuevo." });
       setSavingProfile(false);
     }
@@ -276,7 +276,7 @@ const AccountSettingsPage: React.FC = () => {
       }
       window.location.href = data.url;
     } catch (err) {
-      console.error("[Settings] manage subscription error:", err);
+      void 0;
       alert("Ocurrió un error. Intenta de nuevo.");
       setManagingSubscription(false);
     }
@@ -294,7 +294,7 @@ const AccountSettingsPage: React.FC = () => {
         setSecurityMsg("Se cerraron todas las demás sesiones.");
       }
     } catch (err) {
-      console.error("[Settings] revoke sessions error:", err);
+      void 0;
       setSecurityMsg("Ocurrió un error inesperado.");
     } finally {
       setRevoking(false);
@@ -330,7 +330,7 @@ const AccountSettingsPage: React.FC = () => {
       await supabase.auth.signOut();
       window.location.href = "/auth";
     } catch (err) {
-      console.error("[Settings] delete account error:", err);
+      void 0;
       setDeleteError("Ocurrió un error inesperado.");
       setDeleting(false);
     }

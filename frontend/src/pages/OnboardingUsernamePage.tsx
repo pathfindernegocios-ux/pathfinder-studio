@@ -116,7 +116,7 @@ const OnboardingUsernamePage: React.FC = () => {
           setIsFetchingSuggestion(false);
         }
       } catch (err) {
-        console.error("[Onboarding] suggest-username failed:", err);
+        void 0;
         if (!cancelled) {
           setSuggestion(base || "user");
           setUsername(base || "user");
@@ -175,7 +175,7 @@ const OnboardingUsernamePage: React.FC = () => {
           window.location.href = "/how-it-works";
         }
       } catch (err) {
-        console.error("[Onboarding] update failed:", err);
+        void 0;
         setError("Ocurrió un error inesperado. Intenta de nuevo.");
         setIsSubmitting(false);
       }

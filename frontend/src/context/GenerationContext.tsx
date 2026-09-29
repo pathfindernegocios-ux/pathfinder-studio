@@ -302,7 +302,7 @@ export function GenerationProvider({
           }
         }
       } catch (err) {
-        console.error("Error polling status:", err);
+        void 0;
       }
     };
     poll();
@@ -327,7 +327,7 @@ export function GenerationProvider({
         lastLogSeqRef.current = entries[entries.length - 1].seq;
         setLogs((prev) => [...prev, ...entries].slice(-400));
       } catch (err) {
-        console.error("Error polling logs:", err);
+        void 0;
       }
     };
     poll();
@@ -416,7 +416,7 @@ export function GenerationProvider({
           setCapability(next);
         }
       } catch (err) {
-        console.error("Error detectando capability:", err);
+        void 0;
         const models = imageModelsRef.current;
         if (Array.isArray(models) && models.length > 0 && capabilityRef.current !== "image") {
           setCapability("image");
@@ -504,7 +504,7 @@ export function GenerationProvider({
         .filter((it: any) => it && (it.status === "complete" || it.status === "preparing" || it.status === "running"))
         .map(mapBackendItem);
     } catch (err) {
-      console.error("Error fetching session_history:", err);
+      void 0;
       return [];
     }
   }, [getClient]);
@@ -988,7 +988,7 @@ export function GenerationProvider({
           }
         }
       } catch (err) {
-        console.error("Error crítico en generación:", err);
+        void 0;
         setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
         setGenerationInfo(prev => ({ ...prev, status: "error", finished_at: Date.now() / 1000 }));
       } finally {

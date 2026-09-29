@@ -19,7 +19,7 @@ const GenerationResult: React.FC<GenerationResultProps> = ({ creation }) => {
           const url = await getDownloadUrl(creation.id);
           setMediaUrl(url);
         } catch (error) {
-          console.error('Error loading media URL:', error);
+          void 0;
           setMediaUrl(null);
         } finally {
           setLoadingUrl(false);

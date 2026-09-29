@@ -103,7 +103,7 @@ export function useCreations() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error al obtener creaciones:", error.message);
+      void 0;
       return [];
     }
 
@@ -124,7 +124,7 @@ export function useCreations() {
     });
 
     if (error) {
-      console.error("Error al eliminar creación:", error.message);
+      void 0;
       return false;
     }
 
@@ -138,7 +138,7 @@ export function useCreations() {
     });
 
     if (error) {
-      console.error("Error al obtener URL de descarga:", error.message);
+      void 0;
       return null;
     }
 

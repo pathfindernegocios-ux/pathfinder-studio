@@ -12,7 +12,7 @@ export function setPostAuthRedirect(path: string): void {
       localStorage.setItem(KEY, path);
     }
   } catch (e) {
-    console.warn("[postAuthRedirect] set failed:", e);
+    void 0;
   }
 }
 
@@ -27,7 +27,7 @@ export function consumePostAuthRedirect(): string | null {
     if (v) localStorage.removeItem(KEY);
     return v;
   } catch (e) {
-    console.warn("[postAuthRedirect] consume failed:", e);
+    void 0;
     return null;
   }
 }

@@ -109,7 +109,7 @@ const AvatarPicker: React.FC<AvatarPickerProps> = ({
         onSaved(url);
         onClose();
       } catch (e) {
-        console.error("[AvatarPicker] upload failed:", e);
+        void 0;
         setError(e instanceof Error ? e.message : "No se pudo subir la imagen.");
         setIsSaving(false);
       }
@@ -124,7 +124,7 @@ const AvatarPicker: React.FC<AvatarPickerProps> = ({
         onSaved(selectedPreset);
         onClose();
       } catch (e) {
-        console.error("[AvatarPicker] preset save failed:", e);
+        void 0;
         setError(e instanceof Error ? e.message : "No se pudo guardar el preset.");
         setIsSaving(false);
       }

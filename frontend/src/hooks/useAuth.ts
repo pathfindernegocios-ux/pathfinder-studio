@@ -47,7 +47,7 @@ export function useAuth(): UseAuthResult {
         localStorage.removeItem("pathfinder_has_entered_studio");
       }
     } catch (e) {
-      console.warn("Error accediendo a localStorage:", e);
+      void 0;
     }
   }, [hasEnteredStudio]);
 
@@ -67,11 +67,11 @@ export function useAuth(): UseAuthResult {
       if (!error && data) {
         setProfile(data);
       } else if (error) {
-        console.error("[useAuth] Error fetching profile:", error);
+        void 0;
         if (error.code === "PGRST116") setProfile(null);
       }
     } catch (e) {
-      console.error("[useAuth] Error fetching profile:", e);
+      void 0;
     } finally {
       setIsProfileLoading(false);
     }

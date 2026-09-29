@@ -447,7 +447,7 @@ const StationPage: React.FC = () => {
       await shutdownStation(modelId, stationId);
       await refreshStationStatus();
     } catch (e) {
-      console.error('Error apagando estación:', e);
+      void 0;
       alert('Hubo un problema al apagar la estación. Intenta de nuevo.');
     } finally {
       setShuttingDownId(null);
@@ -459,7 +459,7 @@ const StationPage: React.FC = () => {
     try {
       await downloadNotebook(modelId);
     } catch (e) {
-      console.error('Error descargando notebook:', e);
+      void 0;
       alert('No se pudo descargar el notebook. Intenta de nuevo.');
     } finally {
       setDownloadingId(null);

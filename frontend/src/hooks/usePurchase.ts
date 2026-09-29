@@ -73,7 +73,7 @@ export function usePurchase(): UsePurchaseResult {
       // Redirect to Stripe Checkout
       window.location.href = data.url;
     } catch (err) {
-      console.error("[usePurchase] error:", err);
+      void 0;
       setError(
         err instanceof Error ? err.message : "Error inesperado al iniciar el pago.",
       );

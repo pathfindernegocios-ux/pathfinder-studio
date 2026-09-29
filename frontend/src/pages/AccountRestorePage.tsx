@@ -52,7 +52,7 @@ const AccountRestorePage: React.FC = () => {
 
       window.location.href = "/studio";
     } catch (err) {
-      console.error("[AccountRestore] error:", err);
+      void 0;
       setError("Ocurrió un error. Intenta de nuevo.");
       setIsRestoring(false);
     }

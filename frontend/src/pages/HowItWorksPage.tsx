@@ -237,7 +237,7 @@ export const HowItWorksContent: React.FC = () => {
         .update({ how_it_works_viewed_at: new Date().toISOString() })
         .eq("id", session.user.id);
     } catch (e) {
-      console.error("[HowItWorks] failed to mark as viewed:", e);
+      void 0;
     }
     window.location.href = "/studio";
   };

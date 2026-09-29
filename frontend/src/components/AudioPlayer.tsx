@@ -59,7 +59,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         setDuration(audioBuf.duration);
         onReady?.(audioBuf.duration);
       } catch (err) {
-        console.error("[AudioPlayer] Waveform error:", err);
+        void 0;
         if (!cancelled) setPeaks(new Array(bars).fill(0.5));
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -77,7 +77,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (isPlaying) {
       audio.pause();
     } else {
-      audio.play().catch((e) => console.error("[AudioPlayer] play error:", e));
+      audio.play().catch(() => void 0);
     }
   }, [isPlaying]);
 

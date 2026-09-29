@@ -28,7 +28,7 @@ const AuthCallbackPage: React.FC = () => {
         .single<Profile>();
 
       if (error || !data) {
-        console.error("[AuthCallback] profile fetch failed:", error);
+        void 0;
         return "/login";
       }
 

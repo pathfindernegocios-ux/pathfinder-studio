@@ -18,10 +18,10 @@ const CreationsPage: React.FC = () => {
         setLoading(true);
         setError(null);
         const data = await getCreations();
-        console.log('🏆 Sala de Trofeos: Creaciones cargadas:', data?.length || 0);
+        void 0;
         setCreations(data || []);
       } catch (err) {
-        console.error('Error loading creations:', err);
+        void 0;
         setError('No se pudieron cargar tus creaciones.');
       } finally {
         setLoading(false);

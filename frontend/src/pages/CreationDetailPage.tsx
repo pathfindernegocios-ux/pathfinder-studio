@@ -32,7 +32,7 @@ const CreationDetailPage: React.FC = () => {
         const found = allCreations.find((c: Creation) => c.id === id);
         setCreation(found || null);
       } catch (error) {
-        console.error('Error loading creation:', error);
+        void 0;
         setCreation(null);
       } finally {
         setLoading(false);
@@ -57,7 +57,7 @@ const CreationDetailPage: React.FC = () => {
         await deleteCreation(creation.id);
         navigate('/creations', { replace: true });
       } catch (error) {
-        console.error('Error deleting:', error);
+        void 0;
         alert('No se pudo eliminar la creación. Inténtalo de nuevo.');
         setIsDeleting(false);
       }
