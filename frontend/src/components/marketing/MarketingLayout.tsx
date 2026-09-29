@@ -64,9 +64,10 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          background: "rgba(255,255,255,0.85)",
-          backdropFilter: "blur(16px) saturate(180%)",
-          borderBottom: "1px solid var(--pf-border-subtle, #F4F4F5)",
+          background: "rgba(8, 4, 18, 0.9)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderBottom: "1px solid rgba(139, 92, 246, 0.12)",
         }}
       >
         <div
@@ -88,7 +89,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
               fontSize: "1.125rem",
               fontWeight: 800,
               letterSpacing: "-0.03em",
-              color: "var(--pf-text-primary, #0A0A0A)",
+              color: "#FFFFFF",
             }}
           >
             Pathfinder
@@ -107,9 +108,12 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
               to="/pricing"
               style={{
                 textDecoration: "none",
-                color: "var(--pf-text-secondary, #525252)",
+                color: "rgba(255,255,255,0.75)",
                 fontWeight: 500,
+                transition: "color 0.15s",
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#FFFFFF")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
             >
               Precios
             </Link>
@@ -123,9 +127,9 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                     gap: "8px",
                     padding: "6px 12px 6px 6px",
                     background: menuOpen
-                      ? "var(--pf-bg-secondary, #FAFAFA)"
-                      : "transparent",
-                    border: "1px solid var(--pf-border-default, #E5E5E5)",
+                      ? "rgba(255,255,255,0.12)"
+                      : "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.15)",
                     borderRadius: "9999px",
                     cursor: "pointer",
                     transition: "background 0.15s",
@@ -168,7 +172,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                       fontFamily: "var(--pf-font-ui, system-ui)",
                       fontSize: "0.8125rem",
                       fontWeight: 500,
-                      color: "var(--pf-text-primary, #0A0A0A)",
+                      color: "#FFFFFF",
                       maxWidth: "120px",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -180,7 +184,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                   <ChevronDown
                     size={14}
                     style={{
-                      color: "var(--pf-text-muted, #A1A1AA)",
+                      color: "rgba(255,255,255,0.6)",
                       transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)",
                       transition: "transform 0.15s",
                       flexShrink: 0,
@@ -287,8 +291,8 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                 style={{
                   textDecoration: "none",
                   padding: "8px 16px",
-                  background: "var(--pf-text-primary, #0A0A0A)",
-                  color: "#FFFFFF",
+                  background: "#FFFFFF",
+                  color: "#0A0A0A",
                   borderRadius: "9999px",
                   fontWeight: 600,
                 }}
