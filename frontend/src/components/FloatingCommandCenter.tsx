@@ -1145,8 +1145,14 @@ const FloatingCommandCenter: React.FC = () => {
       if (!client) { alert('Sin conexión al runtime'); return; }
       const result = await client.predict('/add_lora_url', [url, wanParams.mode, token]);
       const status = Array.isArray(result.data) ? result.data[0] : result.data;
-      if (typeof status === 'string' && status.startsWith('✅')) {
-        const name = status.replace('✅ Descargado:', '').trim();
+      const isSuccess = typeof status === 'string' && (
+        status.startsWith('✅') || status.startsWith('Descargado:')
+      );
+      if (isSuccess) {
+        const name = status
+          .replace(/^✅\s*Descargado:\s*/i, '')
+          .replace(/^Descargado:\s*/i, '')
+          .trim();
         setWanParams(prev => ({
           ...prev,
           loraItems: [...prev.loraItems, { name, mult: '1.0', enabled: true }],
@@ -1197,8 +1203,14 @@ const FloatingCommandCenter: React.FC = () => {
       if (!client) { alert('Sin conexión al runtime'); return; }
       const result = await client.predict('/add_lora_url', [url, token]);
       const status = Array.isArray(result.data) ? result.data[0] : result.data;
-      if (typeof status === 'string' && status.startsWith('✅')) {
-        const name = status.replace('✅ Descargado:', '').trim();
+      const isSuccess = typeof status === 'string' && (
+        status.startsWith('✅') || status.startsWith('Descargado:')
+      );
+      if (isSuccess) {
+        const name = status
+          .replace(/^✅\s*Descargado:\s*/i, '')
+          .replace(/^Descargado:\s*/i, '')
+          .trim();
         setVideoParams(prev => ({
           ...prev,
           loraItems: [...prev.loraItems, { name, mult: '1.0', enabled: true }],
@@ -1249,8 +1261,14 @@ const FloatingCommandCenter: React.FC = () => {
       if (!client) { alert('Sin conexión al runtime'); return; }
       const result = await client.predict('/add_lora_url', [url, token]);
       const status = Array.isArray(result.data) ? result.data[0] : result.data;
-      if (typeof status === 'string' && status.startsWith('✅')) {
-        const name = status.replace('✅ Descargado:', '').trim();
+      const isSuccess = typeof status === 'string' && (
+        status.startsWith('✅') || status.startsWith('Descargado:')
+      );
+      if (isSuccess) {
+        const name = status
+          .replace(/^✅\s*Descargado:\s*/i, '')
+          .replace(/^Descargado:\s*/i, '')
+          .trim();
         setLtx25Params(prev => ({
           ...prev,
           loraItems: [...prev.loraItems, { name, mult: '1.0', enabled: true }],
