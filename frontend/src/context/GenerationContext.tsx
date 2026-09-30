@@ -131,6 +131,8 @@ interface GenerationContextValue {
   discardSessionItem: (id: string) => void;
   clearSessionHistory: () => void;
   stationStatusMap: Record<string, 'online' | 'offline'>;
+  stationModelTypeMap: Record<string, 'image' | 'video' | 'audio'>;
+  stationBootingIds: string[];
   stationStatusLoading: boolean;
   refreshStationStatus: () => Promise<void>;
   getClient: () => Promise<any>;
@@ -247,6 +249,8 @@ export function GenerationProvider({
 
   const {
     statusMap: stationStatusMap,
+    modelTypeMap: stationModelTypeMap,
+    bootingIds: stationBootingIds,
     loading: stationStatusLoading,
     refresh: refreshStationStatus,
   } = useStationStatus(stationId);
@@ -1045,7 +1049,8 @@ export function GenerationProvider({
     sessionUptime, activeImageModelId, setActiveImageModelId, imageModels,
     activeVideoModelId, setActiveVideoModelId,
     sessionHistory, appendSessionItem, updateSessionItem, removeSessionItem, discardSessionItem, clearSessionHistory,
-    stationStatusMap, stationStatusLoading, refreshStationStatus,
+    stationStatusMap, stationModelTypeMap, stationBootingIds,
+    stationStatusLoading, refreshStationStatus,
     getClient,
   };
 

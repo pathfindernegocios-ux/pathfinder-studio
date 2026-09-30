@@ -7,13 +7,18 @@ export type StationStatus = 'online' | 'offline';
 
 interface RuntimeRow {
   model_id: string;
-  gradio_url: string;
+  gradio_url: string | null;
   state: string;
+  model_type: string | null;
   created_at: string;
 }
 
 interface UseStationStatusResult {
   statusMap: Record<string, StationStatus>;
+  /** Capability declarada por el notebook al registrarse en `runtimes`. */
+  modelTypeMap: Record<string, 'image' | 'video' | 'audio'>;
+  /** runtimeIds cuyo `state` es INSTALLING o CONNECTING (boot en curso). */
+  bootingIds: string[];
   loading: boolean;
   refresh: () => Promise<void>;
 }
@@ -31,11 +36,15 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 export function useStationStatus(stationId: string | null): UseStationStatusResult {
   const [statusMap, setStatusMap] = useState<Record<string, StationStatus>>({});
+  const [modelTypeMap, setModelTypeMap] = useState<Record<string, 'image' | 'video' | 'audio'>>({});
+  const [bootingIds, setBootingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAndCheck = useCallback(async () => {
     if (!stationId) {
       setStatusMap({});
+      setModelTypeMap({});
+      setBootingIds([]);
       setLoading(false);
       return;
     }
@@ -44,7 +53,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       // 1. Traer todas las filas de runtimes del usuario
       const { data, error } = await supabase
         .from('runtimes')
-        .select('model_id, gradio_url, state, created_at')
+        .select('model_id, gradio_url, state, model_type, created_at')
         .eq('station_id', stationId)
         .order('created_at', { ascending: false });
 
@@ -52,6 +61,8 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
 
       if (!Array.isArray(data) || data.length === 0) {
         setStatusMap({});
+        setModelTypeMap({});
+        setBootingIds([]);
         setLoading(false);
         return;
       }
@@ -65,7 +76,22 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
           latestByModel.set(row.model_id, row);
         }
       }
-      void 0;
+      // 2.b Construir modelTypeMap (uno por model_id, no por fila)
+      const nextModelTypeMap: Record<string, 'image' | 'video' | 'audio'> = {};
+      for (const [modelId, row] of latestByModel.entries()) {
+        const t = row.model_type;
+        if (t === 'image' || t === 'video' || t === 'audio') {
+          nextModelTypeMap[modelId] = t;
+        }
+      }
+
+      // 2.c Construir bootingIds: model_ids cuyo último state es INSTALLING/CONNECTING
+      const nextBootingIds: string[] = [];
+      for (const [modelId, row] of latestByModel.entries()) {
+        if (row.state === 'INSTALLING' || row.state === 'CONNECTING') {
+          nextBootingIds.push(modelId);
+        }
+      }
 
       // 3. Obtener JWT una sola vez
       const { data: { session } } = await supabase.auth.getSession();
@@ -104,6 +130,8 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       );
 
       setStatusMap(results);
+      setModelTypeMap(nextModelTypeMap);
+      setBootingIds(nextBootingIds);
       setLoading(false);
     } catch (err) {
       void 0;
@@ -117,5 +145,5 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
     return () => window.clearInterval(interval);
   }, [fetchAndCheck]);
 
-  return { statusMap, loading, refresh: fetchAndCheck };
+  return { statusMap, modelTypeMap, bootingIds, loading, refresh: fetchAndCheck };
 }

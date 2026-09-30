@@ -13,6 +13,7 @@ import AssistantAvatar from '../components/AssistantAvatar';
 import NebulaLoader from '../components/NebulaLoader';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { getRuntimeLabel } from '../config/models';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -264,6 +265,12 @@ const StudioPage: React.FC = () => {
           ? 'var(--pf-success)'
           : 'var(--pf-text-muted)';
 
+        // Pill del topbar: durante el boot mostramos primero "Estación detectada"
+        // (primer segundo, cuando el progreso es casi cero) y luego
+        // "Cargando <Modelo>..." con el nombre real del runtime.
+        const runtimeLabel = currentModelId ? getRuntimeLabel(currentModelId) : null;
+        const isVeryEarlyBoot = isBooting && boot.progress < 0.05;
+
         const label = isDetecting
           ? 'Detectando estación...'
           : isError
@@ -271,9 +278,15 @@ const StudioPage: React.FC = () => {
           : isStale
           ? 'Sin señal hace 4 min'
           : isBooting
-          ? `Estación detectada. Cargando...`
+          ? isVeryEarlyBoot
+            ? 'Estación detectada'
+            : runtimeLabel
+              ? `Cargando ${runtimeLabel}...`
+              : 'Estación detectada. Cargando...'
           : isReady
-          ? 'Estación lista'
+          ? runtimeLabel
+            ? `Estación lista · ${runtimeLabel}`
+            : 'Estación lista'
           : 'Estación offline';
 
         // Anillo SVG — girando en detecting, progreso en booting, dot simple en el resto

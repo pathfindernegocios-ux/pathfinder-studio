@@ -438,6 +438,9 @@ const FloatingCommandCenter: React.FC = () => {
   // cuando aparece un modelo NUEVO online.
   const hasAutoSelectedRef = useRef(false);
   const lastOnlineIdsRef = useRef<Set<string>>(new Set());
+  // Anti-rebote para el auto-select durante boot: no cambiar de tab más de
+  // una vez por cada runtimeId que arranca.
+  const bootAutoSelectedRef = useRef<Set<string>>(new Set());
 
   // Índice del disclaimer: se elige al azar al montar. Cambia en cada refresh
   // (o al remontar el FCM cuando se navega a otra página y se vuelve a Studio).
@@ -469,6 +472,8 @@ const FloatingCommandCenter: React.FC = () => {
     activeVideoModelId,
     setActiveVideoModelId,
     stationStatusMap,
+    stationModelTypeMap,
+    stationBootingIds,
     getClient,
     stationId,
   } = useGenerationContext();
@@ -701,6 +706,55 @@ const FloatingCommandCenter: React.FC = () => {
     ltx25Params.loraItems,
     videoParams.loraItems,
   ]);
+
+  // ── AUTO-SELECT POR BOOT (Fase 2 extendida) ──
+  // Se dispara en cuanto se detecta un notebook arrancando (INSTALLING o
+  // CONNECTING) aunque todavía no esté online. Cambia el tab + el modelo
+  // seleccionado según el `model_type` que el notebook reportó a Supabase.
+  useEffect(() => {
+    if (!stationBootingIds || stationBootingIds.length === 0) return;
+
+    // Elegir el runtimeId que arranca: si hay varios, tomamos el primero
+    // (el más probable es que sea uno solo a la vez).
+    const targetRuntimeId = stationBootingIds.find(id => !bootAutoSelectedRef.current.has(id));
+    if (!targetRuntimeId) return;
+
+    const targetCap = stationModelTypeMap[targetRuntimeId];
+    if (!targetCap) return;
+
+    // Buscar el primer model de esa capability que use ese runtimeId
+    const model = MODELS_BY_CAPABILITY[targetCap].find(
+      m => m.runtimeId === targetRuntimeId && !m.comingSoon
+    );
+    if (!model) return;
+
+    // Cambiar tab y seleccionar el modelo
+    if (activeTab !== targetCap) {
+      setActiveTab(targetCap);
+      setCapability(targetCap);
+    }
+
+    if (targetCap === 'video') {
+      setSelectedVideoModelId(model.id);
+      setActiveVideoModelId(model.runtimeId);
+      if (model.id === 'wan-i2v') setWanParams(prev => ({ ...prev, mode: 'i2v' }));
+      else if (model.id === 'wan-t2v') setWanParams(prev => ({ ...prev, mode: 't2v' }));
+    } else if (targetCap === 'image') {
+      setSelectedImageModelId(model.id);
+      if (setActiveImageModelId) setActiveImageModelId(model.id);
+    } else if (targetCap === 'audio') {
+      setSelectedTtsModelId(model.id);
+      setTtsParams(prev => ({
+        ...prev,
+        voiceMode: model.id === 'omnivoice' ? 'VD' : 'A',
+        language: model.id === 'omnivoice' ? 'Auto' : 'Spanish',
+        steps: model.id === 'omnivoice' ? 32 : 25,
+      }));
+    }
+
+    bootAutoSelectedRef.current.add(targetRuntimeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationBootingIds, stationModelTypeMap]);
 
   // ── AUTO-SELECT ──
   // Reglas:

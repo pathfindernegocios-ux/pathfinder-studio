@@ -108,3 +108,20 @@ export function getChatLabel(uiId: string, wanMode?: string): string {
   const all = [...IMAGE_MODELS, ...VIDEO_MODELS, ...AUDIO_MODELS];
   return all.find(m => m.id === uiId)?.name ?? uiId;
 }
+
+/**
+ * Dado un `runtimeId` (el `model_id` de la tabla `runtimes`), devuelve un label
+ * legible para mostrar al usuario. Se usa en el pill del topbar del Studio
+ * cuando la estación está arrancando.
+ *
+ * Casos especiales:
+ * - `wan-dual` no sabe si es i2v o t2v a nivel runtime → usa "Wan 2.1".
+ * - `tts-dual` no sabe si es OmniVoice o Index TTS → usa "TTS Dual".
+ * - Resto: busca el `name` del primer model con ese runtimeId.
+ */
+export function getRuntimeLabel(runtimeId: string): string {
+  if (runtimeId === 'wan-dual') return 'Wan 2.1';
+  if (runtimeId === 'tts-dual') return 'TTS Dual';
+  const all = [...IMAGE_MODELS, ...VIDEO_MODELS, ...AUDIO_MODELS];
+  return all.find(m => m.runtimeId === runtimeId)?.name ?? runtimeId;
+}
