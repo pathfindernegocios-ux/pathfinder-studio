@@ -114,21 +114,21 @@ function loadPersistedStudioSelection(): PersistedStudioSelection | null {
 }
 
 /** Carga las LoRAs de Wan desde localStorage, normalizando el shape. */
-function loadWanLoras(): { name: string; mult: string }[] {
+function loadWanLoras(): { name: string; mult: string; enabled: boolean }[] {
   const persisted = loadPersistedStudioSelection()?.wanLoras;
   if (!Array.isArray(persisted)) return [];
   return persisted
     .filter((x) => x && typeof x.name === 'string' && typeof x.mult === 'string')
-    .map((x) => ({ name: x.name, mult: x.mult }));
+    .map((x) => ({ name: x.name, mult: x.mult, enabled: x.enabled !== false }));
 }
 
 /** Carga las LoRAs de LTX 2.3 desde localStorage, normalizando el shape. */
-function loadVideoLoras(): { name: string; mult: string }[] {
+function loadVideoLoras(): { name: string; mult: string; enabled: boolean }[] {
   const persisted = loadPersistedStudioSelection()?.videoLoras;
   if (!Array.isArray(persisted)) return [];
   return persisted
     .filter((x) => x && typeof x.name === 'string' && typeof x.mult === 'string')
-    .map((x) => ({ name: x.name, mult: x.mult }));
+    .map((x) => ({ name: x.name, mult: x.mult, enabled: x.enabled !== false }));
 }
 
 /** Carga las LoRAs de LTX 2.5 MSR desde localStorage.
@@ -210,7 +210,7 @@ interface VideoParams {
   guideScale: number;
   seed: number;
   matchAudioDur: boolean;
-  loraItems: { name: string; mult: string }[];
+  loraItems: { name: string; mult: string; enabled: boolean }[];
 }
 
 interface WanParams {
@@ -226,7 +226,7 @@ interface WanParams {
   sampler: string;       // "UniPC (recomendado)"
   seed: number;          // -1
   forcePreset: boolean;  // false
-  loraItems: { name: string; mult: string }[];
+  loraItems: { name: string; mult: string; enabled: boolean }[];
 }
 
 interface Ltx25Params {
@@ -1012,9 +1012,19 @@ const FloatingCommandCenter: React.FC = () => {
           loraItems: extraLorasArr.map((name, i) => ({
             name,
             mult: loraMultsArr[i] || '1.0',
+            enabled: true,
           })),
         }));
         void 0;
+      } else if (detail.modelId === 'ltx-2.3' && extraLorasArr.length > 0) {
+        setVideoParams(prev => ({
+          ...prev,
+          loraItems: extraLorasArr.map((name, i) => ({
+            name,
+            mult: loraMultsArr[i] || '1.0',
+            enabled: true,
+          })),
+        }));
       } else if (detail.modelId === 'ltx-2.5-msr' && extraLorasArr.length > 0) {
         // Para LTX 2.5 MSR, siempre reconstruimos la lista completa.
         // Si la extraLoras vacía ya la maneja el default (Product Commercial).
@@ -1139,7 +1149,7 @@ const FloatingCommandCenter: React.FC = () => {
         const name = status.replace('✅ Descargado:', '').trim();
         setWanParams(prev => ({
           ...prev,
-          loraItems: [...prev.loraItems, { name, mult: '0.5' }],
+          loraItems: [...prev.loraItems, { name, mult: '1.0', enabled: true }],
         }));
         setNewLoraUrl('');
       } else {
@@ -1167,6 +1177,13 @@ const FloatingCommandCenter: React.FC = () => {
     }));
   };
 
+  const toggleLoraEnabledWan = (idx: number) => {
+    setWanParams(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.map((it, i) => i === idx ? { ...it, enabled: !it.enabled } : it),
+    }));
+  };
+
   // ── LoRA handlers para LTX 2.3 ──
   const handleAddLoraLtx23 = async () => {
     const url = newLoraUrl.trim();
@@ -1184,7 +1201,7 @@ const FloatingCommandCenter: React.FC = () => {
         const name = status.replace('✅ Descargado:', '').trim();
         setVideoParams(prev => ({
           ...prev,
-          loraItems: [...prev.loraItems, { name, mult: '1.0' }],
+          loraItems: [...prev.loraItems, { name, mult: '1.0', enabled: true }],
         }));
         setNewLoraUrl('');
       } else {
@@ -1209,6 +1226,13 @@ const FloatingCommandCenter: React.FC = () => {
     setVideoParams(prev => ({
       ...prev,
       loraItems: prev.loraItems.map((it, i) => i === idx ? { ...it, mult } : it),
+    }));
+  };
+
+  const toggleLoraEnabledLtx23 = (idx: number) => {
+    setVideoParams(prev => ({
+      ...prev,
+      loraItems: prev.loraItems.map((it, i) => i === idx ? { ...it, enabled: !it.enabled } : it),
     }));
   };
 
@@ -1325,8 +1349,8 @@ const FloatingCommandCenter: React.FC = () => {
             prompt,
             videoModelId: 'ltx-2.3',
             ...videoParams,
-            extraLoras: videoParams.loraItems.map(x => x.name),
-            loraMults: videoParams.loraItems.map(x => x.mult || '1.0').join(' '),
+            extraLoras: videoParams.loraItems.filter(x => x.enabled).map(x => x.name),
+            loraMults: videoParams.loraItems.filter(x => x.enabled).map(x => x.mult || '1.0').join(' '),
           });
         } else if (isVideoLtx25Msr) {
           // LTX 2.5 MSR (Multi-Subject Reference)
@@ -1369,8 +1393,8 @@ const FloatingCommandCenter: React.FC = () => {
             wanForcePreset: wanParams.forcePreset,
             seed: wanParams.seed,
             negativePrompt: '',
-            extraLoras: wanParams.loraItems.map(x => x.name),
-            loraMults: wanParams.loraItems.map(x => x.mult).join(' '),
+            extraLoras: wanParams.loraItems.filter(x => x.enabled).map(x => x.name),
+            loraMults: wanParams.loraItems.filter(x => x.enabled).map(x => x.mult).join(' '),
           });
         }
       } else if (activeTab === 'image') {
@@ -2130,8 +2154,34 @@ const FloatingCommandCenter: React.FC = () => {
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {videoParams.loraItems.map((item, i) => (
-                              <div key={`${item.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {videoParams.loraItems.map((item, i) => {
+                              const dimmed = !item.enabled;
+                              return (
+                              <div key={`${item.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: dimmed ? 0.45 : 1 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleLoraEnabledLtx23(i)}
+                                  disabled={isLoading}
+                                  title={item.enabled ? 'Desactivar' : 'Activar'}
+                                  style={{
+                                    width: '14px',
+                                    height: '14px',
+                                    borderRadius: '3px',
+                                    border: '1px solid var(--pf-border-default)',
+                                    background: item.enabled ? 'var(--pf-text-primary)' : 'var(--pf-bg-secondary)',
+                                    color: 'var(--pf-bg-elevated)',
+                                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: 0,
+                                    fontSize: '10px',
+                                    lineHeight: 1,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {item.enabled ? '✓' : ''}
+                                </button>
                                 <span
                                   title={item.name}
                                   style={{
@@ -2143,6 +2193,7 @@ const FloatingCommandCenter: React.FC = () => {
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
                                     minWidth: 0,
+                                    textDecoration: dimmed ? 'line-through' : 'none',
                                   }}
                                 >
                                   {item.name}
@@ -2191,7 +2242,8 @@ const FloatingCommandCenter: React.FC = () => {
                                   ×
                                 </button>
                               </div>
-                            ))}
+                            );
+                            })}
                             <div style={{ fontSize: '9px', color: 'var(--pf-text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
                               El orden importa: cada multiplicador aplica a su LoRA.
                             </div>
@@ -2308,8 +2360,34 @@ const FloatingCommandCenter: React.FC = () => {
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {wanParams.loraItems.map((item, i) => (
-                              <div key={`${item.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {wanParams.loraItems.map((item, i) => {
+                              const dimmed = !item.enabled;
+                              return (
+                              <div key={`${item.name}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: dimmed ? 0.45 : 1 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleLoraEnabledWan(i)}
+                                  disabled={isLoading}
+                                  title={item.enabled ? 'Desactivar' : 'Activar'}
+                                  style={{
+                                    width: '14px',
+                                    height: '14px',
+                                    borderRadius: '3px',
+                                    border: '1px solid var(--pf-border-default)',
+                                    background: item.enabled ? 'var(--pf-text-primary)' : 'var(--pf-bg-secondary)',
+                                    color: 'var(--pf-bg-elevated)',
+                                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: 0,
+                                    fontSize: '10px',
+                                    lineHeight: 1,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {item.enabled ? '✓' : ''}
+                                </button>
                                 <span
                                   title={item.name}
                                   style={{
@@ -2321,6 +2399,7 @@ const FloatingCommandCenter: React.FC = () => {
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
                                     minWidth: 0,
+                                    textDecoration: dimmed ? 'line-through' : 'none',
                                   }}
                                 >
                                   {item.name}
@@ -2369,7 +2448,8 @@ const FloatingCommandCenter: React.FC = () => {
                                   ×
                                 </button>
                               </div>
-                            ))}
+                            );
+                            })}
                             <div style={{ fontSize: '9px', color: 'var(--pf-text-muted)', fontStyle: 'italic', marginTop: '2px' }}>
                               El orden importa: cada multiplicador aplica a su LoRA.
                             </div>
