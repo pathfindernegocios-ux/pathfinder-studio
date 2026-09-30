@@ -389,16 +389,80 @@ const StudioPage: React.FC = () => {
 
                       {item.isGenerating && item.mediaType === 'audio' && (
                         <div style={{
-                          width: frameWidthStyle('1/1'),
-                          aspectRatio: '1/1',
+                          width: frameWidth,
+                          height: '80px',
                           background: '#000000',
-                          borderRadius: '10px',
+                          borderRadius: '12px',
                           border: '1px solid rgba(34, 211, 238, 0.2)',
                           boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)',
                           position: 'relative',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          paddingLeft: '16px',
+                          paddingRight: '16px',
+                          gap: '12px'
                         }}>
                           <NebulaLoader />
+                          <div style={{
+                            position: 'relative',
+                            zIndex: 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            width: '100%'
+                          }}>
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              background: 'rgba(34, 211, 238, 0.15)',
+                              border: '1px solid rgba(34, 211, 238, 0.4)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              boxShadow: '0 0 16px -4px rgba(34, 211, 238, 0.6)'
+                            }}>
+                              <div style={{
+                                width: '12px',
+                                height: '12px',
+                                borderRadius: '50%',
+                                background: '#67E8F9',
+                                animation: 'pf-audio-pulse 1.4s ease-in-out infinite'
+                              }} />
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                              <span style={{
+                                fontFamily: 'var(--pf-font-ui)',
+                                fontSize: '0.7rem',
+                                letterSpacing: '1.5px',
+                                color: '#67E8F9',
+                                fontWeight: 600
+                              }}>
+                                CREANDO...
+                              </span>
+                              <span style={{
+                                fontFamily: 'var(--pf-font-ui)',
+                                fontSize: '0.6875rem',
+                                color: 'rgba(255,255,255,0.5)'
+                              }}>
+                                Sintetizando voz
+                              </span>
+                            </div>
+                            {/* Mini waveform pulsante */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '24px' }}>
+                              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                                <div key={i} style={{
+                                  width: '3px',
+                                  background: '#67E8F9',
+                                  borderRadius: '2px',
+                                  opacity: 0.85,
+                                  animation: `pf-audio-bar 1s ease-in-out ${i * 0.1}s infinite`
+                                }} />
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       )}
 

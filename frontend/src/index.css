@@ -466,6 +466,41 @@ html {
   100% { transform: scale(3);   opacity: 0; }
 }
 
+/* ============================================================
+   Audio skeleton — pulso + barras
+   ============================================================ */
+@keyframes pf-audio-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50%      { transform: scale(1.35); opacity: 1; }
+}
+
+@keyframes pf-audio-bar {
+  0%, 100% { height: 6px; }
+  50%      { height: 22px; }
+}
+
+/* ============================================================
+   AudioPlayer — barras theme-aware
+   Light: negro / gris. Dark y Neon: cyan.
+   ============================================================ */
+.pf-audio-bar-past {
+  background: var(--pf-text-primary);
+  opacity: 1;
+}
+.pf-audio-bar-future {
+  background: var(--pf-text-primary);
+  opacity: 0.25;
+}
+:root[data-theme="dark"] .pf-audio-bar-past,
+:root[data-theme="neon"] .pf-audio-bar-past {
+  background: #67E8F9;
+}
+:root[data-theme="dark"] .pf-audio-bar-future,
+:root[data-theme="neon"] .pf-audio-bar-future {
+  background: var(--pf-text-muted);
+  opacity: 0.35;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(163, 163, 163, 0.4) transparent;

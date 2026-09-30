@@ -9,6 +9,7 @@ import { Client } from '@gradio/client';
 import { Power } from 'lucide-react';
 import { useGenerationContext } from '../context/GenerationContext';
 import { usePurchase } from '../hooks/usePurchase';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -288,7 +289,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
         </button>
       )}
 
-      {variant === 'owned' && onShutdown && (
+      {variant === 'owned' && onShutdown && isOnline && (
         <button
           onClick={() => onShutdown(model.id)}
           disabled={isShuttingDown}
@@ -298,27 +299,27 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
             justifyContent: 'center',
             gap: '8px',
             padding: '10px 16px',
-            background: 'var(--pf-bg-primary)',
-            color: 'var(--pf-text-secondary)',
-            border: '1px solid var(--pf-border-default)',
+            background: isShuttingDown ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
+            color: isShuttingDown ? 'var(--pf-text-muted)' : '#F87171',
+            border: `1px solid ${isShuttingDown ? 'var(--pf-border-default)' : 'rgba(239, 68, 68, 0.3)'}`,
             borderRadius: '10px',
             fontFamily: 'var(--pf-font-ui)',
             fontSize: '0.875rem',
             fontWeight: 500,
             letterSpacing: '-0.01em',
             cursor: isShuttingDown ? 'not-allowed' : 'pointer',
-            opacity: isShuttingDown ? 0.5 : 1,
+            opacity: isShuttingDown ? 0.6 : 1,
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
             if (isShuttingDown) return;
-            e.currentTarget.style.borderColor = 'var(--pf-error)';
-            e.currentTarget.style.color = 'var(--pf-error)';
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
           }}
           onMouseLeave={(e) => {
             if (isShuttingDown) return;
-            e.currentTarget.style.borderColor = 'var(--pf-border-default)';
-            e.currentTarget.style.color = 'var(--pf-text-secondary)';
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
           }}
         >
           {isShuttingDown ? (
@@ -430,14 +431,15 @@ const StationPage: React.FC = () => {
   const { startCheckout, state: purchaseState } = usePurchase();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [shuttingDownId, setShuttingDownId] = useState<string | null>(null);
+  const [shutdownTargetId, setShutdownTargetId] = useState<string | null>(null);
 
-  const handleShutdown = async (modelId: string) => {
-    const confirmed = window.confirm(
-      `¿Seguro que quieres apagar tu estación? Se perderán todos tus datos.\n\n` +
-      `Asegurate de guardar tus creaciones antes de continuar.`
-    );
-    if (!confirmed) return;
+  const handleShutdown = (modelId: string) => {
+    setShutdownTargetId(modelId);
+  };
 
+  const handleConfirmShutdown = async () => {
+    if (!shutdownTargetId) return;
+    const modelId = shutdownTargetId;
     setShuttingDownId(modelId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -451,6 +453,7 @@ const StationPage: React.FC = () => {
       alert('Hubo un problema al apagar la estación. Intenta de nuevo.');
     } finally {
       setShuttingDownId(null);
+      setShutdownTargetId(null);
     }
   };
 
@@ -648,18 +651,24 @@ const StationPage: React.FC = () => {
                 gap: '20px',
               }}
             >
-              {ownedModels.map((model) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  variant="owned"
-                  onDownload={handleDownload}
-                  isDownloading={downloadingId === model.id}
-                  isOnline={stationStatusMap[model.id] === 'online'}
-                  onShutdown={handleShutdown}
-                  isShuttingDown={shuttingDownId === model.id}
-                />
-              ))}
+              {[...ownedModels]
+                .sort((a, b) => {
+                  const aOnline = stationStatusMap[a.id] === 'online' ? 1 : 0;
+                  const bOnline = stationStatusMap[b.id] === 'online' ? 1 : 0;
+                  return bOnline - aOnline;
+                })
+                .map((model) => (
+                  <ModelCard
+                    key={model.id}
+                    model={model}
+                    variant="owned"
+                    onDownload={handleDownload}
+                    isDownloading={downloadingId === model.id}
+                    isOnline={stationStatusMap[model.id] === 'online'}
+                    onShutdown={handleShutdown}
+                    isShuttingDown={shuttingDownId === model.id}
+                  />
+                ))}
             </div>
           </section>
         )}
@@ -716,6 +725,18 @@ const StationPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={shutdownTargetId !== null}
+        title="¿Apagar esta estación?"
+        description="Se cerrará la sesión de Kaggle y los archivos temporales se perderán. Tus creaciones ya guardadas en Mis Creaciones se mantienen."
+        confirmLabel="Sí, apagar"
+        cancelLabel="Cancelar"
+        danger
+        loading={shuttingDownId !== null}
+        onConfirm={handleConfirmShutdown}
+        onCancel={() => setShutdownTargetId(null)}
+      />
 
       <style>{`
         .animate-spin { animation: spin 1s linear infinite; }
