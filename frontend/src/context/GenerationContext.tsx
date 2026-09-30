@@ -90,6 +90,7 @@ interface GenerateParams {
 }
 
 interface GenerationContextValue {
+  stationId: string | null;
   gradioUrl: string | null;
   capability: CapabilityId;
   setCapability: (c: CapabilityId) => void;
@@ -1035,6 +1036,7 @@ export function GenerationProvider({
   const canCancel = isLoading && (generationInfo?.cancellable ?? true) && generationInfo?.status !== "cancelled" && generationInfo?.status !== "complete";
 
   const value: GenerationContextValue = {
+    stationId,
     gradioUrl, capability, setCapability, isLoading, generationInfo, logs,
     videoSrc, imageSrcs, videoRatio, setVideoRatio, setVideoSrc, setImageSrcs,
     statusMsg, setStatusMsg, errorMsg, setErrorMsg, isCancelling,

@@ -6,6 +6,7 @@ import AudioPlayer from '../components/AudioPlayer';
 import { useCreations } from '../hooks/useCreations';
 import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
+import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
@@ -63,6 +64,32 @@ const StudioPage: React.FC = () => {
   const isCurrentModelOnline = currentModelId
     ? stationStatusMap[currentModelId] === 'online'
     : false;
+
+  // Boot state del notebook (Fase 2 — reporte en vivo desde Supabase)
+  const { stationId } = useGenerationContext();
+  const boot = useStationBoot(stationId, currentModelId);
+
+  // Popover de arranque (Fase 2)
+  const [bootPopoverOpen, setBootPopoverOpen] = useState(false);
+  const bootPopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!bootPopoverOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (bootPopoverRef.current && !bootPopoverRef.current.contains(e.target as Node)) {
+        setBootPopoverOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setBootPopoverOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [bootPopoverOpen]);
 
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   // Índice de la imagen seleccionada por item (para el stack cuando hay >1)
@@ -216,41 +243,265 @@ const StudioPage: React.FC = () => {
     // así que el panel flotante nunca se desincroniza del borde real.
     <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
 
-      {/* ESTACIÓN INDICATOR — pill minimal arriba a la derecha */}
-      {currentModelId && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '14px',
-            right: '20px',
-            zIndex: 60,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 12px 6px 10px',
-            borderRadius: '9999px',
-            background: 'var(--pf-bg-primary)',
-            border: '1px solid var(--pf-border-subtle)',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            letterSpacing: '-0.01em',
-            color: 'var(--pf-text-secondary)',
-            transition: 'all 0.3s ease',
-          }}
-        >
-          <span style={{
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            background: isCurrentModelOnline ? 'var(--pf-success)' : 'var(--pf-text-muted)',
-            boxShadow: isCurrentModelOnline ? '0 0 0 3px rgba(16,185,129,0.15)' : 'none',
-            transition: 'all 0.3s ease',
-          }} />
-          {isCurrentModelOnline ? 'Estación lista' : 'Estación offline'}
-        </div>
-      )}
+      {/* ESTACIÓN INDICATOR — pill enriquecido arriba a la derecha */}
+      {currentModelId && (() => {
+        // Resolver estado visual
+        const isDetecting = boot.detecting;
+        const isBooting = boot.isBooting;
+        const isStale = boot.isStale;
+        const isError = boot.isError;
+        const isReady = boot.isReady || (!isDetecting && !isBooting && !isStale && !isError && boot.state === 'idle' && isCurrentModelOnline);
+
+        const pct = Math.round(Math.max(0, Math.min(1, boot.progress)) * 100);
+
+        const accent = isError
+          ? '#F87171'
+          : isStale
+          ? '#F59E0B'
+          : isBooting || isDetecting
+          ? '#22D3EE'
+          : isReady
+          ? 'var(--pf-success)'
+          : 'var(--pf-text-muted)';
+
+        const label = isDetecting
+          ? 'Detectando estación...'
+          : isError
+          ? 'Algo salió mal'
+          : isStale
+          ? 'Sin señal hace 4 min'
+          : isBooting
+          ? `Estación detectada. Cargando...`
+          : isReady
+          ? 'Estación lista'
+          : 'Estación offline';
+
+        // Anillo SVG — girando en detecting, progreso en booting, dot simple en el resto
+        const RING_SIZE = 14;
+        const RING_STROKE = 2;
+        const RING_R = (RING_SIZE - RING_STROKE) / 2;
+        const RING_C = 2 * Math.PI * RING_R;
+        const ringOffset = isBooting ? RING_C * (1 - Math.min(1, Math.max(0, boot.progress))) : 0;
+
+        // Fases narrativas del arranque
+        const phases = [
+          { label: 'Preparando entorno', max: 0.20 },
+          { label: 'Instalando herramientas', max: 0.50 },
+          { label: 'Descargando modelos', max: 0.85 },
+          { label: 'Conectando nodo', max: 1.00 },
+        ];
+        const progressN = Math.max(0, Math.min(1, boot.progress));
+        const firstUndone = phases.findIndex(p => progressN < p.max);
+        const activeIdx = firstUndone === -1 ? phases.length - 1 : firstUndone;
+        const secondsAgo = boot.updatedAt
+          ? Math.max(0, Math.round((Date.now() - new Date(boot.updatedAt).getTime()) / 1000))
+          : null;
+
+        return (
+          <>
+            <style>{`@keyframes pf-boot-ring-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            <div
+              ref={bootPopoverRef}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '20px',
+                zIndex: 60,
+              }}
+            >
+              <div
+                onClick={() => setBootPopoverOpen(v => !v)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '6px 12px 6px 10px',
+                  borderRadius: '9999px',
+                  background: 'var(--pf-bg-primary)',
+                  border: `1px solid ${isBooting || isDetecting ? 'rgba(34,211,238,0.25)' : isStale ? 'rgba(245,158,11,0.35)' : isError ? 'rgba(248,113,113,0.35)' : 'var(--pf-border-subtle)'}`,
+                  boxShadow: isBooting || isDetecting ? '0 0 0 3px rgba(34,211,238,0.08)' : '0 1px 2px rgba(0,0,0,0.04)',
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  letterSpacing: '-0.01em',
+                  color: isBooting || isDetecting ? accent : 'var(--pf-text-secondary)',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                {(isDetecting || isBooting) ? (
+                  <svg
+                    width={RING_SIZE}
+                    height={RING_SIZE}
+                    viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+                    style={{
+                      flexShrink: 0,
+                      transform: isDetecting ? 'none' : 'rotate(-90deg)',
+                      animation: isDetecting ? 'pf-boot-ring-spin 1.4s linear infinite' : 'none',
+                    }}
+                  >
+                    <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R}
+                      fill="none" stroke={accent} strokeOpacity={0.18} strokeWidth={RING_STROKE} />
+                    <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R}
+                      fill="none" stroke={accent} strokeWidth={RING_STROKE}
+                      strokeLinecap="round"
+                      strokeDasharray={isDetecting ? `${RING_C * 0.25} ${RING_C * 0.75}` : RING_C}
+                      strokeDashoffset={isDetecting ? 0 : ringOffset}
+                      style={{
+                        transition: isDetecting ? 'none' : 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                    />
+                  </svg>
+                ) : (
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: accent,
+                    boxShadow: isReady ? '0 0 0 3px rgba(16,185,129,0.15)' : isError ? '0 0 0 3px rgba(248,113,113,0.15)' : isStale ? '0 0 0 3px rgba(245,158,11,0.15)' : 'none',
+                    transition: 'all 0.3s ease',
+                    flexShrink: 0,
+                  }} />
+                )}
+                <span>{label}</span>
+                {isBooting && (
+                  <span
+                    style={{
+                      fontFamily: 'var(--pf-font-chat-mono, monospace)',
+                      fontSize: '0.6875rem',
+                      color: accent,
+                      opacity: 0.9,
+                    }}
+                  >
+                    {pct}%
+                  </span>
+                )}
+              </div>
+
+              {bootPopoverOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '8px',
+                    width: '320px',
+                    background: 'var(--pf-bg-primary)',
+                    border: '1px solid var(--pf-border-default)',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.18)',
+                    padding: '16px',
+                    fontFamily: 'var(--pf-font-ui)',
+                    animation: 'pfPopoverIn 0.18s ease-out',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: 'var(--pf-text-primary)',
+                      letterSpacing: '-0.01em',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    Arranque de la estación
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {phases.map((phase, idx) => {
+                      const isDone = progressN >= phase.max;
+                      const isActive = !isDone && idx === activeIdx;
+                      return (
+                        <div
+                          key={phase.label}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            fontSize: '0.75rem',
+                            color: isDone
+                              ? 'var(--pf-text-secondary)'
+                              : isActive
+                              ? accent
+                              : 'var(--pf-text-muted)',
+                            fontWeight: isActive ? 600 : 400,
+                          }}
+                        >
+                          {isDone ? (
+                            <svg width={14} height={14} viewBox="0 0 14 14" style={{ flexShrink: 0 }}>
+                              <circle cx={7} cy={7} r={7} fill={accent} fillOpacity={0.15} />
+                              <path
+                                d="M4 7.2 L6.2 9.4 L10 5.4"
+                                fill="none"
+                                stroke={accent}
+                                strokeWidth={1.6}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          ) : isActive ? (
+                            <svg
+                              width={14}
+                              height={14}
+                              viewBox="0 0 14 14"
+                              style={{
+                                flexShrink: 0,
+                                animation: 'pf-boot-ring-spin 1.4s linear infinite',
+                              }}
+                            >
+                              <circle cx={7} cy={7} r={6} fill="none" stroke={accent} strokeOpacity={0.18} strokeWidth={2} />
+                              <circle
+                                cx={7}
+                                cy={7}
+                                r={6}
+                                fill="none"
+                                stroke={accent}
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeDasharray={`${2 * Math.PI * 6 * 0.25} ${2 * Math.PI * 6 * 0.75}`}
+                              />
+                            </svg>
+                          ) : (
+                            <svg width={14} height={14} viewBox="0 0 14 14" style={{ flexShrink: 0 }}>
+                              <circle cx={7} cy={7} r={6} fill="none" stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} />
+                            </svg>
+                          )}
+                          <span>{phase.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {boot.stepMessage && (
+                    <div
+                      style={{
+                        marginTop: '14px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid var(--pf-border-subtle)',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.75rem', color: 'var(--pf-text-primary)', lineHeight: 1.5 }}>
+                        {boot.stepMessage}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: '6px',
+                          fontSize: '0.6875rem',
+                          color: 'var(--pf-text-muted)',
+                          fontFamily: 'var(--pf-font-chat-mono, monospace)',
+                        }}
+                      >
+                        {pct}%{secondsAgo !== null ? ` · hace ${secondsAgo}s` : ''}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {/* ÁREA DE SCROLL — el único elemento que puede scrollear en esta página */}
       <div
