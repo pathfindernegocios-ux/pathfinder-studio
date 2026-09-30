@@ -790,6 +790,14 @@ const FloatingCommandCenter: React.FC = () => {
       ? stationStatusMap[getRuntimeId(currentModelUiId)] === 'online'
       : false;
 
+    // Si el modelo actual está ARRANCANDO (INSTALLING/CONNECTING), el
+    // auto-select por boot ya se encargó de seleccionarlo. No lo pisamos.
+    const currentRuntimeIdForBoot = currentModelUiId ? getRuntimeId(currentModelUiId) : null;
+    const isCurrentBooting = currentRuntimeIdForBoot
+      ? stationBootingIds.includes(currentRuntimeIdForBoot)
+      : false;
+    if (isCurrentBooting) return;
+
     // ¿Debemos auto-seleccionar?
     const shouldAutoSelect =
       (isFirstPoll && !currentIsOnline) ||
@@ -861,7 +869,7 @@ const FloatingCommandCenter: React.FC = () => {
 
     hasAutoSelectedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stationStatusMap, activeTab, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, activeImageModelId]);
+  }, [stationStatusMap, stationBootingIds, activeTab, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, activeImageModelId]);
 
   // FASE 3: escuchar pathfinder-load-config — repoblar prompt, params y refs
   useEffect(() => {
