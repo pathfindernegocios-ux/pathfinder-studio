@@ -251,7 +251,15 @@ const StudioPage: React.FC = () => {
         const isBooting = boot.isBooting;
         const isStale = boot.isStale;
         const isError = boot.isError;
-        const isReady = boot.isReady || (!isDetecting && !isBooting && !isStale && !isError && boot.state === 'idle' && isCurrentModelOnline);
+        // El pill usa el check REAL (stationStatusMap vía Gradio) como fuente
+        // de verdad. Una fila 'READY' en Supabase puede estar huérfana (el
+        // notebook murió pero la fila no se borró). Solo confiamos en
+        // boot.isReady si el updated_at es fresco (< 3 min) — esa ventana
+        // cubre el delay entre que el notebook llega a READY y el poll de
+        // useStationStatus lo confirma.
+        const bootAgeMs = boot.updatedAt ? Date.now() - new Date(boot.updatedAt).getTime() : Infinity;
+        const isFreshReady = boot.isReady && bootAgeMs < 3 * 60 * 1000;
+        const isReady = isCurrentModelOnline || isFreshReady;
 
         const pct = Math.round(Math.max(0, Math.min(1, boot.progress)) * 100);
 
