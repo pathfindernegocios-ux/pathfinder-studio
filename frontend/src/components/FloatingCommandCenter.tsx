@@ -7,6 +7,7 @@ import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil } fro
 import PathfinderLogo from './PathfinderLogo';
 import AudioTrimmer from './AudioTrimmer';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useStationBoot } from '../hooks/useStationBoot';
 
 type TabType = 'video' | 'image' | 'audio';
 
@@ -469,6 +470,7 @@ const FloatingCommandCenter: React.FC = () => {
     setActiveVideoModelId,
     stationStatusMap,
     getClient,
+    stationId,
   } = useGenerationContext();
 
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>(() => loadPersistedStudioSelection()?.selectedImageModelId || 'krea-2-turbo');
@@ -490,8 +492,14 @@ const FloatingCommandCenter: React.FC = () => {
       : activeTab === 'audio'
         ? 'tts-dual'
         : null;
+  // Boot en vivo (Fase 2): oculta el banner naranja desde que se detecta la estación
+  const boot = useStationBoot(stationId, currentStationModelId);
+  const isBootActive = boot.isBooting || boot.detecting;
+  const isStationReady = currentStationModelId
+    ? (stationStatusMap[currentStationModelId] === 'online' || boot.isReady)
+    : false;
   const isStationOffline = currentStationModelId
-    ? stationStatusMap[currentStationModelId] !== 'online'
+    ? (!isBootActive && !isStationReady)
     : false;
   useEffect(() => {
     if (activeTab === 'image') {
