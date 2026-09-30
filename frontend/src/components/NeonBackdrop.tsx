@@ -8,11 +8,16 @@
 
 import React from "react";
 import { useTheme } from "../hooks/useTheme";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 export const NeonBackdrop: React.FC = () => {
   const { resolved } = useTheme();
+  const isMobile = useIsMobile();
 
   if (resolved !== "neon") return null;
+  // En mobile, los blobs con blur(100px) generan jank serio (GPU limitada).
+  // No aportan valor visual suficiente en pantallas chicas.
+  if (isMobile) return null;
 
   return (
     <>

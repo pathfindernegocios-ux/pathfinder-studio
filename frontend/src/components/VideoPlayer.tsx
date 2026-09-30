@@ -346,4 +346,4 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover" }) =
   );
 };
 
-export default VideoPlayer;
+export default React.memo(VideoPlayer);

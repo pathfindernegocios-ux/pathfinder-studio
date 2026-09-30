@@ -22,4 +22,4 @@ const NebulaLoader: React.FC<NebulaLoaderProps> = ({ label = "CREANDO..." }) => 
   </div>
 );
 
-export default NebulaLoader;
+export default React.memo(NebulaLoader);

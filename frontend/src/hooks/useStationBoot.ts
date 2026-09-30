@@ -25,7 +25,20 @@ export interface BootInfo {
   detecting: boolean;          // primer fetch pendiente
 }
 
-const POLL_MS = 5000;
+// Tick del interval (el "reloj" que decide cada cuánto mirar el estado).
+// El intervalo mínimo real se calcula en cada tick según el estado actual.
+const TICK_MS = 5000;
+// Intervalos por estado (ms).
+const POLL_INTERVAL: Record<string, number> = {
+  INSTALLING: 5000,
+  CONNECTING: 5000,
+  READY: 15000,
+  BUSY: 15000,
+  ERROR: 30000,
+  STALE: 30000,
+  idle: 30000,
+  detecting: 5000,
+};
 const STALE_THRESHOLD_MS = 4 * 60 * 1000;
 
 const DETECTING: BootInfo = {
@@ -60,6 +73,13 @@ export function useStationBoot(
 ): BootInfo {
   const [boot, setBoot] = useState<BootInfo>(DETECTING);
   const hasFetchedOnce = useRef(false);
+  const bootStateRef = useRef<BootState>('detecting');
+  const lastFetchRef = useRef<number>(0);
+
+  // Mantener el ref sincronizado con el último estado conocido
+  useEffect(() => {
+    bootStateRef.current = boot.state;
+  }, [boot.state]);
 
   useEffect(() => {
     if (!stationId || !modelId) {
@@ -73,6 +93,13 @@ export function useStationBoot(
     let cancelled = false;
 
     const fetchBoot = async () => {
+      // Skip interno: si el último fetch fue hace menos que el intervalo
+      // mínimo para el estado actual, no hagas la query.
+      const now = Date.now();
+      const minInterval = POLL_INTERVAL[bootStateRef.current] ?? 5000;
+      if (now - lastFetchRef.current < minInterval - 500) return;
+      lastFetchRef.current = now;
+
       try {
         const { data, error } = await supabase
           .from('runtimes')
@@ -132,8 +159,9 @@ export function useStationBoot(
       }
     };
 
+    lastFetchRef.current = 0; // forzar primer fetch
     fetchBoot();
-    const interval = window.setInterval(fetchBoot, POLL_MS);
+    const interval = window.setInterval(fetchBoot, TICK_MS);
     return () => {
       cancelled = true;
       window.clearInterval(interval);

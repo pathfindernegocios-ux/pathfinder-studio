@@ -273,7 +273,9 @@ export function GenerationProvider({
 
   useEffect(() => {
     if (!isLoading) return;
-    const interval = window.setInterval(() => setNowTick(Date.now()), 1000);
+    // 3s en lugar de 1s: reduce 3x los re-renders del contexto durante la
+    // generación. El timer visible no necesita precisión de 1s.
+    const interval = window.setInterval(() => setNowTick(Date.now()), 3000);
     return () => window.clearInterval(interval);
   }, [isLoading]);
 

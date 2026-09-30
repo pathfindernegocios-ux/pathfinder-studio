@@ -97,4 +97,4 @@ const AssistantAvatar: React.FC<AssistantAvatarProps> = ({ size = 30 }) => (
   </svg>
 );
 
-export default AssistantAvatar;
+export default React.memo(AssistantAvatar);

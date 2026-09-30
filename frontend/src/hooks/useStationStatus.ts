@@ -24,7 +24,12 @@ interface UseStationStatusResult {
 }
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const POLL_MS = 30_000;
+const POLL_MS_DESKTOP = 30_000;
+const POLL_MS_MOBILE = 60_000;
+const POLL_MS =
+  typeof window !== 'undefined' && window.innerWidth < 768
+    ? POLL_MS_MOBILE
+    : POLL_MS_DESKTOP;
 const TIMEOUT_MS = 10_000;
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
