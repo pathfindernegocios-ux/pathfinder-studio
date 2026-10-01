@@ -11,6 +11,8 @@ export interface StoryboardSceneLocal {
   /** Solo aplica en mode='first' o 'cut'. En 'continue' siempre es null. */
   startImage: File | null;
   endImage: File | null;
+  /** Audio de referencia de la escena (opcional, se sube como base64). */
+  audioFile: File | null;
   /** Solo aplica en mode='cut'. En 'continue' siempre es true. */
   inheritStartFromPrev: boolean;
 }
@@ -45,6 +47,7 @@ function newScene(idx: number): StoryboardSceneLocal {
     prompt: '',
     startImage: null,
     endImage: null,
+    audioFile: null,
     inheritStartFromPrev: idx > 0,
   };
 }

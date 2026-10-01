@@ -103,6 +103,14 @@ interface PersistedStudioSelection {
   mode?: 'single' | 'storyboard';
 }
 
+const fileToDataUri = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
 function loadPersistedStudioSelection(): PersistedStudioSelection | null {
   try {
     const raw = localStorage.getItem(STUDIO_SELECTION_KEY);
@@ -1402,38 +1410,42 @@ const FloatingCommandCenter: React.FC = () => {
       if (activeTab === 'video') {
         if (isVideoLtx) {
           if (storyboardMode === 'storyboard') {
-            // Storyboard multi-escena
+            // Storyboard multi-escena.
+            // Cada imagen/audio viaja dentro del JSON como data URI base64.
+            // El notebook la decodifica con _resolve_image()/_resolve_audio_path().
             if (!storyboardValid) return;
 
-            // Subir archivos al server Gradio primero (1 llamada por archivo).
-            // El notebook recibe paths /tmp/gradio/... en vez de Files.
-            const sbClient = await getClient();
-            if (!sbClient) {
-              window.dispatchEvent(new CustomEvent('pathfinder-error-msg', { detail: 'No hay conexion con el runtime.' }));
-              return;
-            }
-
-            const uploadedScenes = await Promise.all(
+            const scenesPayload = await Promise.all(
               storyboardScenes.map(async (s) => {
-                let startPath: string | null = null;
-                let endPath: string | null = null;
+                let startB64: string | null = null;
+                let endB64: string | null = null;
+                let audioB64: string | null = null;
                 try {
-                  if (s.startImage) {
-                    const urls = await sbClient.upload_files([s.startImage]);
-                    startPath = urls?.[0] ?? null;
-                  }
+                  if (s.startImage) startB64 = await fileToDataUri(s.startImage);
                 } catch (err) {
-                  console.warn('[storyboard] upload start_image failed:', err);
+                  console.warn('[storyboard] start_image a base64 fallo:', err);
                 }
                 try {
-                  if (s.endImage) {
-                    const urls = await sbClient.upload_files([s.endImage]);
-                    endPath = urls?.[0] ?? null;
-                  }
+                  if (s.endImage) endB64 = await fileToDataUri(s.endImage);
                 } catch (err) {
-                  console.warn('[storyboard] upload end_image failed:', err);
+                  console.warn('[storyboard] end_image a base64 fallo:', err);
                 }
-                return { startPath, endPath };
+                try {
+                  if (s.audioFile) audioB64 = await fileToDataUri(s.audioFile);
+                } catch (err) {
+                  console.warn('[storyboard] audio a base64 fallo:', err);
+                }
+                return {
+                  mode: s.mode,
+                  prompt: s.prompt,
+                  duration_sec: s.durationSec,
+                  inherit_start: s.mode === 'continue' ? true : (s.mode === 'cut' ? s.inheritStartFromPrev : false),
+                  start_image: startB64,
+                  end_image: endB64,
+                  audio_path: audioB64,
+                  extra_loras: [],
+                  lora_mults: '',
+                };
               })
             );
 
@@ -1446,14 +1458,7 @@ const FloatingCommandCenter: React.FC = () => {
                 extra_loras: videoParams.loraItems.filter(x => x.enabled).map(x => x.name),
                 lora_mults: videoParams.loraItems.filter(x => x.enabled).map(x => x.mult || '1.0').join(' '),
               },
-              scenes: storyboardScenes.map((s, i) => ({
-                mode: s.mode,
-                prompt: s.prompt,
-                duration_sec: s.durationSec,
-                inherit_start: s.mode === 'continue' ? true : (s.mode === 'cut' ? s.inheritStartFromPrev : false),
-                start_image: uploadedScenes[i]?.startPath ?? null,
-                end_image: uploadedScenes[i]?.endPath ?? null,
-              })),
+              scenes: scenesPayload,
             });
             return;
           }
