@@ -146,12 +146,28 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
     file: File | null,
     onChange: (f: File | null) => void,
     label: string,
+    accept: string = 'image/*',
   ): React.ReactNode => {
+    const isAudio = accept.startsWith('audio');
     if (file) {
       let url = '';
       try { url = URL.createObjectURL(file); } catch { url = ''; }
       return (
         <div style={{ position: 'relative', width: 22, height: 22, flexShrink: 0 }} title={file.name}>
+          {isAudio ? (
+            <div
+              style={{
+                width: '100%', height: '100%',
+                background: 'rgba(34,211,238,0.15)',
+                border: '1px solid var(--pf-border-subtle)',
+                borderRadius: 4,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, color: '#67E8F9', lineHeight: 1,
+              }}
+            >
+              ♪
+            </div>
+          ) : (
           <img
             src={url}
             alt={label}
@@ -161,6 +177,7 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
               display: 'block',
             }}
           />
+          )}
           <button
             type="button"
             onClick={() => onChange(null)}
@@ -193,7 +210,7 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
       >
         <input
           type="file"
-          accept="image/*"
+          accept={accept}
           onChange={(e) => onChange(e.target.files?.[0] || null)}
           style={{ display: 'none' }}
         />
@@ -360,6 +377,7 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
             selected.audioFile,
             (f) => updateScene(selectedIdx, { audioFile: f }),
             'Audio',
+            'audio/*',
           )}
 
           {/* Toggle Match Audio (solo si hay audio) */}
