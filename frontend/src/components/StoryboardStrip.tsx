@@ -196,7 +196,7 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
     }
     return (
       <label
-        title={`Agregar imagen de ${label.toLowerCase()}`}
+        title={isAudio ? 'Agregar audio' : `Agregar imagen de ${label.toLowerCase()}`}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: '3px 7px', borderRadius: 6,
@@ -220,7 +220,6 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
   };
 
   const selected = scenes[selectedIdx];
-  const isFirst = selectedIdx === 0;
 
   return (
     <div
@@ -502,11 +501,6 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
         {scenes.length} {scenes.length === 1 ? 'escena' : 'escenas'}
         {' · '}
         {scenes.reduce((acc, s) => acc + s.durationSec, 0)}s
-        {isFirst && selected.mode !== 'first' && (
-          <span style={{ marginLeft: '8px', color: '#F59E0B' }}>
-            · La primera escena no puede ser continuación
-          </span>
-        )}
       </div>
     </div>
   );
