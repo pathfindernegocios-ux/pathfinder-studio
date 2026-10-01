@@ -14,6 +14,40 @@ interface ImageRuntime {
   gradio_url: string;
 }
 
+export interface StoryboardSceneMeta {
+  index: number;
+  mode: 'first' | 'cut' | 'continue';
+  durationSec: number;
+  prompt: string;
+}
+
+export interface StoryboardMeta {
+  totalScenes: number;
+  /** Escena actual 1-based. Solo válido durante la generación. */
+  currentScene: number;
+  scenes: StoryboardSceneMeta[];
+}
+
+export interface StoryboardScenePayload {
+  mode: 'first' | 'cut' | 'continue';
+  prompt: string;
+  duration_sec: number;
+  /** Solo aplica cuando mode='cut'. En 'continue' siempre true, en 'first' siempre false. */
+  inherit_start?: boolean;
+}
+
+export interface StoryboardPayload {
+  global: {
+    resolution_label: string;
+    aspect_label: string;
+    guide_scale: number;
+    seed: number;
+    extra_loras: string[];
+    lora_mults: string;
+  };
+  scenes: StoryboardScenePayload[];
+}
+
 export interface SessionItem {
   id: string;
   prompt: string;
@@ -30,6 +64,8 @@ export interface SessionItem {
   params?: Record<string, unknown>;
   /** URLs de las imágenes de referencia persistidas (para Variación) */
   refUrls?: string[];
+  /** Metadata de storyboard. Solo presente si la generación fue multi-escena. */
+  storyboardMeta?: StoryboardMeta;
 }
 
 interface GenerateParams {
@@ -109,6 +145,7 @@ interface GenerationContextValue {
   setErrorMsg: (msg: string | null) => void;
   isCancelling: boolean;
   handleGenerate: (params: GenerateParams) => Promise<void>;
+  handleGenerateStoryboard: (payload: StoryboardPayload) => Promise<void>;
   handleCancel: () => Promise<void>;
   progressFrac: number;
   liveElapsedSec: number | null;
@@ -1017,6 +1054,119 @@ export function GenerationProvider({
     [gradioUrl, getClient, capability, activeImageModelId, fetchSessionHistory]
   );
 
+  const handleGenerateStoryboard = useCallback(
+    async (payload: StoryboardPayload) => {
+      if (!gradioUrl) return;
+
+      const localStart = Date.now() / 1000;
+      generationStartRef.current = localStart;
+
+      setIsLoading(true);
+      setErrorMsg(null);
+      setVideoSrc(null);
+      setLogs([]);
+      lastLogSeqRef.current = 0;
+      setRecoveryState("active");
+
+      const userItemId = `msg-sb-${Date.now()}`;
+      const ratioToken = (payload.global.aspect_label || '16:9 Landscape').split(' ')[0];
+      const aspectRatioCss = ratioToken.replace(':', '/');
+
+      setSessionHistory(prev => [...prev, {
+        id: userItemId,
+        prompt: `Storyboard · ${payload.scenes.length} escenas`,
+        mediaUrls: [],
+        mediaType: 'video',
+        modelId: 'ltx-2.3',
+        modelLabel: 'LTX 2.3 v1.1 — Storyboard',
+        aspectRatio: aspectRatioCss,
+        createdAt: Date.now(),
+        status: 'temporary',
+        isGenerating: true,
+        params: { storyboard: payload },
+        storyboardMeta: {
+          totalScenes: payload.scenes.length,
+          currentScene: 1,
+          scenes: payload.scenes.map((s, i) => ({
+            index: i,
+            mode: s.mode,
+            durationSec: s.duration_sec,
+            prompt: s.prompt,
+          })),
+        },
+      }]);
+
+      setGenerationInfo({
+        status: 'preparing',
+        progress: 0,
+        stage: 'preparing',
+        started_at: localStart,
+        capability: 'video',
+        modelId: 'ltx-2.3',
+        prompt: `Storyboard · ${payload.scenes.length} escenas`,
+      });
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) { setErrorMsg('No hay sesión activa.'); return; }
+
+        const client = await getClient();
+        if (!client) { setErrorMsg('No se pudo conectar con el runtime.'); return; }
+
+        const payloadWithJwt = { ...payload, jwt_token: token };
+        const result = await client.predict('/generate_storyboard', [JSON.stringify(payloadWithJwt)]);
+
+        const data = result.data as unknown[];
+        const videoData = data[0];
+        const statusText = data[1] as string;
+
+        let tempUrl: string | null = null;
+        if (typeof videoData === 'string') tempUrl = videoData;
+        else if (videoData && typeof videoData === 'object') {
+          const maybe = videoData as { url?: string; video?: { url?: string } };
+          tempUrl = maybe.url ?? maybe.video?.url ?? null;
+        }
+
+        if (tempUrl) {
+          setVideoSrc(tempUrl);
+          sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
+          setSessionHistory(prev => prev.map(item => {
+            if (item.isGenerating) {
+              return {
+                ...item,
+                mediaUrls: [tempUrl!],
+                isGenerating: false,
+                status: 'temporary' as const,
+              };
+            }
+            return item;
+          }));
+          setGenerationInfo(prev => ({
+            ...prev,
+            status: 'complete',
+            progress: 1,
+            stage: 'complete',
+            finished_at: Date.now() / 1000,
+          }));
+          if (statusText) setStatusMsg(statusText);
+        } else {
+          setErrorMsg('No se devolvió un video válido.');
+        }
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'Error al generar storyboard.');
+        setGenerationInfo(prev => ({
+          ...prev,
+          status: 'error',
+          finished_at: Date.now() / 1000,
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [gradioUrl, getClient]
+  );
+
   const handleCancel = useCallback(async () => {
     if (!gradioUrl || isCancelling) return;
     setIsCancelling(true);
@@ -1046,7 +1196,7 @@ export function GenerationProvider({
     gradioUrl, capability, setCapability, isLoading, generationInfo, logs,
     videoSrc, imageSrcs, videoRatio, setVideoRatio, setVideoSrc, setImageSrcs,
     statusMsg, setStatusMsg, errorMsg, setErrorMsg, isCancelling,
-    handleGenerate, handleCancel, progressFrac, liveElapsedSec, remainingSec,
+    handleGenerate, handleGenerateStoryboard, handleCancel, progressFrac, liveElapsedSec, remainingSec,
     completedDurationSec, backendError, canCancel, recoveryState, status,
     sessionUptime, activeImageModelId, setActiveImageModelId, imageModels,
     activeVideoModelId, setActiveVideoModelId,

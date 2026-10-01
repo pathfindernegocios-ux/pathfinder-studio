@@ -11,6 +11,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
 import NebulaLoader from '../components/NebulaLoader';
+import SceneChip from '../components/SceneChip';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { getRuntimeLabel } from '../config/models';
@@ -634,6 +635,16 @@ const StudioPage: React.FC = () => {
                           <span>{item.aspectRatio.replace('/', ':')}</span>
                         </>
                       )}
+                      {item.storyboardMeta && (
+                        <>
+                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--pf-border-default)' }}></span>
+                          <span>
+                            {item.isGenerating
+                              ? `Escena ${item.storyboardMeta.currentScene}/${item.storyboardMeta.totalScenes}`
+                              : `${item.storyboardMeta.totalScenes} escenas`}
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <div style={{
@@ -786,6 +797,14 @@ const StudioPage: React.FC = () => {
                                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                                   />
                                 </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {item.storyboardMeta && item.storyboardMeta.scenes.length > 0 && (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                              {item.storyboardMeta.scenes.map((scene, i) => (
+                                <SceneChip key={i} scene={scene} />
                               ))}
                             </div>
                           )}

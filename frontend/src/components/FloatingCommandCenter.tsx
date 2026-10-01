@@ -8,6 +8,7 @@ import PathfinderLogo from './PathfinderLogo';
 import AudioTrimmer from './AudioTrimmer';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useStationBoot } from '../hooks/useStationBoot';
+import StoryboardStrip, { type StoryboardSceneLocal } from './StoryboardStrip';
 
 type TabType = 'video' | 'image' | 'audio';
 
@@ -98,6 +99,8 @@ interface PersistedStudioSelection {
   wanLoras?: PersistedLoraItem[];
   ltx25Loras?: PersistedLoraItem[];
   videoLoras?: PersistedLoraItem[];
+  /** Modo de generación: single-scene (default) o storyboard multi-escena */
+  mode?: 'single' | 'storyboard';
 }
 
 function loadPersistedStudioSelection(): PersistedStudioSelection | null {
@@ -133,6 +136,12 @@ function loadVideoLoras(): { name: string; mult: string; enabled: boolean }[] {
 
 /** Carga las LoRAs de LTX 2.5 MSR desde localStorage.
  *  Si no hay persistidas, devuelve el default: Product Commercial enabled. */
+/** Carga el modo (single | storyboard) desde localStorage. Default: 'single'. */
+function loadStoryboardMode(): 'single' | 'storyboard' {
+  const persisted = loadPersistedStudioSelection()?.mode;
+  return persisted === 'storyboard' ? 'storyboard' : 'single';
+}
+
 const LTX25_DEFAULT_LORAS = [
   { name: 'LTX23_Product_Commercial_LoRA.safetensors', mult: '1.0', enabled: true },
 ];
@@ -448,6 +457,23 @@ const FloatingCommandCenter: React.FC = () => {
     Math.floor(Math.random() * DISCLAIMER_MESSAGES.length)
   );
   const [activeTab, setActiveTab] = useState<TabType>(() => loadPersistedStudioSelection()?.activeTab || 'video');
+
+  // Modo Single / Storyboard — solo aplica a la pestaña de Video. Persiste en localStorage.
+  const [storyboardMode, setStoryboardMode] = useState<'single' | 'storyboard'>(() => loadStoryboardMode());
+
+  // Escenas del storyboard (nivel local del FCM). Se sincroniza vía onScenesChange.
+  const [storyboardScenes, setStoryboardScenes] = useState<StoryboardSceneLocal[]>([]);
+
+  // PF_STORYBOARD_MODE_EFFECT — persiste el modo sin tocar el resto del objeto persistido.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STUDIO_SELECTION_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(STUDIO_SELECTION_KEY, JSON.stringify({ ...parsed, mode: storyboardMode }));
+    } catch {
+      /* noop */
+    }
+  }, [storyboardMode]);
   const [prompt, setPrompt] = useState('');
   
   const objectUrlCacheRef = useRef<Map<File, string>>(new Map());
@@ -463,7 +489,8 @@ const FloatingCommandCenter: React.FC = () => {
   }, []);
   
   const { 
-    handleGenerate, 
+    handleGenerate,
+    handleGenerateStoryboard,
     isLoading, 
     capability,
     setCapability, 
@@ -488,6 +515,17 @@ const FloatingCommandCenter: React.FC = () => {
   const isVideoWan = selectedVideoModelId.startsWith('wan-');
   const isVideoLtx = selectedVideoModelId === 'ltx-2.3';
   const isVideoLtx25Msr = selectedVideoModelId === 'ltx-2.5-msr';
+  // Validación del storyboard (solo aplica en modo storyboard + video + LTX).
+  const storyboardValid = React.useMemo(() => {
+    if (storyboardMode !== 'storyboard') return true;
+    if (activeTab !== 'video') return true;
+    if (!isVideoLtx) return true;
+    if (storyboardScenes.length === 0) return false;
+    if (storyboardScenes.some(s => !s.prompt.trim())) return false;
+    if (storyboardScenes[0]?.mode === 'continue') return false;
+    return true;
+  }, [storyboardMode, activeTab, isVideoLtx, storyboardScenes]);
+
 
   // Estado de la estación activa (badge offline/online)
   const currentStationModelId = activeTab === 'image'
@@ -1363,6 +1401,27 @@ const FloatingCommandCenter: React.FC = () => {
     try {
       if (activeTab === 'video') {
         if (isVideoLtx) {
+          if (storyboardMode === 'storyboard') {
+            // Storyboard multi-escena
+            if (!storyboardValid) return;
+            await handleGenerateStoryboard({
+              global: {
+                resolution_label: videoParams.resolution,
+                aspect_label: videoParams.aspectRatio,
+                guide_scale: videoParams.guideScale,
+                seed: videoParams.seed,
+                extra_loras: videoParams.loraItems.filter(x => x.enabled).map(x => x.name),
+                lora_mults: videoParams.loraItems.filter(x => x.enabled).map(x => x.mult || '1.0').join(' '),
+              },
+              scenes: storyboardScenes.map((s) => ({
+                mode: s.mode,
+                prompt: s.prompt,
+                duration_sec: s.durationSec,
+                inherit_start: s.mode === 'continue' ? true : (s.mode === 'cut' ? s.inheritStartFromPrev : false),
+              })),
+            });
+            return;
+          }
           await handleGenerate({
             prompt,
             videoModelId: 'ltx-2.3',
@@ -1480,7 +1539,7 @@ const FloatingCommandCenter: React.FC = () => {
     } catch (error) {
       void 0;
     }
-  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoLtx25Msr, isVideoWan, videoParams, wanParams, ltx25Params, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate]);
+  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoLtx25Msr, isVideoWan, videoParams, wanParams, ltx25Params, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate, handleGenerateStoryboard, storyboardMode, storyboardScenes, storyboardValid]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1605,6 +1664,51 @@ const FloatingCommandCenter: React.FC = () => {
                 {tab === 'video' ? 'Video' : tab === 'image' ? 'Imagen' : 'Audio'}
               </button>
             ))}
+
+            {activeTab === 'video' && (
+              <div
+                role="tablist"
+                aria-label="Modo de generación"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                  marginLeft: '4px',
+                  borderRadius: '8px',
+                  background: 'var(--pf-bg-tertiary)',
+                  border: '1px solid var(--pf-border-subtle)',
+                }}
+              >
+                {(['single', 'storyboard'] as const).map((m) => {
+                  const active = storyboardMode === m;
+                  return (
+                    <button
+                      key={m}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setStoryboardMode(m)}
+                      title={m === 'single' ? 'Una sola escena' : 'Storyboard multi-escena (próximamente)'}
+                      style={{
+                        padding: '3px 9px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: active ? 'var(--pf-bg-elevated)' : 'transparent',
+                        color: active ? 'var(--pf-text-primary)' : 'var(--pf-text-muted)',
+                        fontFamily: 'var(--pf-font-ui)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        letterSpacing: '-0.01em',
+                        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                      }}
+                    >
+                      {m === 'single' ? 'Single' : 'Storyboard'}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           {renderModelSelector()}
         </div>
@@ -1641,8 +1745,8 @@ const FloatingCommandCenter: React.FC = () => {
         )}
 
         <div style={{ padding: '12px 14px' }}>
-          {/* Bloque de chips de upload para Video LTX */}
-          {activeTab === 'video' && isVideoLtx && (
+          {/* Bloque de chips de upload para Video LTX (Single) */}
+          {activeTab === 'video' && isVideoLtx && storyboardMode === 'single' && (
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
               <label style={{ position: 'relative', cursor: 'pointer' }}>
                 <input type="file" accept="image/*" onChange={(e) => handleVideoFileChange('start', e.target.files?.[0] || null)} style={{ display: 'none' }} />
@@ -1668,6 +1772,15 @@ const FloatingCommandCenter: React.FC = () => {
               </label>
               {videoParams.audioFile && renderFileThumbnail(videoParams.audioFile, 'video-audio')}
             </div>
+          )}
+
+          {/* Film strip de Storyboard (multi-escena) */}
+          {activeTab === 'video' && isVideoLtx && storyboardMode === 'storyboard' && (
+            <StoryboardStrip
+              prompt={prompt}
+              onPromptChange={setPrompt}
+              onScenesChange={setStoryboardScenes}
+            />
           )}
 
           {/* Bloque de chips de upload para Wan */}
@@ -1901,7 +2014,7 @@ const FloatingCommandCenter: React.FC = () => {
             />
             <button
               onClick={handleGenerateClick}
-              disabled={!prompt.trim() || isLoading}
+              disabled={!prompt.trim() || isLoading || !storyboardValid}
               className={isLoading ? 'pf-generating-btn' : ''}
               style={{
                 position: 'absolute', right: '0', bottom: '0',
@@ -1917,7 +2030,7 @@ const FloatingCommandCenter: React.FC = () => {
                 padding: '7px 18px',
                 borderRadius: '99px',
                 border: 'none',
-                cursor: !prompt.trim() || isLoading ? 'not-allowed' : 'pointer',
+                cursor: !prompt.trim() || isLoading || !storyboardValid ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
                 whiteSpace: 'nowrap',
                 display: 'flex',
