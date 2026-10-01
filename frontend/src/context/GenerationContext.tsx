@@ -34,6 +34,10 @@ export interface StoryboardScenePayload {
   duration_sec: number;
   /** Solo aplica cuando mode='cut'. En 'continue' siempre true, en 'first' siempre false. */
   inherit_start?: boolean;
+  /** Path en /tmp/gradio/... devuelto por client.upload_files(). Null = sin imagen. */
+  start_image?: string | null;
+  /** Path en /tmp/gradio/... devuelto por client.upload_files(). Null = sin imagen. */
+  end_image?: string | null;
 }
 
 export interface StoryboardPayload {

@@ -1404,6 +1404,39 @@ const FloatingCommandCenter: React.FC = () => {
           if (storyboardMode === 'storyboard') {
             // Storyboard multi-escena
             if (!storyboardValid) return;
+
+            // Subir archivos al server Gradio primero (1 llamada por archivo).
+            // El notebook recibe paths /tmp/gradio/... en vez de Files.
+            const sbClient = await getClient();
+            if (!sbClient) {
+              window.dispatchEvent(new CustomEvent('pathfinder-error-msg', { detail: 'No hay conexion con el runtime.' }));
+              return;
+            }
+
+            const uploadedScenes = await Promise.all(
+              storyboardScenes.map(async (s) => {
+                let startPath: string | null = null;
+                let endPath: string | null = null;
+                try {
+                  if (s.startImage) {
+                    const urls = await sbClient.upload_files([s.startImage]);
+                    startPath = urls?.[0] ?? null;
+                  }
+                } catch (err) {
+                  console.warn('[storyboard] upload start_image failed:', err);
+                }
+                try {
+                  if (s.endImage) {
+                    const urls = await sbClient.upload_files([s.endImage]);
+                    endPath = urls?.[0] ?? null;
+                  }
+                } catch (err) {
+                  console.warn('[storyboard] upload end_image failed:', err);
+                }
+                return { startPath, endPath };
+              })
+            );
+
             await handleGenerateStoryboard({
               global: {
                 resolution_label: videoParams.resolution,
@@ -1413,11 +1446,13 @@ const FloatingCommandCenter: React.FC = () => {
                 extra_loras: videoParams.loraItems.filter(x => x.enabled).map(x => x.name),
                 lora_mults: videoParams.loraItems.filter(x => x.enabled).map(x => x.mult || '1.0').join(' '),
               },
-              scenes: storyboardScenes.map((s) => ({
+              scenes: storyboardScenes.map((s, i) => ({
                 mode: s.mode,
                 prompt: s.prompt,
                 duration_sec: s.durationSec,
                 inherit_start: s.mode === 'continue' ? true : (s.mode === 'cut' ? s.inheritStartFromPrev : false),
+                start_image: uploadedScenes[i]?.startPath ?? null,
+                end_image: uploadedScenes[i]?.endPath ?? null,
               })),
             });
             return;
@@ -1539,7 +1574,7 @@ const FloatingCommandCenter: React.FC = () => {
     } catch (error) {
       void 0;
     }
-  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoLtx25Msr, isVideoWan, videoParams, wanParams, ltx25Params, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate, handleGenerateStoryboard, storyboardMode, storyboardScenes, storyboardValid]);
+  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoLtx25Msr, isVideoWan, videoParams, wanParams, ltx25Params, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate, handleGenerateStoryboard, storyboardMode, storyboardScenes, storyboardValid, getClient]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

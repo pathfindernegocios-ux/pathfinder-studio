@@ -136,6 +136,66 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
     updateScene(idx, patch);
   }, [updateScene]);
 
+  const renderSceneFileChip = (
+    file: File | null,
+    onChange: (f: File | null) => void,
+    label: string,
+  ): React.ReactNode => {
+    if (file) {
+      let url = '';
+      try { url = URL.createObjectURL(file); } catch { url = ''; }
+      return (
+        <div style={{ position: 'relative', width: 22, height: 22, flexShrink: 0 }} title={file.name}>
+          <img
+            src={url}
+            alt={label}
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover',
+              borderRadius: 4, border: '1px solid var(--pf-border-subtle)',
+              display: 'block',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            style={{
+              position: 'absolute', top: -4, right: -4,
+              width: 14, height: 14, borderRadius: '50%',
+              background: '#EF4444', color: '#fff', border: 'none',
+              fontSize: 9, lineHeight: 1, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 0,
+            }}
+            aria-label={`Quitar ${label}`}
+          >×</button>
+        </div>
+      );
+    }
+    return (
+      <label
+        title={`Agregar imagen de ${label.toLowerCase()}`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '3px 7px', borderRadius: 6,
+          background: 'var(--pf-bg-secondary)',
+          border: '1px dashed var(--pf-border-default)',
+          color: 'var(--pf-text-muted)',
+          fontFamily: 'var(--pf-font-ui)', fontSize: '10px',
+          fontWeight: 500, cursor: 'pointer',
+          userSelect: 'none', lineHeight: 1,
+        }}
+      >
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => onChange(e.target.files?.[0] || null)}
+          style={{ display: 'none' }}
+        />
+        + {label}
+      </label>
+    );
+  };
+
   const selected = scenes[selectedIdx];
   const isFirst = selectedIdx === 0;
 
@@ -272,6 +332,22 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
               </option>
             ))}
           </select>
+
+          {/* Start uploader (first, o cut sin inherit) */}
+          {(selected.mode === 'first' || (selected.mode === 'cut' && !selected.inheritStartFromPrev)) &&
+            renderSceneFileChip(
+              selected.startImage,
+              (f) => updateScene(selectedIdx, { startImage: f }),
+              'Start',
+            )
+          }
+
+          {/* End uploader (siempre opcional) */}
+          {renderSceneFileChip(
+            selected.endImage,
+            (f) => updateScene(selectedIdx, { endImage: f }),
+            'End',
+          )}
 
           {/* Start heredado (info) */}
           {selected.mode === 'continue' && (
