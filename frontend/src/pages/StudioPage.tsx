@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Play } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
 import NebulaLoader from '../components/NebulaLoader';
 import SceneChip from '../components/SceneChip';
@@ -215,6 +215,30 @@ const StudioPage: React.FC = () => {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       void 0;
+    }
+  };
+
+  const handleContinueFromVideo = async (item: SessionItem) => {
+    const url = item.mediaUrls[0];
+    if (!url) return;
+    try {
+      const r = await fetch(url);
+      const blob = await r.blob();
+      const reader = new FileReader();
+      const b64: string = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      window.dispatchEvent(new CustomEvent('pathfinder-continue-video', {
+        detail: {
+          videoB64: b64,
+          aspectRatio: item.aspectRatio,
+          resolution: (item.params as any)?.resolution || '480p',
+        },
+      }));
+    } catch (e) {
+      console.warn('[continue] no se pudo preparar el video:', e);
     }
   };
 
@@ -656,18 +680,35 @@ const StudioPage: React.FC = () => {
                     }}>
 
                       {item.isGenerating && item.mediaType !== 'audio' && (
-                        <div style={{
-                          width: frameWidth,
-                          aspectRatio: item.aspectRatio || '1/1',
-                          background: '#000000',
-                          borderRadius: '10px',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          border: '1px solid rgba(34, 211, 238, 0.2)',
-                          boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)'
-                        }}>
-                          <NebulaLoader />
-                        </div>
+                        item.sceneUrls && item.sceneUrls.length > 0 ? (
+                          <div style={{ display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                                        gap: '8px', width: '100%' }}>
+                            {item.sceneUrls.map((u, i) => (
+                              <div key={i} style={{ borderRadius: '10px', overflow: 'hidden',
+                                                    border: '1px solid rgba(34, 211, 238, 0.2)' }}>
+                                <video src={u} muted autoPlay loop playsInline
+                                       style={{ width: '100%', display: 'block' }} />
+                              </div>
+                            ))}
+                            <div style={{ aspectRatio: item.aspectRatio || '1/1',
+                                          background: '#000000', borderRadius: '10px',
+                                          position: 'relative', overflow: 'hidden',
+                                          border: '1px solid rgba(34, 211, 238, 0.2)',
+                                          boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)' }}>
+                              <NebulaLoader />
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ width: frameWidth,
+                                        aspectRatio: item.aspectRatio || '1/1',
+                                        background: '#000000', borderRadius: '10px',
+                                        position: 'relative', overflow: 'hidden',
+                                        border: '1px solid rgba(34, 211, 238, 0.2)',
+                                        boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)' }}>
+                            <NebulaLoader />
+                          </div>
+                        )
                       )}
 
                       {item.isGenerating && item.mediaType === 'audio' && (
@@ -835,6 +876,9 @@ const StudioPage: React.FC = () => {
                           />
                         )}
                         <ActionButton onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'mp3' : 'png'}`)} icon={<Download size={14} />} label="Descargar" />
+                        {item.mediaType === 'video' && item.modelId === 'ltx-2.3' && item.mediaUrls[0] && !item.storyboardMeta && (
+                          <ActionButton onClick={() => handleContinueFromVideo(item)} icon={<Play size={14} />} label="Continuar" />
+                        )}
                         <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label="Variación" />
                         <ActionButton onClick={() => handleDiscard(item.id)} icon={<Trash2 size={14} />} label="Eliminar" danger />
                         {item.mediaType === 'image' && (

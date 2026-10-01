@@ -34,6 +34,8 @@ export interface StoryboardScenePayload {
   duration_sec: number;
   /** Solo aplica cuando mode='cut'. En 'continue' siempre true, en 'first' siempre false. */
   inherit_start?: boolean;
+  /** Si true, el notebook recalcula num_frames desde la duración del audio. */
+  match_audio_dur?: boolean;
   /** Path en /tmp/gradio/... devuelto por client.upload_files(). Null = sin imagen. */
   start_image?: string | null;
   /** Path en /tmp/gradio/... devuelto por client.upload_files(). Null = sin imagen. */
@@ -48,6 +50,8 @@ export interface StoryboardPayload {
     seed: number;
     extra_loras: string[];
     lora_mults: string;
+    /** Data URI base64 de un video existente (para "Continuar" desde single-scene). */
+    initial_video?: string | null;
   };
   scenes: StoryboardScenePayload[];
 }
@@ -68,6 +72,8 @@ export interface SessionItem {
   params?: Record<string, unknown>;
   /** URLs de las imágenes de referencia persistidas (para Variación) */
   refUrls?: string[];
+  /** URLs de cada escena completada (para mostrarlas mientras corre el storyboard). */
+  sceneUrls?: string[];
   /** Metadata de storyboard. Solo presente si la generación fue multi-escena. */
   storyboardMeta?: StoryboardMeta;
 }
@@ -257,6 +263,19 @@ function mapBackendItem(raw: any): SessionItem {
     isGenerating,
     params: mapBackendParams(raw.parameters),
     refUrls: Array.isArray(raw.ref_urls) ? raw.ref_urls.map(String) : undefined,
+    sceneUrls: Array.isArray(raw.scene_urls) ? raw.scene_urls.map(String) : undefined,
+    storyboardMeta: raw.storyboard_meta ? {
+      totalScenes: Number(raw.storyboard_meta.total_scenes ?? 0),
+      currentScene: Number(raw.storyboard_meta.current_scene ?? 1),
+      scenes: Array.isArray(raw.storyboard_meta.scenes)
+        ? raw.storyboard_meta.scenes.map((s: any, i: number) => ({
+            index: Number(s.index ?? i),
+            mode: (s.mode === 'first' || s.mode === 'cut' || s.mode === 'continue') ? s.mode : 'cut',
+            durationSec: Number(s.duration_sec ?? 5),
+            prompt: String(s.prompt ?? ''),
+          }))
+        : [],
+    } : undefined,
   };
 }
 
@@ -1078,7 +1097,7 @@ export function GenerationProvider({
 
       setSessionHistory(prev => [...prev, {
         id: userItemId,
-        prompt: `Storyboard · ${payload.scenes.length} escenas`,
+        prompt: `Storyboard — ${payload.scenes.length} escenas`,
         mediaUrls: [],
         mediaType: 'video',
         modelId: 'ltx-2.3',

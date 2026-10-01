@@ -13,6 +13,8 @@ export interface StoryboardSceneLocal {
   endImage: File | null;
   /** Audio de referencia de la escena (opcional, se sube como base64). */
   audioFile: File | null;
+  /** Si true, la duración de la escena se toma del audio en vez del dropdown. */
+  matchAudioDur: boolean;
   /** Solo aplica en mode='cut'. En 'continue' siempre es true. */
   inheritStartFromPrev: boolean;
 }
@@ -48,6 +50,7 @@ function newScene(idx: number): StoryboardSceneLocal {
     startImage: null,
     endImage: null,
     audioFile: null,
+    matchAudioDur: false,
     inheritStartFromPrev: idx > 0,
   };
 }
@@ -350,6 +353,38 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
             selected.endImage,
             (f) => updateScene(selectedIdx, { endImage: f }),
             'End',
+          )}
+
+          {/* Audio uploader (siempre opcional) */}
+          {renderSceneFileChip(
+            selected.audioFile,
+            (f) => updateScene(selectedIdx, { audioFile: f }),
+            'Audio',
+          )}
+
+          {/* Toggle Match Audio (solo si hay audio) */}
+          {selected.audioFile && (
+            <label
+              title="Ajustar la duración de la escena a la del audio"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 8px', borderRadius: 6,
+                background: selected.matchAudioDur ? 'var(--pf-text-primary)' : 'var(--pf-bg-secondary)',
+                color: selected.matchAudioDur ? 'var(--pf-bg-elevated)' : 'var(--pf-text-muted)',
+                border: '1px solid ' + (selected.matchAudioDur ? 'var(--pf-text-primary)' : 'var(--pf-border-subtle)'),
+                fontFamily: 'var(--pf-font-ui)', fontSize: '10px',
+                fontWeight: 600, cursor: 'pointer', userSelect: 'none',
+                lineHeight: 1,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selected.matchAudioDur}
+                onChange={(e) => updateScene(selectedIdx, { matchAudioDur: e.target.checked })}
+                style={{ display: 'none' }}
+              />
+              Match Audio
+            </label>
           )}
 
           {/* Start heredado (info) */}

@@ -919,6 +919,51 @@ const FloatingCommandCenter: React.FC = () => {
 
   // FASE 3: escuchar pathfinder-load-config — repoblar prompt, params y refs
   useEffect(() => {
+    const handleContinueVideo = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        videoB64: string;
+        aspectRatio?: string;
+        resolution?: string;
+      };
+      if (!detail?.videoB64) return;
+
+      // Activar modo storyboard con 1 escena en continue
+      setStoryboardMode('storyboard');
+      setStoryboardScenes([{
+        id: `scene-${Date.now()}`,
+        mode: 'continue',
+        durationSec: 5,
+        prompt: '',
+        startImage: null,
+        endImage: null,
+        audioFile: null,
+        matchAudioDur: false,
+        inheritStartFromPrev: true,
+      }]);
+      (window as any).__pf_initial_video = detail.videoB64;
+
+      if (detail.resolution) {
+        setVideoParams(p => ({ ...p, resolution: detail.resolution! }));
+      }
+      if (detail.aspectRatio) {
+        const map: Record<string,string> = {
+          '16:9': '16:9 Landscape',
+          '9:16': '9:16 Portrait',
+          '1:1':  '1:1 Square',
+          '4:3':  '4:3 Standard',
+          '3:4':  '3:4 Portrait',
+        };
+        const label = detail.aspectRatio.replace('/', ':');
+        if (map[label]) setVideoParams(p => ({ ...p, aspectRatio: map[label] }));
+      }
+    };
+    window.addEventListener('pathfinder-continue-video', handleContinueVideo as EventListener);
+    return () => {
+      window.removeEventListener('pathfinder-continue-video', handleContinueVideo as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleLoadConfig = async (e: Event) => {
       const custom = e as CustomEvent<{
         prompt: string;
@@ -1440,6 +1485,7 @@ const FloatingCommandCenter: React.FC = () => {
                   prompt: s.prompt,
                   duration_sec: s.durationSec,
                   inherit_start: s.mode === 'continue' ? true : (s.mode === 'cut' ? s.inheritStartFromPrev : false),
+                  match_audio_dur: !!s.matchAudioDur,
                   start_image: startB64,
                   end_image: endB64,
                   audio_path: audioB64,
@@ -1457,6 +1503,7 @@ const FloatingCommandCenter: React.FC = () => {
                 seed: videoParams.seed,
                 extra_loras: videoParams.loraItems.filter(x => x.enabled).map(x => x.name),
                 lora_mults: videoParams.loraItems.filter(x => x.enabled).map(x => x.mult || '1.0').join(' '),
+                initial_video: (window as any).__pf_initial_video ?? null,
               },
               scenes: scenesPayload,
             });
