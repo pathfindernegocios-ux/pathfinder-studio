@@ -1,6 +1,6 @@
 // src/pages/StationPage.tsx
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Download, Lock, Sparkles, Clock, CheckCircle2, Loader2, ExternalLink, HelpCircle } from 'lucide-react';
 import { useModels } from '../hooks/useModels';
 import type { ModelCatalogEntry } from '../hooks/useModels';
@@ -9,6 +9,7 @@ import { Client } from '@gradio/client';
 import { Power } from 'lucide-react';
 import { useGenerationContext } from '../context/GenerationContext';
 import { usePurchase } from '../hooks/usePurchase';
+import { useAuth } from '../hooks/useAuth';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -16,7 +17,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 // ============================================================
 // Download de notebook
 // ============================================================
-async function downloadNotebook(modelId: string): Promise<void> {
+async function downloadNotebook(modelId: string, platform: 'kaggle' | 'colab' = 'kaggle'): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   if (!token) throw new Error('No hay sesión activa');
@@ -27,7 +28,7 @@ async function downloadNotebook(modelId: string): Promise<void> {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ modelId }),
+    body: JSON.stringify({ modelId, platform }),
   });
 
   if (!res.ok) {
@@ -110,6 +111,10 @@ interface ModelCardProps {
   isShuttingDown?: boolean;
   onUnlock?: () => void;
   isUnlocking?: boolean;
+  canDownloadColab?: boolean;
+  onDownloadColab?: (modelId: string) => void;
+  isDownloadingColab?: boolean;
+  onColabLocked?: () => void;
 }
 
 const CAPABILITY_LABEL: Record<string, string> = {
@@ -118,7 +123,10 @@ const CAPABILITY_LABEL: Record<string, string> = {
   audio: 'Audio',
 };
 
-const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDownloading, isOnline, onShutdown, isShuttingDown, onUnlock, isUnlocking }) => {
+const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDownloading, isOnline, onShutdown, isShuttingDown, onUnlock, isUnlocking, canDownloadColab, onDownloadColab, isDownloadingColab, onColabLocked }) => {
+  const hasColabVariant = typeof (model.metadata as Record<string, unknown>)?.colab_template_path === 'string'
+    && ((model.metadata as Record<string, unknown>).colab_template_path as string).length > 0;
+
   const badge = (() => {
     if (variant === 'owned') return { text: 'Disponible', color: '#10B981', bg: 'rgba(16,185,129,0.1)', Icon: CheckCircle2 };
     if (variant === 'coming_soon') return { text: 'Próximamente', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', Icon: Clock };
@@ -289,6 +297,54 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
         </button>
       )}
 
+      {variant === 'owned' && hasColabVariant && (
+        <button
+          onClick={() => (canDownloadColab && onDownloadColab) ? onDownloadColab(model.id) : onColabLocked?.()}
+          disabled={isDownloadingColab}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '10px 16px',
+            background: canDownloadColab ? 'var(--pf-bg-tertiary)' : 'rgba(245,158,11,0.08)',
+            color: canDownloadColab ? 'var(--pf-text-secondary)' : '#B45309',
+            border: `1px solid ${canDownloadColab ? 'var(--pf-border-default)' : 'rgba(245,158,11,0.4)'}`,
+            borderRadius: '10px',
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            cursor: isDownloadingColab ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+            opacity: isDownloadingColab ? 0.6 : 1,
+          }}
+        >
+          {isDownloadingColab ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Descargando...
+            </>
+          ) : (
+            <>
+              <Download size={14} />
+              Descargar (Colab)
+              {!canDownloadColab && (
+                <span style={{
+                  marginLeft: '4px',
+                  padding: '2px 6px',
+                  borderRadius: '6px',
+                  background: 'rgba(245,158,11,0.15)',
+                  color: '#B45309',
+                  fontSize: '0.625rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.03em',
+                }}>PRO</span>
+              )}
+            </>
+          )}
+        </button>
+      )}
+
       {variant === 'owned' && onShutdown && isOnline && (
         <button
           onClick={() => onShutdown(model.id)}
@@ -429,7 +485,13 @@ const StationPage: React.FC = () => {
   const { ownedModels, lockedModels, comingSoonModels, loading, error, refresh } = useModels();
   const { stationStatusMap, refreshStationStatus } = useGenerationContext();
   const { startCheckout, state: purchaseState } = usePurchase();
+  const { profile } = useAuth();
+  const navigate = useNavigate();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadingColabId, setDownloadingColabId] = useState<string | null>(null);
+
+  const userPlan = ((profile as Record<string, unknown> | null)?.plan as string || 'standard').toLowerCase();
+  const canDownloadColab = ['creator', 'founder', 'pro'].includes(userPlan);
   const [shuttingDownId, setShuttingDownId] = useState<string | null>(null);
   const [shutdownTargetId, setShutdownTargetId] = useState<string | null>(null);
 
@@ -457,15 +519,20 @@ const StationPage: React.FC = () => {
     }
   };
 
-  const handleDownload = async (modelId: string) => {
-    setDownloadingId(modelId);
+  const handleDownload = async (modelId: string, platform: 'kaggle' | 'colab' = 'kaggle') => {
+    if (platform === 'colab') {
+      setDownloadingColabId(modelId);
+    } else {
+      setDownloadingId(modelId);
+    }
     try {
-      await downloadNotebook(modelId);
+      await downloadNotebook(modelId, platform);
     } catch (e) {
       void 0;
       alert('No se pudo descargar el notebook. Intenta de nuevo.');
     } finally {
       setDownloadingId(null);
+      setDownloadingColabId(null);
     }
   };
 
@@ -667,6 +734,10 @@ const StationPage: React.FC = () => {
                     isOnline={stationStatusMap[model.id] === 'online'}
                     onShutdown={handleShutdown}
                     isShuttingDown={shuttingDownId === model.id}
+                    canDownloadColab={canDownloadColab}
+                    onDownloadColab={(id: string) => handleDownload(id, 'colab')}
+                    isDownloadingColab={downloadingColabId === model.id}
+                    onColabLocked={() => navigate('/pricing')}
                   />
                 ))}
             </div>
