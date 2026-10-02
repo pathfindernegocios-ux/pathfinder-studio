@@ -137,6 +137,15 @@ interface GenerateParams {
   msrRef5?: File | string | null;
   pipeline?: string;
   audioCfg?: number;
+  // ── Qwen Image 2.1 ──
+  qwenTask?: 'Crear' | 'Editar y Refs' | 'Inpaint';
+  qwenMode?: string;
+  qwenStyle?: string;
+  qwenTransparent?: boolean;
+  qwenRefFiles?: File[];
+  qwenEditImage?: File | null;
+  qwenEditMask?: File | null;
+  qwenStrength?: number;
 }
 
 interface GenerationContextValue {
@@ -241,6 +250,10 @@ const KREA_STYLE_SUFFIXES: Record<string, string> = {
   "Anime": ", anime style, cel shaded, vibrant saturated colors, detailed lineart, anime key visual, studio quality illustration",
   "Photorealistic": ", photorealistic, hyperdetailed, shot on Canon EOS R5 with 85mm f/1.4 lens, natural lighting, sharp focus, 8k uhd, raw photo",
   "3D Render": ", 3d render, octane render, physically based rendering, subsurface scattering, cinematic volumetric lighting, ultra detailed",
+  // Estilos exclusivos de Qwen Image 2.1
+  "Photographic": ", professional photography, 35mm lens, f/2.8, depth of field, natural lighting, photorealistic, highly detailed",
+  "Cyberpunk": ", cyberpunk aesthetic, glowing neon lights, futuristic city, volumetric smoke, high contrast",
+  "Fantasy": ", mythical fantasy scene, glowing magical particles, ethereal light, digital painting, masterpiece",
 };
 
 function applyStylePreset(prompt: string, stylePreset?: string): string {
@@ -1058,7 +1071,35 @@ export function GenerationProvider({
         } else if (capability === "image") {
           let absoluteUrls: string[] = [];
 
-          if (activeImageModelId === "flux-2-klein-4b") {
+          if (activeImageModelId === "qwen-image-2.1") {
+            const styledPrompt = applyStylePreset(params.prompt, params.qwenStyle);
+
+            const validRefFiles = (params.qwenRefFiles || [])
+              .filter((f): f is File => f instanceof File)
+              .slice(0, 10);
+
+            const result = await client.predict("/generate", [
+              styledPrompt,
+              params.negativePrompt || "",
+              params.qwenTask || "Crear",
+              params.qwenMode || "Turbo HQ",
+              params.qwenTransparent ?? false,
+              params.resolution || "1024px (recommended)",
+              params.aspectRatio || "1:1 Square",
+              params.seed,
+              params.numImages || 1,
+              validRefFiles.length > 0 ? validRefFiles : null,
+              params.qwenEditImage || null,
+              params.qwenEditMask || null,
+              params.qwenStrength ?? 1.0,
+              token,
+            ]);
+
+            const data = result.data as unknown[];
+            const images = parseImagesFromResult(data[0]);
+            absoluteUrls = toAbsoluteUrls(images, gradioUrl);
+
+          } else if (activeImageModelId === "flux-2-klein-4b") {
             const fluxAspectMap: Record<string, string> = {
               // Labels exactos del UI (FLUX_ASPECT_RATIOS)
               "1:1 Cuadrado": "1:1 Cuadrado",

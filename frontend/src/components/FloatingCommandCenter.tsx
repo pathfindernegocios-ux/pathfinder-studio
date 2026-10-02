@@ -26,6 +26,12 @@ import {
 
 // Alias locales para minimizar el diff con el código existente
 const STATIC_IMAGE_MODELS = IMAGE_MODELS;
+
+const QWEN_TASKS = ['Crear', 'Editar y Refs', 'Inpaint'];
+const QWEN_MODES = ['Turbo HQ', 'Turbo Fast'];
+const QWEN_RESOLUTIONS = ['768px (fastest)', '1024px (recommended)'];
+const QWEN_ASPECT_RATIOS = ['Match input', '1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait', '2:3 Poster'];
+const QWEN_STYLES = ['None', 'Cinematic', 'Photographic', 'Anime', 'Cyberpunk', 'Fantasy'];
 const STATIC_VIDEO_MODELS = VIDEO_MODELS;
 const STATIC_AUDIO_MODELS = AUDIO_MODELS;
 
@@ -288,6 +294,22 @@ interface FluxParams {
   modelModeLabel: string;
   fluxGuideScale: number;
   embeddedGuidance: number;
+}
+
+interface QwenParams {
+  task: 'Crear' | 'Editar y Refs' | 'Inpaint';
+  mode: string;
+  stylePreset: string;
+  transparent: boolean;
+  negativePrompt: string;
+  resolution: string;
+  aspectRatio: string;
+  seed: number;
+  numImages: number;
+  refFiles: File[];
+  editImageFile: File | null;
+  editMaskFile: File | null;
+  strength: number;
 }
 
 interface TtsParams {
@@ -597,6 +619,7 @@ const FloatingCommandCenter: React.FC = () => {
   }, [activeTab, activeImageModelId]);
 
   const isFluxActive = selectedImageModelId.includes('flux');
+  const isQwenActive = selectedImageModelId === 'qwen-image-2.1';
   const isTtsOmni = selectedTtsModelId === 'omnivoice';
   const ttsVoiceModeOptions = isTtsOmni ? TTS_OMNI_VOICE_MODES : TTS_INDEX_VOICE_MODES;
   const ttsLangOptions = isTtsOmni ? TTS_OMNI_LANGS : TTS_INDEX_LANGS;
@@ -673,6 +696,27 @@ const FloatingCommandCenter: React.FC = () => {
     embeddedGuidance: 1,
   });
 
+  const [qwenParams, setQwenParams] = useState<QwenParams>({
+    task: 'Crear',
+    mode: 'Turbo HQ',
+    stylePreset: 'None',
+    transparent: false,
+    negativePrompt: '',
+    resolution: '1024px (recommended)',
+    aspectRatio: '1:1 Square',
+    seed: -1,
+    numImages: 1,
+    refFiles: [],
+    editImageFile: null,
+    editMaskFile: null,
+    strength: 1.0,
+  });
+
+  const qwenImageCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const qwenMaskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const qwenPaintingRef = useRef<boolean>(false);
+  const [qwenEditImageUrl, setQwenEditImageUrl] = useState<string | null>(null);
+
   const [ttsParams, setTtsParams] = useState<TtsParams>({
     voiceMode: 'VD',
     voiceInstruction: 'female, young adult, moderate pitch',
@@ -705,6 +749,7 @@ const FloatingCommandCenter: React.FC = () => {
       ...(ltx25Params.ref4 ? [ltx25Params.ref4] : []),
       ...(ltx25Params.ref5 ? [ltx25Params.ref5] : []),
       ...fluxParams.refFiles,
+      ...qwenParams.refFiles,
       ...(ttsParams.audioGuide ? [ttsParams.audioGuide] : []),
       ...(ttsParams.audioGuide2 ? [ttsParams.audioGuide2] : []),
     ]);
@@ -1253,6 +1298,115 @@ const FloatingCommandCenter: React.FC = () => {
     });
   };
 
+  const handleQwenRefFilesChange = (files: File[]) => {
+    const validFiles = Array.from(files).filter(f => f instanceof File);
+    if (validFiles.length > 10) {
+      alert("Máximo 10 imágenes de referencia permitidas.");
+    }
+    setQwenParams(prev => ({ ...prev, refFiles: validFiles.slice(0, 10) }));
+  };
+
+  const handleQwenEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (qwenEditImageUrl) URL.revokeObjectURL(qwenEditImageUrl);
+    setQwenEditImageUrl(URL.createObjectURL(file));
+    setQwenParams(prev => ({ ...prev, editImageFile: file, editMaskFile: null }));
+    e.target.value = '';
+  };
+
+  const handleQwenClearEditImage = () => {
+    if (qwenEditImageUrl) URL.revokeObjectURL(qwenEditImageUrl);
+    setQwenEditImageUrl(null);
+    setQwenParams(prev => ({ ...prev, editImageFile: null, editMaskFile: null }));
+  };
+
+  // Dibuja la imagen en el canvas cuando ambos están listos (mount + url).
+  useEffect(() => {
+    if (qwenParams.task !== 'Inpaint' || !qwenEditImageUrl) return;
+    const imgCanvas = qwenImageCanvasRef.current;
+    const maskCanvas = qwenMaskCanvasRef.current;
+    if (!imgCanvas) return;
+    const img = new Image();
+    img.onload = () => {
+      imgCanvas.width = img.width;
+      imgCanvas.height = img.height;
+      const ctx = imgCanvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, img.width, img.height);
+        ctx.drawImage(img, 0, 0);
+      }
+      if (maskCanvas) {
+        maskCanvas.width = img.width;
+        maskCanvas.height = img.height;
+        const mctx = maskCanvas.getContext('2d');
+        if (mctx) mctx.clearRect(0, 0, img.width, img.height);
+      }
+    };
+    img.src = qwenEditImageUrl;
+  }, [qwenEditImageUrl, qwenParams.task]);
+
+  const handleQwenClearMask = () => {
+    const maskCanvas = qwenMaskCanvasRef.current;
+    if (!maskCanvas) return;
+    const ctx = maskCanvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+    setQwenParams(prev => ({ ...prev, editMaskFile: null }));
+  };
+
+  const qwenDrawAt = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = qwenMaskCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.55)';
+    ctx.beginPath();
+    ctx.arc(x, y, 22, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const handleQwenCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    qwenPaintingRef.current = true;
+    qwenDrawAt(e);
+  };
+  const handleQwenCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (qwenPaintingRef.current) qwenDrawAt(e);
+  };
+  const handleQwenCanvasMouseUp = () => {
+    if (!qwenPaintingRef.current) return;
+    qwenPaintingRef.current = false;
+    const canvas = qwenMaskCanvasRef.current;
+    if (!canvas) return;
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = canvas.width;
+    maskCanvas.height = canvas.height;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+    maskCtx.fillStyle = 'black';
+    maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+    const src = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height);
+    if (!src) return;
+    const dst = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    for (let i = 0; i < src.data.length; i += 4) {
+      if (src.data[i + 3] > 30) {
+        dst.data[i] = 255;
+        dst.data[i + 1] = 255;
+        dst.data[i + 2] = 255;
+        dst.data[i + 3] = 255;
+      }
+    }
+    maskCtx.putImageData(dst, 0, 0);
+    maskCanvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], 'mask.png', { type: 'image/png' });
+        setQwenParams(prev => ({ ...prev, editMaskFile: file }));
+      }
+    }, 'image/png');
+  };
+
   const handleApplyTrim = (which: 'audioGuide' | 'audioGuide2', trimmedFile: File, _startSec: number, _endSec: number) => {
     setTtsParams(prev => ({ ...prev, [which]: trimmedFile }));
     setExpandedAudio(null);
@@ -1600,7 +1754,24 @@ const FloatingCommandCenter: React.FC = () => {
           });
         }
       } else if (activeTab === 'image') {
-        if (isFluxActive) {
+        if (isQwenActive) {
+          await handleGenerate({
+            prompt,
+            negativePrompt: qwenParams.negativePrompt,
+            resolution: qwenParams.resolution,
+            aspectRatio: qwenParams.aspectRatio,
+            seed: qwenParams.seed,
+            numImages: qwenParams.numImages,
+            qwenTask: qwenParams.task,
+            qwenMode: qwenParams.mode,
+            qwenStyle: qwenParams.stylePreset,
+            qwenTransparent: qwenParams.transparent,
+            qwenRefFiles: qwenParams.refFiles,
+            qwenEditImage: qwenParams.editImageFile,
+            qwenEditMask: qwenParams.editMaskFile,
+            qwenStrength: qwenParams.strength,
+          });
+        } else if (isFluxActive) {
           await handleGenerate({ 
             prompt, 
             negativePrompt: fluxParams.negativePrompt,
@@ -1664,7 +1835,7 @@ const FloatingCommandCenter: React.FC = () => {
     } catch (error) {
       void 0;
     }
-  }, [prompt, activeTab, isFluxActive, isVideoLtx, isVideoLtx25Msr, isVideoWan, videoParams, wanParams, ltx25Params, fluxParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate, handleGenerateStoryboard, storyboardMode, storyboardScenes, storyboardValid, getClient]);
+  }, [prompt, activeTab, isFluxActive, isQwenActive, isVideoLtx, isVideoLtx25Msr, isVideoWan, videoParams, wanParams, ltx25Params, fluxParams, qwenParams, kreaParams, ttsParams, selectedVideoModelId, selectedImageModelId, selectedTtsModelId, handleGenerate, handleGenerateStoryboard, storyboardMode, storyboardScenes, storyboardValid, getClient]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1713,6 +1884,10 @@ const FloatingCommandCenter: React.FC = () => {
             if (type === 'ltx25-ref3') setLtx25Params(prev => ({ ...prev, ref3: null }));
             if (type === 'ltx25-ref4') setLtx25Params(prev => ({ ...prev, ref4: null }));
             if (type === 'ltx25-ref5') setLtx25Params(prev => ({ ...prev, ref5: null }));
+            if (typeof type === 'string' && type.startsWith('qwenref-')) {
+              const idx = parseInt(type.replace('qwenref-', ''), 10);
+              setQwenParams(prev => ({ ...prev, refFiles: prev.refFiles.filter((_, i) => i !== idx) }));
+            }
           }}
           style={{
             position: 'absolute', top: '-4px', right: '-4px',
@@ -2066,6 +2241,114 @@ const FloatingCommandCenter: React.FC = () => {
             </div>
           )}
 
+          {/* Bloque contextual Qwen (task + refs + inpaint canvas) */}
+          {activeTab === 'image' && isQwenActive && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <DropdownButton
+                options={QWEN_TASKS}
+                value={qwenParams.task}
+                onChange={(v: string) => setQwenParams(prev => ({ ...prev, task: v as QwenParams['task'] }))}
+              />
+              {(qwenParams.task === 'Crear' || qwenParams.task === 'Editar y Refs') && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: qwenParams.transparent ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={qwenParams.transparent} onChange={(e) => setQwenParams(prev => ({ ...prev, transparent: e.target.checked }))} />
+                  Fondo transparente
+                </label>
+              )}
+              {qwenParams.task === 'Editar y Refs' && (
+                <>
+                  <label style={{ position: 'relative', cursor: 'pointer' }}>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files) handleQwenRefFilesChange(Array.from(e.target.files));
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: qwenParams.refFiles.length > 0 ? 'var(--pf-bg-tertiary)' : 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                      <Paperclip size={12} />
+                      <span>{qwenParams.refFiles.length > 0 ? `${qwenParams.refFiles.length} Refs` : 'Referencias (hasta 10)'}</span>
+                    </div>
+                  </label>
+                  {qwenParams.refFiles.slice(0, 4).map((f, idx) => (
+                    <div key={`${f.name}-${f.lastModified}-${idx}`} style={{ position: 'relative' }}>
+                      {renderFileThumbnail(f, `qwenref-${idx}`)}
+                      <span style={{ position: 'absolute', bottom: '0', right: '0', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '8px', padding: '1px 3px', borderRadius: '4px' }}>{idx + 1}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+              {qwenParams.task === 'Inpaint' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  {!qwenParams.editImageFile ? (
+                    <label style={{ cursor: 'pointer', display: 'inline-flex' }}>
+                      <input type="file" accept="image/*" onChange={handleQwenEditImageChange} style={{ display: 'none' }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
+                        <Paperclip size={12} />
+                        <span>Cargar imagen para Inpaint</span>
+                      </div>
+                    </label>
+                  ) : (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px 6px 10px', background: 'var(--pf-bg-tertiary)', border: '1px solid var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)', alignSelf: 'flex-start' }}>
+                      <Paperclip size={12} />
+                      <span style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{qwenParams.editImageFile.name}</span>
+                      <button
+                        type="button"
+                        onClick={handleQwenClearEditImage}
+                        title="Quitar imagen"
+                        style={{ marginLeft: '4px', width: '16px', height: '16px', borderRadius: '50%', background: '#EF4444', color: 'white', border: 'none', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  )}
+                  {qwenParams.editImageFile && (
+                    <>
+                      <div style={{ position: 'relative', display: 'inline-block', maxWidth: '420px', width: '100%' }}>
+                        <canvas ref={qwenImageCanvasRef} style={{ display: 'block', width: '100%', height: 'auto', borderRadius: '8px' }} />
+                        <canvas
+                          ref={qwenMaskCanvasRef}
+                          onMouseDown={handleQwenCanvasMouseDown}
+                          onMouseMove={handleQwenCanvasMouseMove}
+                          onMouseUp={handleQwenCanvasMouseUp}
+                          onMouseLeave={handleQwenCanvasMouseUp}
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'crosshair', borderRadius: '8px' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={handleQwenClearMask}
+                          style={{ padding: '5px 10px', background: 'var(--pf-bg-secondary)', border: '1px solid var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)', cursor: 'pointer' }}
+                        >
+                          Limpiar máscara
+                        </button>
+                        <span style={{ fontSize: '11px', fontFamily: 'var(--pf-font-ui)', color: qwenParams.editMaskFile ? '#10B981' : 'var(--pf-text-muted)' }}>
+                          {qwenParams.editMaskFile ? 'Máscara lista' : 'Pinta sobre la zona a cambiar'}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                          <span style={{ fontSize: '11px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>Intensidad</span>
+                          <input
+                            type="range"
+                            min={0.3}
+                            max={1.0}
+                            step={0.05}
+                            value={qwenParams.strength}
+                            onChange={(e) => setQwenParams(prev => ({ ...prev, strength: parseFloat(e.target.value) }))}
+                            style={{ width: '120px' }}
+                          />
+                          <span style={{ fontSize: '11px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-primary)', minWidth: '28px' }}>{qwenParams.strength.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Bloque de chips para Audio */}
           {activeTab === 'audio' && (
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
@@ -2326,7 +2609,7 @@ const FloatingCommandCenter: React.FC = () => {
               }}>
                 <span style={{ fontSize: '10px' }}>▸</span>
                 Negative prompt
-                {((isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt) || '').trim() !== '' && (
+                {((isQwenActive ? qwenParams.negativePrompt : isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt) || '').trim() !== '' && (
                   <span style={{
                     fontSize: '10px',
                     color: 'var(--pf-text-muted)',
@@ -2336,15 +2619,17 @@ const FloatingCommandCenter: React.FC = () => {
                     whiteSpace: 'nowrap',
                     maxWidth: '240px',
                   }}>
-                    — {(isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt).slice(0, 60)}
+                    — {(isQwenActive ? qwenParams.negativePrompt : isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt).slice(0, 60)}
                   </span>
                 )}
               </summary>
               <textarea
-                value={isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt}
+                value={isQwenActive ? qwenParams.negativePrompt : isFluxActive ? fluxParams.negativePrompt : kreaParams.negativePrompt}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (isFluxActive) {
+                  if (isQwenActive) {
+                    setQwenParams(prev => ({ ...prev, negativePrompt: v }));
+                  } else if (isFluxActive) {
                     setFluxParams(prev => ({ ...prev, negativePrompt: v }));
                   } else {
                     setKreaParams(prev => ({ ...prev, negativePrompt: v }));
@@ -3046,7 +3331,7 @@ const FloatingCommandCenter: React.FC = () => {
             )}
 
             {/* Imagen Krea */}
-            {activeTab === 'image' && !isFluxActive && (
+            {activeTab === 'image' && !isFluxActive && !isQwenActive && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <DropdownButton options={KREA_STYLES} value={kreaParams.stylePreset} onChange={(v: string) => setKreaParams({...kreaParams, stylePreset: v})} />
                 <DropdownButton options={KREA_RESOLUTIONS} value={kreaParams.resolution} onChange={(v: string) => setKreaParams({...kreaParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
@@ -3107,6 +3392,65 @@ const FloatingCommandCenter: React.FC = () => {
                         </div>
                       </div>
                    </details>
+                </div>
+              </div>
+            )}
+
+            {/* Imagen Qwen */}
+            {activeTab === 'image' && isQwenActive && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <DropdownButton options={QWEN_MODES} value={qwenParams.mode} onChange={(v: string) => setQwenParams({...qwenParams, mode: v})} />
+                <DropdownButton options={QWEN_RESOLUTIONS} value={qwenParams.resolution} onChange={(v: string) => setQwenParams({...qwenParams, resolution: v})} formatOption={(opt) => opt.split(' ')[0]} />
+                <DropdownButton
+                  options={qwenParams.task === 'Crear' ? QWEN_ASPECT_RATIOS.slice(1) : QWEN_ASPECT_RATIOS}
+                  value={qwenParams.aspectRatio}
+                  onChange={(v: string) => setQwenParams({...qwenParams, aspectRatio: v})}
+                  formatOption={(opt) => opt === 'Match input' ? 'Match input' : opt.split(' ')[0]}
+                />
+                <NumberInput label="Seed" value={qwenParams.seed} onChange={(v: number) => setQwenParams({...qwenParams, seed: v})} min={-1} max={2147483647} step={1} />
+                <NumberInput label="Imágenes" value={qwenParams.numImages} onChange={(v: number) => setQwenParams({...qwenParams, numImages: v})} min={1} max={4} />
+
+                <div style={{ position: 'relative' }}>
+                  <details style={{ display: 'inline-block' }}>
+                    <summary style={{
+                      listStyle: 'none',
+                      background: 'var(--pf-bg-secondary)',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px',
+                      padding: '5px 10px',
+                      fontSize: '12px',
+                      fontFamily: 'var(--pf-font-ui)',
+                      color: 'var(--pf-text-secondary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      Avanzado ▼
+                    </summary>
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 8px)',
+                      left: isMobile ? 'auto' : 0,
+                      right: isMobile ? 0 : 'auto',
+                      background: 'var(--pf-bg-elevated)',
+                      border: '1px solid var(--pf-border-default)',
+                      borderRadius: '8px',
+                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                      zIndex: 1000,
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      width: isMobile ? 'auto' : '200px',
+                      maxWidth: 'calc(100vw - 24px)'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '11px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)', marginBottom: '6px' }}>Style</div>
+                        <DropdownButton options={QWEN_STYLES} value={qwenParams.stylePreset} onChange={(v: string) => setQwenParams({...qwenParams, stylePreset: v})} />
+                      </div>
+                    </div>
+                  </details>
                 </div>
               </div>
             )}

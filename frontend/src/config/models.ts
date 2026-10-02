@@ -25,8 +25,9 @@ export interface ModelOption {
 }
 
 export const IMAGE_MODELS: ModelOption[] = [
-  { id: 'krea-2-turbo',    name: 'Krea 2',   type: 'krea', runtimeId: 'krea-2-turbo' },
-  { id: 'flux-2-klein-4b', name: 'Flux 2',   type: 'flux', runtimeId: 'flux-2-klein-4b' },
+  { id: 'krea-2-turbo',    name: 'Krea 2',    type: 'krea', runtimeId: 'krea-2-turbo' },
+  { id: 'qwen-image-2.1',  name: 'Qwen 2.1',  type: 'qwen', runtimeId: 'qwen-image-2.1' },
+  { id: 'flux-2-klein-4b', name: 'Flux 2',    type: 'flux', runtimeId: 'flux-2-klein-4b' },
 ];
 
 export const VIDEO_MODELS: ModelOption[] = [

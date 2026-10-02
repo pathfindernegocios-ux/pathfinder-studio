@@ -11,6 +11,7 @@ interface RuntimeRow {
   state: string;
   model_type: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 interface UseStationStatusResult {
@@ -24,6 +25,9 @@ interface UseStationStatusResult {
 }
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+// Mismo umbral que useStationBoot: evita alimentar bootingIds con filas
+// INSTALLING/CONNECTING muertas.
+const ORPHAN_BOOTING_THRESHOLD_MS = 25 * 60 * 1000;
 const POLL_MS_DESKTOP = 30_000;
 const POLL_MS_MOBILE = 60_000;
 const POLL_MS =
@@ -58,7 +62,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       // 1. Traer todas las filas de runtimes del usuario
       const { data, error } = await supabase
         .from('runtimes')
-        .select('model_id, gradio_url, state, model_type, created_at')
+        .select('model_id, gradio_url, state, model_type, created_at, updated_at')
         .eq('station_id', stationId)
         .order('created_at', { ascending: false });
 
@@ -92,9 +96,13 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
 
       // 2.c Construir bootingIds: model_ids cuyo último state es INSTALLING/CONNECTING
       const nextBootingIds: string[] = [];
+      const nowForBoot = Date.now();
       for (const [modelId, row] of latestByModel.entries()) {
         if (row.state === 'INSTALLING' || row.state === 'CONNECTING') {
-          nextBootingIds.push(modelId);
+          const bootAgeMs = nowForBoot - new Date(row.updated_at).getTime();
+          if (bootAgeMs < ORPHAN_BOOTING_THRESHOLD_MS) {
+            nextBootingIds.push(modelId);
+          }
         }
       }
 

@@ -44,6 +44,10 @@ const STALE_THRESHOLD_MS = 4 * 60 * 1000;
 // se considera huérfana (el notebook murió sin limpiar su fila).
 // El frontend la ignora y muestra IDLE en lugar del error viejo.
 const ORPHAN_ERROR_THRESHOLD_MS = 30 * 60 * 1000;
+// Fila huérfana de boot: INSTALLING/CONNECTING sin updates en >25 min.
+// El notebook murió a mitad del arranque sin limpiar su fila. Sin este filtro,
+// el auto-select de boot elige el modelo fantasma y pisa al modelo activo.
+const ORPHAN_BOOTING_THRESHOLD_MS = 25 * 60 * 1000;
 
 const DETECTING: BootInfo = {
   state: 'detecting',
@@ -139,6 +143,11 @@ export function useStationBoot(
         // Fila huérfana: state ERROR/STALE sin updates en >30 min.
         // El notebook murió sin limpiar su fila. Tratar como si no existiera.
         if ((state === 'ERROR' || state === 'STALE') && ageMs > ORPHAN_ERROR_THRESHOLD_MS) {
+          if (!cancelled) setBoot(IDLE);
+          return;
+        }
+
+        if ((state === 'INSTALLING' || state === 'CONNECTING') && ageMs > ORPHAN_BOOTING_THRESHOLD_MS) {
           if (!cancelled) setBoot(IDLE);
           return;
         }
