@@ -518,6 +518,17 @@ const FloatingCommandCenter: React.FC = () => {
   const [selectedVideoModelId, setSelectedVideoModelId] = useState<string>(() => loadPersistedStudioSelection()?.selectedVideoModelId || activeVideoModelId || 'ltx-2.3');
   const [selectedTtsModelId, setSelectedTtsModelId] = useState<string>(() => loadPersistedStudioSelection()?.selectedTtsModelId || 'omnivoice');
   const [expandedAudio, setExpandedAudio] = useState<'audioGuide' | 'audioGuide2' | null>(null);
+  const [lightboxFile, setLightboxFile] = useState<File | null>(null);
+
+  // Cerrar lightbox con Esc
+  useEffect(() => {
+    if (!lightboxFile) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxFile(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxFile]);
   const [newLoraUrl, setNewLoraUrl] = useState('');
   const [loraAdding, setLoraAdding] = useState(false);
 
@@ -558,12 +569,23 @@ const FloatingCommandCenter: React.FC = () => {
     setFirstGenCalloutVisible(false);
   };
   const isBootActive = boot.isBooting || boot.detecting;
+  // boot.isReady sólo cuenta si el updated_at es fresco (<3 min). Igual que
+  // StudioPage: una fila READY huérfana (notebook muerto) no debe marcar la
+  // estación como lista.
+  const bootAgeMs = boot.updatedAt ? Date.now() - new Date(boot.updatedAt).getTime() : Infinity;
+  const isFreshBootReady = boot.isReady && bootAgeMs < 3 * 60 * 1000;
   const isStationReady = currentStationModelId
-    ? (stationStatusMap[currentStationModelId] === 'online' || boot.isReady)
+    ? (stationStatusMap[getRuntimeId(currentStationModelId)] === 'online' || isFreshBootReady)
     : false;
   const isStationOffline = currentStationModelId
     ? (!isBootActive && !isStationReady)
     : false;
+
+  // Dismiss del banner naranja: se resetea al cambiar de capability/tab.
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  useEffect(() => {
+    setBannerDismissed(false);
+  }, [activeTab]);
   useEffect(() => {
     if (activeTab === 'image') {
       if (activeImageModelId && STATIC_IMAGE_MODELS.some(m => m.id === activeImageModelId)) {
@@ -1662,7 +1684,19 @@ const FloatingCommandCenter: React.FC = () => {
             <Music size={16} />
           </div>
         ) : (
-          <img src={url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--pf-border-default)' }} />
+          <img
+            src={url}
+            alt={file.name}
+            onClick={() => setLightboxFile(file)}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              borderRadius: '6px',
+              border: '1px solid var(--pf-border-default)',
+              cursor: 'zoom-in',
+            }}
+          />
         )}
         <button
           onClick={() => {
@@ -1720,10 +1754,31 @@ const FloatingCommandCenter: React.FC = () => {
               fontFamily: 'var(--pf-font-ui)', fontSize: '12px', fontWeight: 600,
               cursor: model.comingSoon ? 'not-allowed' : 'pointer',
               opacity: model.comingSoon ? 0.7 : 1,
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
             }}
           >
-            {model.name}{model.comingSoon && <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.7 }}>Soon</span>}
+            {model.name}
+            {model.comingSoon && <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.7 }}>Soon</span>}
+            {!model.comingSoon && stationStatusMap[model.runtimeId] === 'online' && (
+              <span
+                style={{
+                  marginLeft: '6px',
+                  padding: '2px 6px',
+                  borderRadius: '99px',
+                  background: 'rgba(16,185,129,0.15)',
+                  color: '#10B981',
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '0.3px',
+                  lineHeight: 1,
+                }}
+              >
+                On
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -1816,7 +1871,7 @@ const FloatingCommandCenter: React.FC = () => {
           {renderModelSelector()}
         </div>
 
-        {isStationOffline && currentStationModelId && (
+        {isStationOffline && currentStationModelId && !bannerDismissed && (
           <div
             style={{
               margin: '0 14px 0',
@@ -1844,6 +1899,25 @@ const FloatingCommandCenter: React.FC = () => {
               Tu estación está offline. <Link to="/station" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Descarga tu notebook</Link> y ejecútalo en Kaggle antes de generar.{" "}
               <Link to="/how-it-works" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Ver guía paso a paso →</Link>
             </span>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              aria-label="Cerrar aviso"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '2px',
+                marginLeft: 'auto',
+                cursor: 'pointer',
+                color: '#B45309',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px',
+                flexShrink: 0,
+              }}
+            >
+              <X size={12} />
+            </button>
           </div>
         )}
 
@@ -3191,6 +3265,36 @@ const FloatingCommandCenter: React.FC = () => {
       >
         {DISCLAIMER_MESSAGES[disclaimerIdx]}
       </div>
+
+      {/* Lightbox de imagen — click en overlay o Esc para cerrar */}
+      {lightboxFile && (
+        <div
+          onClick={() => setLightboxFile(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={getObjectUrl(lightboxFile)}
+            alt={lightboxFile.name}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              cursor: 'default',
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

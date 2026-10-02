@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Save, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
 import NebulaLoader from '../components/NebulaLoader';
 import GenerationNarrative from '../components/GenerationNarrative';
@@ -1047,9 +1047,6 @@ const StudioPage: React.FC = () => {
                         )}
                         <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label={item.errorMessage ? "Reintentar" : "Variación"} />
                         <ActionButton onClick={() => handleDiscard(item.id)} icon={<Trash2 size={14} />} label="Eliminar" danger />
-                        {item.mediaType === 'image' && item.mediaUrls.length > 0 && (
-                          <ActionButton onClick={() => openLightbox(item, currentIdx)} icon={<Maximize2 size={14} />} label="Pantalla Completa" />
-                        )}
                       </div>
                     )}
                   </div>
