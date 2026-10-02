@@ -308,22 +308,32 @@ export function GenerationProvider({
   const [capability, setCapability] = useState<CapabilityId>("video");
   const [activeVideoModelId, setActiveVideoModelId] = useState<string>('ltx-2.3');
 
-  // runtimeId resuelto: filtra useRuntime por el model_id correspondiente.
-  // Image: null → useRuntime usa su propio activeImageModelId + imageModels.
-  const runtimeModelId =
-    capability === 'video' ? getRuntimeId(activeVideoModelId) :
-    capability === 'audio' ? 'tts-dual' :
-    null;
+  // 3 runtimes en paralelo — uno por capability/notebook.
+  // Cada uno tiene su propio túnel Gradio, su propio getClient y su propio
+  // polling de status. Los 3 viven simultáneamente aunque sólo uno esté
+  // "activo" en la UI.
+  const imageRuntime = useRuntime({ stationId, capability: 'image', modelId: null });
+  const videoRuntime = useRuntime({ stationId, capability: 'video', modelId: getRuntimeId(activeVideoModelId) });
+  const audioRuntime = useRuntime({ stationId, capability: 'audio', modelId: 'tts-dual' });
 
+  // Slice activa: los consumidores (handleGenerate, StudioPage, etc.) siguen
+  // leyendo gradioUrl/status/getClient como si fuera una sola sesión.
+  const activeRuntime =
+    capability === 'image' ? imageRuntime :
+    capability === 'audio' ? audioRuntime :
+    videoRuntime;
+
+  const gradioUrl = activeRuntime.gradioUrl;
+  const status = activeRuntime.status;
+  const sessionUptime = activeRuntime.sessionUptime;
+  const getClient = activeRuntime.getClient;
+
+  // Sólo el runtime de image expone estos campos (imageModels + activeImageModelId).
   const {
-    gradioUrl,
-    status,
-    sessionUptime,
-    getClient,
     activeImageModelId,
     setActiveImageModelId,
     imageModels,
-  } = useRuntime({ stationId, capability, modelId: runtimeModelId });
+  } = imageRuntime;
 
 
   const {
@@ -334,7 +344,45 @@ export function GenerationProvider({
     refresh: refreshStationStatus,
   } = useStationStatus(stationId);
 
-  const [sessionHistory, setSessionHistory] = useState<SessionItem[]>([]);
+  // Historial por capability. Cada notebook (imagen / video / audio)
+  // mantiene su propia slice. Cambiar de capability sólo cambia la vista,
+  // no pisa items de las otras.
+  const [sessionHistoryByCapability, setSessionHistoryByCapability] = useState<Record<CapabilityId, SessionItem[]>>({
+    image: [],
+    video: [],
+    audio: [],
+  });
+
+  // Derivado: la slice de la capability activa. Todos los consumidores
+  // (StudioPage, FCM) siguen leyendo `sessionHistory` como antes.
+  const sessionHistory = sessionHistoryByCapability[capability];
+
+  // Wrapper compatible con la API previa: acepta valor directo o updater,
+  // y escribe siempre sobre la slice de la capability activa. Esto permite
+  // que los ~15 usos internos de `setSessionHistory` sigan funcionando.
+  const setSessionHistory = useCallback(
+    (updaterOrValue: SessionItem[] | ((prev: SessionItem[]) => SessionItem[])) => {
+      setSessionHistoryByCapability(prev => {
+        const slice = prev[capability];
+        const next = typeof updaterOrValue === 'function' ? updaterOrValue(slice) : updaterOrValue;
+        return { ...prev, [capability]: next };
+      });
+    },
+    [capability]
+  );
+
+  // Helper análogo pero con capability explícita. Lo usan los hydrates para
+  // escribir sobre la slice correcta sin depender de la capability activa.
+  const setHistoryForCap = useCallback(
+    (cap: CapabilityId, updaterOrValue: SessionItem[] | ((prev: SessionItem[]) => SessionItem[])) => {
+      setSessionHistoryByCapability(prev => {
+        const slice = prev[cap];
+        const next = typeof updaterOrValue === 'function' ? updaterOrValue(slice) : updaterOrValue;
+        return { ...prev, [cap]: next };
+      });
+    },
+    []
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -555,17 +603,33 @@ export function GenerationProvider({
   };
 
   const appendSessionItem = useCallback((item: SessionItem) => {
-    setSessionHistory(prev => [...prev, item]);
+    const targetCap: CapabilityId = item.mediaType;
+    setSessionHistoryByCapability(prev => ({
+      ...prev,
+      [targetCap]: [...prev[targetCap], item],
+    }));
   }, []);
 
   const updateSessionItem = useCallback((id: string, patch: Partial<SessionItem>) => {
-    setSessionHistory(prev => prev.map(item =>
-      item.id === id ? { ...item, ...patch } : item
-    ));
+    setSessionHistoryByCapability(prev => {
+      for (const cap of ['image', 'video', 'audio'] as const) {
+        if (prev[cap].some(it => it.id === id)) {
+          return {
+            ...prev,
+            [cap]: prev[cap].map(it => it.id === id ? { ...it, ...patch } : it),
+          };
+        }
+      }
+      return prev;
+    });
   }, []);
 
   const removeSessionItem = useCallback((id: string) => {
-    setSessionHistory(prev => prev.filter(item => item.id !== id));
+    setSessionHistoryByCapability(prev => ({
+      image: prev.image.filter(it => it.id !== id),
+      video: prev.video.filter(it => it.id !== id),
+      audio: prev.audio.filter(it => it.id !== id),
+    }));
   }, []);
 
   const discardSessionItem = useCallback((id: string) => {
@@ -576,9 +640,9 @@ export function GenerationProvider({
     setSessionHistory([]);
   }, []);
 
-  const fetchSessionHistory = useCallback(async (): Promise<SessionItem[]> => {
+  // Toma un client explícito. Lo usan los 3 hydrates (uno por capability).
+  const fetchSessionHistoryFor = useCallback(async (client: any): Promise<SessionItem[]> => {
     try {
-      const client = await getClient();
       if (!client) return [];
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -593,58 +657,98 @@ export function GenerationProvider({
       void 0;
       return [];
     }
-  }, [getClient]);
+  }, []);
 
+  // Compat: el código existente (polling, refetch en handleGenerate) sigue
+  // llamando `fetchSessionHistory()` sin args y usa el client activo.
+  const fetchSessionHistory = useCallback(async (): Promise<SessionItem[]> => {
+    const client = await getClient();
+    return fetchSessionHistoryFor(client);
+  }, [getClient, fetchSessionHistoryFor]);
+
+  // Limpieza al perder stationId
   useEffect(() => {
     if (!stationId) {
-      setSessionHistory([]);
-      return;
+      setSessionHistoryByCapability({ image: [], video: [], audio: [] });
     }
-    if (!gradioUrl) return;
-    let cancelled = false;
-    const hydrate = async () => {
-      const items = await fetchSessionHistory();
-      if (cancelled) return;
-      setSessionHistory(items);
-    };
-    hydrate();
-    return () => { cancelled = true; };
-  }, [gradioUrl, stationId, fetchSessionHistory]);
+  }, [stationId]);
 
-  // ===== FIX 2: polling continuo mientras haya items isGenerating =====
-  // Mientras el chat tenga items en estado "generando", hace polling a
-  // /session_history cada 2s hasta que TODOS se resuelvan. Corta solo.
-  // Inmune al timing de isLoading → resuelve el caso "F5 mid-generation".
-  const hasGeneratingItems = sessionHistory.some(it => it.isGenerating);
+  // Hydrate por capability: cada slice se hidrata desde su propio notebook.
+  // Cambiar de capability ya no pisa items de las otras.
   useEffect(() => {
-    if (!hasGeneratingItems || !gradioUrl) return;
+    if (!stationId || !imageRuntime.gradioUrl) return;
+    let cancelled = false;
+    (async () => {
+      const client = await imageRuntime.getClient();
+      const items = await fetchSessionHistoryFor(client);
+      if (cancelled) return;
+      setHistoryForCap('image', items);
+    })();
+    return () => { cancelled = true; };
+  }, [imageRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
+
+  useEffect(() => {
+    if (!stationId || !videoRuntime.gradioUrl) return;
+    let cancelled = false;
+    (async () => {
+      const client = await videoRuntime.getClient();
+      const items = await fetchSessionHistoryFor(client);
+      if (cancelled) return;
+      setHistoryForCap('video', items);
+    })();
+    return () => { cancelled = true; };
+  }, [videoRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
+
+  useEffect(() => {
+    if (!stationId || !audioRuntime.gradioUrl) return;
+    let cancelled = false;
+    (async () => {
+      const client = await audioRuntime.getClient();
+      const items = await fetchSessionHistoryFor(client);
+      if (cancelled) return;
+      setHistoryForCap('audio', items);
+    })();
+    return () => { cancelled = true; };
+  }, [audioRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
+
+  // ===== Polling per-capability =====
+  // Cada slice mira SU notebook. Si un item se está generando en image,
+  // su polling sigue corriendo aunque el usuario esté mirando video.
+  // Corta solo cuando su slice deja de tener items isGenerating.
+  // Cada polling preserva el skeleton local (isGenerating:true con id msg-*)
+  // que todavía no aparece en el backend.
+  const mergeWithOrphans = (items: SessionItem[], prev: SessionItem[]) => {
+    const backendIds = new Set(items.map(b => b.id));
+    const backendGeneratingPrompts = new Set(
+      items.filter(b => b.isGenerating).map(b => b.prompt)
+    );
+    const localOrphans = prev.filter(p =>
+      p.isGenerating &&
+      p.id.startsWith('msg-') &&
+      !backendIds.has(p.id) &&
+      !backendGeneratingPrompts.has(p.prompt)
+    );
+    if (localOrphans.length === 0) return items;
+    return [...items, ...localOrphans];
+  };
+
+  const hasGeneratingImage = sessionHistoryByCapability.image.some(it => it.isGenerating);
+  const hasGeneratingVideo = sessionHistoryByCapability.video.some(it => it.isGenerating);
+  const hasGeneratingAudio = sessionHistoryByCapability.audio.some(it => it.isGenerating);
+
+  // Image
+  useEffect(() => {
+    if (!hasGeneratingImage || !imageRuntime.gradioUrl) return;
     let cancelled = false;
     const poll = async () => {
       while (!cancelled) {
         try {
-          const items = await fetchSessionHistory();
+          const client = await imageRuntime.getClient();
+          const items = await fetchSessionHistoryFor(client);
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            // MERGE en lugar de REPLACE: preservar items locales con
-            // isGenerating:true que aún no aparecen en el backend.
-            // Esto evita que el primer poll (que puede llegar antes de que
-            // el backend cree el history_entry) borre el skeleton local.
-            setSessionHistory(prev => {
-              const backendIds = new Set(items.map(b => b.id));
-              const backendGeneratingPrompts = new Set(
-                items.filter(b => b.isGenerating).map(b => b.prompt)
-              );
-              const localOrphans = prev.filter(p =>
-                p.isGenerating &&
-                p.id.startsWith('msg-') &&
-                !backendIds.has(p.id) &&
-                !backendGeneratingPrompts.has(p.prompt)
-              );
-              if (localOrphans.length === 0) return items;
-              // Orphans van al final (son los más recientes)
-              return [...items, ...localOrphans];
-            });
+            setHistoryForCap('image', prev => mergeWithOrphans(items, prev));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
@@ -653,7 +757,56 @@ export function GenerationProvider({
     };
     poll();
     return () => { cancelled = true; };
-  }, [hasGeneratingItems, gradioUrl, fetchSessionHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGeneratingImage, imageRuntime.gradioUrl, fetchSessionHistoryFor, setHistoryForCap]);
+
+  // Video
+  useEffect(() => {
+    if (!hasGeneratingVideo || !videoRuntime.gradioUrl) return;
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        try {
+          const client = await videoRuntime.getClient();
+          const items = await fetchSessionHistoryFor(client);
+          if (cancelled) return;
+          if (items.length > 0) {
+            const stillGenerating = items.some(it => it.isGenerating);
+            setHistoryForCap('video', prev => mergeWithOrphans(items, prev));
+            if (!stillGenerating) return;
+          }
+        } catch { /* noop */ }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGeneratingVideo, videoRuntime.gradioUrl, fetchSessionHistoryFor, setHistoryForCap]);
+
+  // Audio
+  useEffect(() => {
+    if (!hasGeneratingAudio || !audioRuntime.gradioUrl) return;
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        try {
+          const client = await audioRuntime.getClient();
+          const items = await fetchSessionHistoryFor(client);
+          if (cancelled) return;
+          if (items.length > 0) {
+            const stillGenerating = items.some(it => it.isGenerating);
+            setHistoryForCap('audio', prev => mergeWithOrphans(items, prev));
+            if (!stillGenerating) return;
+          }
+        } catch { /* noop */ }
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGeneratingAudio, audioRuntime.gradioUrl, fetchSessionHistoryFor, setHistoryForCap]);
 
   const handleGenerate = useCallback(
     async (params: GenerateParams) => {
