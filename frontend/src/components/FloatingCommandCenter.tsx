@@ -1998,7 +1998,7 @@ const FloatingCommandCenter: React.FC = () => {
               </button>
             ))}
 
-            {activeTab === 'video' && (
+            {activeTab === 'video' && isVideoLtx && (
               <div
                 role="tablist"
                 aria-label="Modo de generación"
@@ -2162,53 +2162,49 @@ const FloatingCommandCenter: React.FC = () => {
 
           {/* Chips de refs para LTX 2.5 MSR */}
           {activeTab === 'video' && isVideoLtx25Msr && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <DropdownButton
-                  options={LTX25_MODES.map(m => m.label)}
-                  value={LTX25_MODES.find(m => m.value === ltx25Params.mode)?.label || LTX25_MODES[0].label}
-                  onChange={(v: string) => {
-                    const newMode = (LTX25_MODES.find(m => m.label === v)?.value || 'KI') as 'KI' | 'I';
-                    setLtx25Params(prev => ({ ...prev, mode: newMode }));
-                  }}
-                  formatOption={(opt) => {
-                    if (opt.startsWith('Background')) return 'BG + Subjects';
-                    if (opt.startsWith('Up to 4 Subjects / Objects')) return 'Subjects only';
-                    return opt;
-                  }}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <DropdownButton
+                options={LTX25_MODES.map(m => m.label)}
+                value={LTX25_MODES.find(m => m.value === ltx25Params.mode)?.label || LTX25_MODES[0].label}
+                onChange={(v: string) => {
+                  const newMode = (LTX25_MODES.find(m => m.label === v)?.value || 'KI') as 'KI' | 'I';
+                  setLtx25Params(prev => ({ ...prev, mode: newMode }));
+                }}
+                formatOption={(opt) => {
+                  if (opt.startsWith('Background')) return 'BG + Subjects';
+                  if (opt.startsWith('Up to 4 Subjects / Objects')) return 'Subjects only';
+                  return opt;
+                }}
+              />
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                fontSize: '12px', fontFamily: 'var(--pf-font-ui)',
+                color: 'var(--pf-text-secondary)', cursor: 'pointer',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={ltx25Params.removeBg}
+                  onChange={(e) => setLtx25Params(prev => ({ ...prev, removeBg: e.target.checked }))}
+                  style={{ marginRight: '2px' }}
                 />
-                <label style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  fontSize: '12px', fontFamily: 'var(--pf-font-ui)',
-                  color: 'var(--pf-text-secondary)', cursor: 'pointer',
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={ltx25Params.removeBg}
-                    onChange={(e) => setLtx25Params(prev => ({ ...prev, removeBg: e.target.checked }))}
-                    style={{ marginRight: '2px' }}
-                  />
-                  Quitar fondo
-                </label>
-              </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                {ltx25Params.mode === 'KI' ? (
-                  <>
-                    {renderLtx25RefChip(1, 'Ref 1 (background)', ltx25Params.ref1)}
-                    {renderLtx25RefChip(2, 'Ref 2 (subject 1)', ltx25Params.ref2)}
-                    {renderLtx25RefChip(3, 'Ref 3 (subject 2)', ltx25Params.ref3)}
-                    {renderLtx25RefChip(4, 'Ref 4 (subject 3)', ltx25Params.ref4)}
-                    {renderLtx25RefChip(5, 'Ref 5 (subject 4)', ltx25Params.ref5)}
-                  </>
-                ) : (
-                  <>
-                    {renderLtx25RefChip(1, 'Ref 1 (subject 1)', ltx25Params.ref1)}
-                    {renderLtx25RefChip(2, 'Ref 2 (subject 2)', ltx25Params.ref2)}
-                    {renderLtx25RefChip(3, 'Ref 3 (subject 3)', ltx25Params.ref3)}
-                    {renderLtx25RefChip(4, 'Ref 4 (subject 4)', ltx25Params.ref4)}
-                  </>
-                )}
-              </div>
+                Quitar fondo
+              </label>
+              {ltx25Params.mode === 'KI' ? (
+                <>
+                  {renderLtx25RefChip(1, 'Ref 1 (background)', ltx25Params.ref1)}
+                  {renderLtx25RefChip(2, 'Ref 2 (subject 1)', ltx25Params.ref2)}
+                  {renderLtx25RefChip(3, 'Ref 3 (subject 2)', ltx25Params.ref3)}
+                  {renderLtx25RefChip(4, 'Ref 4 (subject 3)', ltx25Params.ref4)}
+                  {renderLtx25RefChip(5, 'Ref 5 (subject 4)', ltx25Params.ref5)}
+                </>
+              ) : (
+                <>
+                  {renderLtx25RefChip(1, 'Ref 1 (subject 1)', ltx25Params.ref1)}
+                  {renderLtx25RefChip(2, 'Ref 2 (subject 2)', ltx25Params.ref2)}
+                  {renderLtx25RefChip(3, 'Ref 3 (subject 3)', ltx25Params.ref3)}
+                  {renderLtx25RefChip(4, 'Ref 4 (subject 4)', ltx25Params.ref4)}
+                </>
+              )}
             </div>
           )}
 
