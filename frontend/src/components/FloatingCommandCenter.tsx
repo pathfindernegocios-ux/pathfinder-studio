@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useGenerationContext } from '../context/GenerationContext';
+import Callout from './Callout';
 import { supabase } from '../lib/supabaseClient';
 import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil } from 'lucide-react';
 import PathfinderLogo from './PathfinderLogo';
@@ -545,6 +546,17 @@ const FloatingCommandCenter: React.FC = () => {
         : null;
   // Boot en vivo (Fase 2): oculta el banner naranja desde que se detecta la estación
   const boot = useStationBoot(stationId, currentStationModelId);
+
+  // Callout de primera generación: aparece al primer click en Generar
+  // después de que la estación pasó a READY en esta sesión de runtime.
+  // Flag por stationId (cambia cuando Kaggle reinicia).
+  const [firstGenCalloutVisible, setFirstGenCalloutVisible] = useState(false);
+  const dismissFirstGenCallout = () => {
+    if (stationId) {
+      localStorage.setItem(`pf_first_gen_callout_seen_${stationId}`, '1');
+    }
+    setFirstGenCalloutVisible(false);
+  };
   const isBootActive = boot.isBooting || boot.detecting;
   const isStationReady = currentStationModelId
     ? (stationStatusMap[currentStationModelId] === 'online' || boot.isReady)
@@ -1425,6 +1437,10 @@ const FloatingCommandCenter: React.FC = () => {
   };
 
   const handleGenerateClick = useCallback(async () => {
+    // Mostrar callout de primera generación si aplica (una vez por sesión de runtime)
+    if (stationId && !localStorage.getItem(`pf_first_gen_callout_seen_${stationId}`)) {
+      setFirstGenCalloutVisible(true);
+    }
     if (!prompt.trim()) return;
 
     const ratioLabel =
@@ -2146,6 +2162,14 @@ const FloatingCommandCenter: React.FC = () => {
                 </>
               )}
             </button>
+            {firstGenCalloutVisible && (
+              <Callout
+                title="La primera generación puede tardar un poco más mientras carga el modelo."
+                body="Es normal — las siguientes van más rápido."
+                align="right"
+                onDismiss={dismissFirstGenCallout}
+              />
+            )}
           </div>
 
           {/* Voice / Emotion instruction (Audio) */}

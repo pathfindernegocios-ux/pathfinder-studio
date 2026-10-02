@@ -12,6 +12,7 @@ import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Play
 import AssistantAvatar from '../components/AssistantAvatar';
 import NebulaLoader from '../components/NebulaLoader';
 import GenerationNarrative from '../components/GenerationNarrative';
+import Callout from '../components/Callout';
 import SceneChip from '../components/SceneChip';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -179,6 +180,35 @@ const StudioPage: React.FC = () => {
       });
     }
   }, [boot.isError, boot.isStale, sessionHistory, updateSessionItem]);
+
+  // Callout de Guardar: aparece la primera vez que existe un item con media
+  // y status temporary. Se recuerda con localStorage (global, una vez por usuario).
+  const [guardCalloutVisible, setGuardCalloutVisible] = useState(false);
+  const guardCalloutShownRef = useRef(false);
+  useEffect(() => {
+    if (guardCalloutShownRef.current) return;
+    if (localStorage.getItem('pf_guard_callout_seen') === '1') return;
+    const hasTempWithMedia = sessionHistory.some(
+      it => it.status === 'temporary' && it.mediaUrls.length > 0
+    );
+    if (!hasTempWithMedia) return;
+    guardCalloutShownRef.current = true;
+    const t = window.setTimeout(() => setGuardCalloutVisible(true), 800);
+    return () => window.clearTimeout(t);
+  }, [sessionHistory]);
+
+  const dismissGuardCallout = () => {
+    localStorage.setItem('pf_guard_callout_seen', '1');
+    setGuardCalloutVisible(false);
+  };
+
+  const lastTemporaryWithMediaId = (() => {
+    for (let i = sessionHistory.length - 1; i >= 0; i--) {
+      const it = sessionHistory[i];
+      if (it.status === 'temporary' && it.mediaUrls.length > 0) return it.id;
+    }
+    return null;
+  })();
 
   const handleSave = async (item: SessionItem) => {
     if (item.status === 'saved' || item.mediaUrls.length === 0) return;
@@ -986,11 +1016,21 @@ const StudioPage: React.FC = () => {
                     {!item.isGenerating && (
                       <div style={{ display: 'flex', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                         {item.status === 'temporary' && (
-                          <ActionButton
-                            onClick={() => handleSave(item)}
-                            icon={<Save size={14} />}
-                            label="Guardar"
-                          />
+                          <div style={{ position: 'relative', display: 'inline-block' }}>
+                            <ActionButton
+                              onClick={() => handleSave(item)}
+                              icon={<Save size={14} />}
+                              label="Guardar"
+                            />
+                            {guardCalloutVisible && item.id === lastTemporaryWithMediaId && (
+                              <Callout
+                                title="Guárdalo en Mis Creaciones"
+                                body="Así no se pierde si reinicias la sesión o cambias de modelo."
+                                align="left"
+                                onDismiss={dismissGuardCallout}
+                              />
+                            )}
+                          </div>
                         )}
                         {item.status === 'saving' && (
                           <ActionButton
