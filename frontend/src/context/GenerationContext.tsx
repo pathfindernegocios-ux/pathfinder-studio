@@ -76,6 +76,10 @@ export interface SessionItem {
   sceneUrls?: string[];
   /** Metadata de storyboard. Solo presente si la generación fue multi-escena. */
   storyboardMeta?: StoryboardMeta;
+  /** Tiempo total de generación en segundos. Solo presente cuando el item ya terminó. */
+  elapsedSeconds?: number;
+  /** Mensaje de error si la generación falló. Solo presente cuando el backend reportó status error/failed. */
+  errorMessage?: string;
 }
 
 interface GenerateParams {
@@ -261,9 +265,24 @@ function mapBackendItem(raw: any): SessionItem {
     createdAt: Math.round(startedAtSec * 1000),
     status: "temporary",
     isGenerating,
+    errorMessage: (() => {
+      if (status !== 'error' && status !== 'failed') return undefined;
+      const fromErrorMessage = typeof raw.error_message === 'string' && raw.error_message.trim() ? raw.error_message.trim() : null;
+      const fromError = typeof raw.error === 'string' && raw.error.trim() ? raw.error.trim() : null;
+      return fromErrorMessage ?? fromError ?? 'No se pudo completar la generación.';
+    })(),
     params: mapBackendParams(raw.parameters),
     refUrls: Array.isArray(raw.ref_urls) ? raw.ref_urls.map(String) : undefined,
     sceneUrls: Array.isArray(raw.scene_urls) ? raw.scene_urls.map(String) : undefined,
+    elapsedSeconds: (() => {
+      const meta = (raw.metadata && typeof raw.metadata === 'object') ? raw.metadata : {};
+      const fromMeta = typeof meta.gen_elapsed_seconds === 'number' ? meta.gen_elapsed_seconds : null;
+      const fromTimestamps = (typeof raw.finished_at === 'number' && typeof raw.started_at === 'number' && raw.finished_at > raw.started_at)
+        ? raw.finished_at - raw.started_at
+        : null;
+      const val = fromMeta ?? fromTimestamps;
+      return (typeof val === 'number' && val > 0) ? val : undefined;
+    })(),
     storyboardMeta: raw.storyboard_meta ? {
       totalScenes: Number(raw.storyboard_meta.total_scenes ?? 0),
       currentScene: Number(raw.storyboard_meta.current_scene ?? 1),

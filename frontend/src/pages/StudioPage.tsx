@@ -8,9 +8,10 @@ import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Play } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Maximize2, Save, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
 import NebulaLoader from '../components/NebulaLoader';
+import GenerationNarrative from '../components/GenerationNarrative';
 import SceneChip from '../components/SceneChip';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -156,6 +157,28 @@ const StudioPage: React.FC = () => {
       });
     });
   }, [sessionHistory.length, lastItemIsGenerating, lastItemMediaCount]);
+
+  // Fallback de huérfanos: si un item lleva >60s en isGenerating Y la estación
+  // está en isError/isStale, lo marcamos como fallido. Cubre el caso real de
+  // notebooks que revientan por OOM sin escribir status:error en el historial.
+  // Se evita re-mutar el mismo item con un Set de IDs ya procesados.
+  const orphanMarkedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!boot.isError && !boot.isStale) return;
+    const now = Date.now();
+    for (const item of sessionHistory) {
+      if (!item.isGenerating) continue;
+      if (orphanMarkedRef.current.has(item.id)) continue;
+      if (now - item.createdAt < 60_000) continue;
+      if (item.mediaUrls.length > 0) continue;
+      if (item.sceneUrls && item.sceneUrls.length > 0) continue;
+      orphanMarkedRef.current.add(item.id);
+      updateSessionItem(item.id, {
+        isGenerating: false,
+        errorMessage: 'La generación se interrumpió porque la estación dejó de responder. Revisa Kaggle o inténtalo de nuevo.',
+      });
+    }
+  }, [boot.isError, boot.isStale, sessionHistory, updateSessionItem]);
 
   const handleSave = async (item: SessionItem) => {
     if (item.status === 'saved' || item.mediaUrls.length === 0) return;
@@ -542,6 +565,49 @@ const StudioPage: React.FC = () => {
                       </div>
                     </div>
                   )}
+
+                  {(isError || isStale) && (
+                    <div
+                      style={{
+                        marginTop: '14px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid var(--pf-border-subtle)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: '12px',
+                          background: isError ? 'rgba(248,113,113,0.06)' : 'rgba(245,158,11,0.06)',
+                          border: isError ? '1px solid rgba(248,113,113,0.25)' : '1px solid rgba(245,158,11,0.25)',
+                          borderRadius: '8px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: isError ? '#F87171' : '#F59E0B',
+                            marginBottom: '6px',
+                          }}
+                        >
+                          {isError
+                            ? 'La estación se detuvo'
+                            : 'Sin actualizaciones hace más de 4 minutos'}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--pf-text-secondary)',
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {isError
+                            ? 'Ve a Kaggle y revisa que la celda siga corriendo. Si se detuvo, presiona Run All y espera. También puedes actualizar esta página si no responde.'
+                            : 'Revisa Kaggle: probablemente la celda se pausó. Presiona Run All y espera unos minutos. También puedes actualizar esta página.'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -618,7 +684,7 @@ const StudioPage: React.FC = () => {
                 }}
               >
                 {/* Prompt Usuario */}
-                {!item.isGenerating && item.prompt && (
+                {item.prompt && (
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: '6px' }}>
                     <div style={{
                       background: 'var(--pf-bg-tertiary)',
@@ -669,6 +735,18 @@ const StudioPage: React.FC = () => {
                           </span>
                         </>
                       )}
+                      {!item.isGenerating && item.elapsedSeconds != null && item.elapsedSeconds > 0 && (
+                        <>
+                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--pf-border-default)' }}></span>
+                          <span style={{ color: 'var(--pf-text-tertiary)' }}>
+                            {item.elapsedSeconds < 60
+                              ? `${Math.round(item.elapsedSeconds)}s`
+                              : item.elapsedSeconds < 3600
+                                ? `${Math.floor(item.elapsedSeconds / 60)}m ${Math.round(item.elapsedSeconds % 60)}s`
+                                : `${Math.floor(item.elapsedSeconds / 3600)}h ${Math.floor((item.elapsedSeconds % 3600) / 60)}m`}
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <div style={{
@@ -678,6 +756,43 @@ const StudioPage: React.FC = () => {
                       justifyContent: 'flex-start',
                       overflow: 'visible'
                     }}>
+
+                      {!item.isGenerating && item.mediaUrls.length === 0 && item.errorMessage && (
+                        <div style={{
+                          width: frameWidth,
+                          background: 'rgba(248,113,113,0.06)',
+                          border: '1px solid rgba(248,113,113,0.35)',
+                          borderRadius: '12px',
+                          padding: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertTriangle size={14} color="#F87171" />
+                            <span style={{
+                              fontFamily: 'var(--pf-font-ui)',
+                              fontSize: '0.9rem',
+                              fontWeight: 600,
+                              color: 'var(--pf-text-primary)',
+                            }}>
+                              No se pudo generar
+                            </span>
+                          </div>
+                          <div style={{
+                            fontSize: '0.8125rem',
+                            color: 'var(--pf-text-secondary)',
+                            lineHeight: 1.5,
+                            fontFamily: /CUDA|Error|Exception|OOM|memory|out of/.test(item.errorMessage)
+                              ? 'var(--pf-font-chat-mono, monospace)'
+                              : 'var(--pf-font-ui)',
+                            maxHeight: '6em',
+                            overflow: 'hidden',
+                          }}>
+                            {item.errorMessage}
+                          </div>
+                        </div>
+                      )}
 
                       {item.isGenerating && item.mediaType !== 'audio' && (
                         item.sceneUrls && item.sceneUrls.length > 0 ? (
@@ -859,6 +974,15 @@ const StudioPage: React.FC = () => {
                       )}
                     </div>
 
+                    {item.isGenerating && (
+                      <GenerationNarrative
+                        mediaType={item.mediaType}
+                        startedAt={item.createdAt}
+                        resolution={(item.params as any)?.resolution}
+                        isStoryboard={!!item.storyboardMeta}
+                      />
+                    )}
+
                     {!item.isGenerating && (
                       <div style={{ display: 'flex', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                         {item.status === 'temporary' && (
@@ -875,13 +999,15 @@ const StudioPage: React.FC = () => {
                             label="Guardando..."
                           />
                         )}
-                        <ActionButton onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'mp3' : 'png'}`)} icon={<Download size={14} />} label="Descargar" />
+                        {item.mediaUrls.length > 0 && (
+                          <ActionButton onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'mp3' : 'png'}`)} icon={<Download size={14} />} label="Descargar" />
+                        )}
                         {item.mediaType === 'video' && item.modelId === 'ltx-2.3' && item.mediaUrls[0] && !item.storyboardMeta && (
                           <ActionButton onClick={() => handleContinueFromVideo(item)} icon={<Play size={14} />} label="Continuar" />
                         )}
-                        <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label="Variación" />
+                        <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label={item.errorMessage ? "Reintentar" : "Variación"} />
                         <ActionButton onClick={() => handleDiscard(item.id)} icon={<Trash2 size={14} />} label="Eliminar" danger />
-                        {item.mediaType === 'image' && (
+                        {item.mediaType === 'image' && item.mediaUrls.length > 0 && (
                           <ActionButton onClick={() => openLightbox(item, currentIdx)} icon={<Maximize2 size={14} />} label="Pantalla Completa" />
                         )}
                       </div>
