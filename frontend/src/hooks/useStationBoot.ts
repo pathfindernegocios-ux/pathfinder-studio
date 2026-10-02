@@ -40,6 +40,10 @@ const POLL_INTERVAL: Record<string, number> = {
   detecting: 5000,
 };
 const STALE_THRESHOLD_MS = 4 * 60 * 1000;
+// Si una fila con state ERROR/STALE no se actualizó en este tiempo,
+// se considera huérfana (el notebook murió sin limpiar su fila).
+// El frontend la ignora y muestra IDLE en lugar del error viejo.
+const ORPHAN_ERROR_THRESHOLD_MS = 30 * 60 * 1000;
 
 const DETECTING: BootInfo = {
   state: 'detecting',
@@ -131,6 +135,14 @@ export function useStationBoot(
         const updatedAt = row.updated_at;
 
         const ageMs = updatedAt ? Date.now() - new Date(updatedAt).getTime() : Infinity;
+
+        // Fila huérfana: state ERROR/STALE sin updates en >30 min.
+        // El notebook murió sin limpiar su fila. Tratar como si no existiera.
+        if ((state === 'ERROR' || state === 'STALE') && ageMs > ORPHAN_ERROR_THRESHOLD_MS) {
+          if (!cancelled) setBoot(IDLE);
+          return;
+        }
+
         const isStale =
           (state === 'INSTALLING' || state === 'CONNECTING') &&
           ageMs > STALE_THRESHOLD_MS;
