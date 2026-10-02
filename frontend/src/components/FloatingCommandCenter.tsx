@@ -392,7 +392,7 @@ const DropdownButton = ({ options, value, onChange, formatOption }: {
           whiteSpace: 'nowrap'
         }}
       >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80px', display: 'inline-block' }}>{displayValue}</span>
+        <span style={{ whiteSpace: 'nowrap' }}>{displayValue}</span>
         <span style={{ fontSize: '10px' }}>{isOpen ? '▲' : '▼'}</span>
       </button>
       {isOpen && (
@@ -1914,49 +1914,25 @@ const FloatingCommandCenter: React.FC = () => {
         ? selectedTtsModelId
         : selectedVideoModelId;
 
+    const buildLabel = (model: { id: string; name: string; runtimeId: string; comingSoon?: boolean }) => {
+      if (model.comingSoon) return `${model.name} (Soon)`;
+      if (stationStatusMap[model.runtimeId] === 'online') return `${model.name} · On`;
+      return model.name;
+    };
+
+    const options = models.map(buildLabel);
+    const selectedModel = models.find(m => m.id === selectedId) || models[0];
+    const selectedLabel = selectedModel ? buildLabel(selectedModel) : '';
+
     return (
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-        {models.map(model => (
-          <button
-            key={model.id}
-            onClick={() => handleModelChange(model.id, !!model.comingSoon)}
-            disabled={!!model.comingSoon}
-            style={{
-              padding: '6px 12px',
-              background: selectedId === model.id ? 'var(--pf-text-primary)' : 'var(--pf-bg-tertiary)',
-              color: selectedId === model.id ? 'var(--pf-bg-elevated)' : (model.comingSoon ? 'var(--pf-text-muted)' : 'var(--pf-text-secondary)'),
-              border: 'none', borderRadius: '8px',
-              fontFamily: 'var(--pf-font-ui)', fontSize: '12px', fontWeight: 600,
-              cursor: model.comingSoon ? 'not-allowed' : 'pointer',
-              opacity: model.comingSoon ? 0.7 : 1,
-              transition: 'all 0.2s',
-              display: 'inline-flex',
-              alignItems: 'center',
-            }}
-          >
-            {model.name}
-            {model.comingSoon && <span style={{ marginLeft: '4px', fontSize: '9px', opacity: 0.7 }}>Soon</span>}
-            {!model.comingSoon && stationStatusMap[model.runtimeId] === 'online' && (
-              <span
-                style={{
-                  marginLeft: '6px',
-                  padding: '2px 6px',
-                  borderRadius: '99px',
-                  background: 'rgba(16,185,129,0.15)',
-                  color: '#10B981',
-                  fontFamily: 'var(--pf-font-ui)',
-                  fontSize: '9px',
-                  fontWeight: 700,
-                  letterSpacing: '0.3px',
-                  lineHeight: 1,
-                }}
-              >
-                On
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <DropdownButton
+        options={options}
+        value={selectedLabel}
+        onChange={(label: string) => {
+          const target = models.find(m => buildLabel(m) === label);
+          if (target) handleModelChange(target.id, !!target.comingSoon);
+        }}
+      />
     );
   };
 
