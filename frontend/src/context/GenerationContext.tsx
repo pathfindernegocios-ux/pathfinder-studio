@@ -909,7 +909,7 @@ export function GenerationProvider({
         const client = await getClient();
         if (!client) { setErrorMsg("No se pudo conectar con el runtime."); return; }
 
-        if (capability === "video" && params.videoModelId === 'ltx-2.5-msr') {
+        if (capability === "video" && (params.videoModelId === 'ltx-2.5-msr' || params.videoModelId === 'ltx-2.3-msr')) {
           // ── LTX 2.5 MSR (Multi-Subject Reference) ──
           const result = await client.predict("/generate", [
             params.prompt,

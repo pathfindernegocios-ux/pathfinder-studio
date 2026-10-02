@@ -556,7 +556,7 @@ const FloatingCommandCenter: React.FC = () => {
 
   const isVideoWan = selectedVideoModelId.startsWith('wan-');
   const isVideoLtx = selectedVideoModelId === 'ltx-2.3';
-  const isVideoLtx25Msr = selectedVideoModelId === 'ltx-2.5-msr';
+  const isVideoLtx25Msr = selectedVideoModelId === 'ltx-2.5-msr' || selectedVideoModelId === 'ltx-2.3-msr';
   // Validación del storyboard (solo aplica en modo storyboard + video + LTX).
   const storyboardValid = React.useMemo(() => {
     if (storyboardMode !== 'storyboard') return true;
@@ -573,7 +573,7 @@ const FloatingCommandCenter: React.FC = () => {
   const currentStationModelId = activeTab === 'image'
     ? (selectedImageModelId || activeImageModelId)
     : activeTab === 'video'
-      ? (isVideoWan ? 'wan-dual' : isVideoLtx25Msr ? 'ltx-2.5-msr' : 'ltx-2.3')
+      ? (isVideoWan ? 'wan-dual' : isVideoLtx25Msr ? selectedVideoModelId : 'ltx-2.3')
       : activeTab === 'audio'
         ? 'tts-dual'
         : null;

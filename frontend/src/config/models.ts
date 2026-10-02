@@ -32,6 +32,7 @@ export const IMAGE_MODELS: ModelOption[] = [
 
 export const VIDEO_MODELS: ModelOption[] = [
   { id: 'ltx-2.3', name: 'LTX 2.3', type: 'ltx', runtimeId: 'ltx-2.3' },
+  { id: 'ltx-2.3-msr', name: 'LTX 2.3 MSR', type: 'ltx25msr', runtimeId: 'ltx-2.3-msr' },
   { id: 'ltx-2.5-msr', name: 'LTX 2.5 MSR', type: 'ltx25msr', runtimeId: 'ltx-2.5-msr' },
   { id: 'wan-i2v', name: 'Wan I2V', type: 'wan', runtimeId: 'wan-dual' },
   { id: 'wan-t2v', name: 'Wan T2V', type: 'wan', runtimeId: 'wan-dual' },
