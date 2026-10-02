@@ -1,7 +1,8 @@
 // src/components/FloatingCommandCenter.tsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useGenerationContext } from '../context/GenerationContext';
+import { useModels } from '../hooks/useModels';
 import Callout from './Callout';
 import { supabase } from '../lib/supabaseClient';
 import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil } from 'lucide-react';
@@ -620,6 +621,19 @@ const FloatingCommandCenter: React.FC = () => {
 
   const isFluxActive = selectedImageModelId.includes('flux');
   const isQwenActive = selectedImageModelId === 'qwen-image-2.1';
+
+  const navigate = useNavigate();
+  const { allModels: catalogModels, unlockedIds } = useModels();
+
+  const currentUiModelIdForLock = activeTab === 'image'
+    ? (selectedImageModelId || activeImageModelId)
+    : activeTab === 'audio'
+      ? selectedTtsModelId
+      : selectedVideoModelId;
+  const currentCatalogEntry = catalogModels.find(m => m.id === currentUiModelIdForLock);
+  const isCurrentModelLocked = !!currentCatalogEntry
+    && !currentCatalogEntry.is_free
+    && !unlockedIds.has(currentCatalogEntry.id);
   const isTtsOmni = selectedTtsModelId === 'omnivoice';
   const ttsVoiceModeOptions = isTtsOmni ? TTS_OMNI_VOICE_MODES : TTS_INDEX_VOICE_MODES;
   const ttsLangOptions = isTtsOmni ? TTS_OMNI_LANGS : TTS_INDEX_LANGS;
@@ -1916,6 +1930,9 @@ const FloatingCommandCenter: React.FC = () => {
 
     const buildLabel = (model: { id: string; name: string; runtimeId: string; comingSoon?: boolean }) => {
       if (model.comingSoon) return `${model.name} (Soon)`;
+      const catalogEntry = catalogModels.find(m => m.id === model.id);
+      const isLocked = !!catalogEntry && !catalogEntry.is_free && !unlockedIds.has(catalogEntry.id);
+      if (isLocked) return `${model.name} · Pro`;
       if (stationStatusMap[model.runtimeId] === 'online') return `${model.name} · On`;
       return model.name;
     };
@@ -2022,7 +2039,55 @@ const FloatingCommandCenter: React.FC = () => {
           {renderModelSelector()}
         </div>
 
-        {isStationOffline && currentStationModelId && !bannerDismissed && (
+        {isCurrentModelLocked && !bannerDismissed && (
+          <div
+            style={{
+              margin: '0 14px 0',
+              marginTop: '6px',
+              padding: '8px 12px',
+              background: 'rgba(245,158,11,0.08)',
+              border: '1px solid rgba(245,158,11,0.4)',
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontFamily: 'var(--pf-font-ui)',
+              color: '#B45309',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: '#F59E0B',
+              flexShrink: 0,
+            }} />
+            <span style={{ flex: 1 }}>
+              Este modelo es exclusivo del plan Creator. Desbloquéalo para generar con él.{" "}
+              <Link to="/pricing" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Ver planes →</Link>
+            </span>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              aria-label="Cerrar aviso"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '2px',
+                marginLeft: 'auto',
+                cursor: 'pointer',
+                color: '#B45309',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
+        {isStationOffline && currentStationModelId && !bannerDismissed && !isCurrentModelLocked && (
           <div
             style={{
               margin: '0 14px 0',
@@ -2445,9 +2510,9 @@ const FloatingCommandCenter: React.FC = () => {
               disabled={isLoading}
             />
             <button
-              onClick={handleGenerateClick}
-              disabled={!prompt.trim() || isLoading || !storyboardValid}
-              className={isLoading ? 'pf-generating-btn' : ''}
+              onClick={isCurrentModelLocked ? () => navigate('/pricing') : handleGenerateClick}
+              disabled={isCurrentModelLocked ? false : (!prompt.trim() || isLoading || !storyboardValid)}
+              className={isLoading && !isCurrentModelLocked ? 'pf-generating-btn' : ''}
               style={{
                 position: 'absolute', right: '0', bottom: '0',
                 background: isLoading
@@ -2472,7 +2537,7 @@ const FloatingCommandCenter: React.FC = () => {
                 justifyContent: 'center',
               }}
             >
-              {isLoading ? (
+              {isLoading && !isCurrentModelLocked ? (
                 <>
                   <span className="pf-logo-spin">
                     <PathfinderLogo size={16} />
@@ -2483,6 +2548,11 @@ const FloatingCommandCenter: React.FC = () => {
                     <span>.</span>
                     <span>.</span>
                   </span>
+                </>
+              ) : isCurrentModelLocked ? (
+                <>
+                  <span>Desbloquear Creator</span>
+                  <PathfinderLogo size={16} />
                 </>
               ) : (
                 <>
