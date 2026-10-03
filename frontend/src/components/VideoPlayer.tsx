@@ -25,6 +25,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover" }) =
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ── Sincronizar estado de fullscreen ──
+  // Cuando el usuario entra/sale de fullscreen nativo, forzamos objectFit "contain"
+  // para que el video 9:16 no se recorte en un viewport 16:9.
+  useEffect(() => {
+    const onFsChange = () => {
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
 
   // ── Autoplay muted al montar ──
   useEffect(() => {
@@ -136,7 +148,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover" }) =
         style={{
           width: "100%",
           height: "100%",
-          objectFit,
+          objectFit: isFullscreen ? "contain" : objectFit,
           display: "block",
         }}
       />

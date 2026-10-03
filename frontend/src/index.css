@@ -367,7 +367,7 @@ html {
   transform-box: fill-box;
   transform-origin: center;
   animation: pf-spinner-pulse 1.8s ease-in-out infinite;
-  filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.75));
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.8));
 }
 @keyframes pf-spinner-rotate {
   from { transform: rotate(0deg); }

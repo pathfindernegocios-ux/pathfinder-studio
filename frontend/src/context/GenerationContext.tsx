@@ -263,6 +263,37 @@ function applyStylePreset(prompt: string, stylePreset?: string): string {
   return `${prompt.trim()}${suffix}`;
 }
 
+// -- Persistencia de IDs borrados --
+// Cuando el user borra un item, el notebook sigue devolviendolo en /session_history.
+// Guardamos los IDs borrados en localStorage para filtrarlos en cada hydrate/poll.
+const DELETED_ITEMS_KEY = 'pf_deleted_items_v1';
+const DELETED_ITEMS_MAX = 200;
+
+function loadDeletedItems(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_ITEMS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(
+      parsed
+        .filter((e: unknown): e is { id: string } => !!e && typeof e === 'object' && typeof (e as { id?: unknown }).id === 'string')
+        .map((e) => e.id)
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function persistDeletedItems(ids: Set<string>) {
+  try {
+    const arr = Array.from(ids).slice(-DELETED_ITEMS_MAX).map((id) => ({ id, t: Date.now() }));
+    localStorage.setItem(DELETED_ITEMS_KEY, JSON.stringify(arr));
+  } catch {
+    // noop
+  }
+}
+
 function mapBackendItem(raw: any): SessionItem {
   const status = raw.status as string;
   const isGenerating = status === "preparing" || status === "running";
@@ -320,6 +351,11 @@ export function GenerationProvider({
 }) {
   const [capability, setCapability] = useState<CapabilityId>("video");
   const [activeVideoModelId, setActiveVideoModelId] = useState<string>('ltx-2.3');
+
+  // IDs de items borrados localmente. Filtra los hydrates/polls que traen el
+  // /session_history del notebook (que no sabe del borrado). useRef para no
+  // re-disparar los 6 useEffect.
+  const deletedIdsRef = useRef<Set<string>>(loadDeletedItems());
 
   // 3 runtimes en paralelo — uno por capability/notebook.
   // Cada uno tiene su propio túnel Gradio, su propio getClient y su propio
@@ -655,6 +691,9 @@ export function GenerationProvider({
   }, []);
 
   const removeSessionItem = useCallback((id: string) => {
+    // Trackear el ID para que el proximo hydrate/poll del notebook no lo resucite.
+    deletedIdsRef.current.add(id);
+    persistDeletedItems(deletedIdsRef.current);
     setSessionHistoryByCapability(prev => ({
       image: prev.image.filter(it => it.id !== id),
       video: prev.video.filter(it => it.id !== id),
@@ -712,7 +751,7 @@ export function GenerationProvider({
       const client = await imageRuntime.getClient();
       const items = await fetchSessionHistoryFor(client);
       if (cancelled) return;
-      setHistoryForCap('image', items);
+      setHistoryForCap('image', items.filter(it => !deletedIdsRef.current.has(it.id)));
     })();
     return () => { cancelled = true; };
   }, [imageRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
@@ -724,7 +763,7 @@ export function GenerationProvider({
       const client = await videoRuntime.getClient();
       const items = await fetchSessionHistoryFor(client);
       if (cancelled) return;
-      setHistoryForCap('video', items);
+      setHistoryForCap('video', items.filter(it => !deletedIdsRef.current.has(it.id)));
     })();
     return () => { cancelled = true; };
   }, [videoRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
@@ -736,7 +775,7 @@ export function GenerationProvider({
       const client = await audioRuntime.getClient();
       const items = await fetchSessionHistoryFor(client);
       if (cancelled) return;
-      setHistoryForCap('audio', items);
+      setHistoryForCap('audio', items.filter(it => !deletedIdsRef.current.has(it.id)));
     })();
     return () => { cancelled = true; };
   }, [audioRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
@@ -778,7 +817,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('image', prev => mergeWithOrphans(items, prev));
+            setHistoryForCap('image', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
@@ -802,7 +841,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('video', prev => mergeWithOrphans(items, prev));
+            setHistoryForCap('video', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
@@ -826,7 +865,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('audio', prev => mergeWithOrphans(items, prev));
+            setHistoryForCap('audio', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }

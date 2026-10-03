@@ -2623,10 +2623,10 @@ const FloatingCommandCenter: React.FC = () => {
               style={{
                 position: 'absolute', right: '0', bottom: '0',
                 background: isLoading
-                  ? 'var(--pf-text-primary)'
+                  ? '#0A0A0A'
                   : (!prompt.trim() ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)'),
                 color: isLoading
-                  ? 'var(--pf-text-inverse, #FFFFFF)'
+                  ? '#FFFFFF'
                   : (!prompt.trim() ? 'var(--pf-text-muted)' : 'var(--pf-text-inverse, #FFFFFF)'),
                 fontFamily: 'var(--pf-font-ui)',
                 fontSize: '13px',

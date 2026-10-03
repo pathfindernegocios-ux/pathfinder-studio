@@ -29,18 +29,18 @@ const PathfinderSpinner: React.FC<PathfinderSpinnerProps> = ({
   >
     <defs>
       <linearGradient id="pf-spin-grad-a" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#67E8F9" stopOpacity="1" />
-        <stop offset="55%" stopColor="#22D3EE" stopOpacity="0.45" />
-        <stop offset="100%" stopColor="#22D3EE" stopOpacity="0" />
+        <stop offset="0%" stopColor="#60A5FA" stopOpacity="1" />
+        <stop offset="55%" stopColor="#2563EB" stopOpacity="0.55" />
+        <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0" />
       </linearGradient>
       <linearGradient id="pf-spin-grad-b" x1="100%" y1="0%" x2="0%" y2="100%">
         <stop offset="0%" stopColor="#3B82F6" stopOpacity="1" />
-        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+        <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0" />
       </linearGradient>
       <radialGradient id="pf-spin-core" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#FFFFFF" stopOpacity="1" />
-        <stop offset="45%" stopColor="#67E8F9" stopOpacity="1" />
-        <stop offset="100%" stopColor="#22D3EE" stopOpacity="0" />
+        <stop offset="0%" stopColor="#DBEAFE" stopOpacity="1" />
+        <stop offset="45%" stopColor="#3B82F6" stopOpacity="1" />
+        <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0" />
       </radialGradient>
     </defs>
     <circle
