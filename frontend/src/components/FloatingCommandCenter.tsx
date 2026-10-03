@@ -506,7 +506,18 @@ const FloatingCommandCenter: React.FC = () => {
       /* noop */
     }
   }, [storyboardMode]);
-  const [prompt, setPrompt] = useState('');
+  // Prompt por capability: cada tab mantiene su propio texto. Al cambiar de
+  // tab se restaura el prompt guardado de esa capability. Permite escribir
+  // un prompt en Video, ir a Imagen y no perder ninguno de los dos.
+  const [promptByCap, setPromptByCap] = useState<Record<TabType, string>>({
+    video: '',
+    image: '',
+    audio: '',
+  });
+  const prompt = promptByCap[activeTab] ?? '';
+  const setPrompt = React.useCallback((v: string) => {
+    setPromptByCap(prev => ({ ...prev, [activeTab]: v }));
+  }, [activeTab]);
   
   const objectUrlCacheRef = useRef<Map<File, string>>(new Map());
 

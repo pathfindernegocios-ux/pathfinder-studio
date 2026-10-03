@@ -846,6 +846,11 @@ export function GenerationProvider({
         return;
       }
 
+      // Multi-notebook: capturar la capability al momento del click. Todos los
+      // updates del historial se hacen sobre ESTA capability, no sobre la que
+      // esté activa cuando la generación termine.
+      const cap: CapabilityId = capability;
+
       const localStart = Date.now() / 1000;
       generationStartRef.current = localStart;
 
@@ -864,7 +869,7 @@ export function GenerationProvider({
       const aspectRatioCss = _m ? `${_m[1]}/${_m[2]}` : "1/1";
 
       const userItemId = `msg-${Date.now()}`;
-      setSessionHistory(prev => [...prev, {
+      setHistoryForCap(cap, prev => [...prev, {
         id: userItemId,
         prompt: params.prompt,
         mediaUrls: [],
@@ -968,7 +973,7 @@ export function GenerationProvider({
             setVideoSrc(tempUrl);
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
-            setSessionHistory(prev => prev.map(item => {
+            setHistoryForCap(cap, prev => prev.map(item => {
               if (item.isGenerating) {
                 return {
                   ...item,
@@ -1031,7 +1036,7 @@ export function GenerationProvider({
             setVideoSrc(tempUrl);
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
-            setSessionHistory(prev => prev.map(item => {
+            setHistoryForCap(cap, prev => prev.map(item => {
               if (item.isGenerating) {
                 return {
                   ...item,
@@ -1072,7 +1077,7 @@ export function GenerationProvider({
             setVideoSrc(tempUrl);
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
-            setSessionHistory(prev => prev.map(item => {
+            setHistoryForCap(cap, prev => prev.map(item => {
               if (item.isGenerating) {
                 return {
                   ...item,
@@ -1203,7 +1208,7 @@ export function GenerationProvider({
 
           if (absoluteUrls.length > 0) {
             setImageSrcs(absoluteUrls);
-            setSessionHistory(prev => prev.map(item => {
+            setHistoryForCap(cap, prev => prev.map(item => {
               if (item.isGenerating) {
                 return {
                   ...item,
@@ -1254,7 +1259,7 @@ export function GenerationProvider({
           const absoluteUrls = toAbsoluteUrls(audioPaths, gradioUrl);
 
           if (absoluteUrls.length > 0) {
-            setSessionHistory(prev => prev.map(item => {
+            setHistoryForCap(cap, prev => prev.map(item => {
               if (item.isGenerating) {
                 return {
                   ...item,
@@ -1329,7 +1334,7 @@ export function GenerationProvider({
       const ratioToken = (payload.global.aspect_label || '16:9 Landscape').split(' ')[0];
       const aspectRatioCss = ratioToken.replace(':', '/');
 
-      setSessionHistory(prev => [...prev, {
+      setHistoryForCap('video', prev => [...prev, {
         id: userItemId,
         prompt: `Storyboard — ${payload.scenes.length} escenas`,
         mediaUrls: [],
@@ -1388,7 +1393,7 @@ export function GenerationProvider({
         if (tempUrl) {
           setVideoSrc(tempUrl);
           sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
-          setSessionHistory(prev => prev.map(item => {
+          setHistoryForCap('video', prev => prev.map(item => {
             if (item.isGenerating) {
               return {
                 ...item,
