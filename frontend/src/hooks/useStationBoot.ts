@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { readLiveCache, writeLiveCache } from '../lib/liveCache';
 
 // Estados del ciclo de arranque de una estación (notebook de Kaggle)
 export type BootState =
@@ -49,6 +50,10 @@ const ORPHAN_ERROR_THRESHOLD_MS = 30 * 60 * 1000;
 // el auto-select de boot elige el modelo fantasma y pisa al modelo activo.
 const ORPHAN_BOOTING_THRESHOLD_MS = 25 * 60 * 1000;
 
+const LIVE_CACHE_KEY = 'station_boot';
+const LIVE_CACHE_TTL_MS = 5 * 60 * 1000;
+type StationBootCache = Record<string, BootInfo>;
+
 const DETECTING: BootInfo = {
   state: 'detecting',
   progress: 0,
@@ -79,7 +84,11 @@ export function useStationBoot(
   stationId: string | null,
   modelId: string | null
 ): BootInfo {
-  const [boot, setBoot] = useState<BootInfo>(DETECTING);
+  const _bootCacheKey = (stationId && modelId) ? `${stationId}:${modelId}` : null;
+  const _bootCached = _bootCacheKey
+    ? readLiveCache<StationBootCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS)?.[_bootCacheKey] ?? null
+    : null;
+  const [boot, setBoot] = useState<BootInfo>(() => _bootCached ?? DETECTING);
   const hasFetchedOnce = useRef(false);
   const bootStateRef = useRef<BootState>('detecting');
   const lastFetchRef = useRef<number>(0);
@@ -88,6 +97,15 @@ export function useStationBoot(
   useEffect(() => {
     bootStateRef.current = boot.state;
   }, [boot.state]);
+
+  // Persistir a cache por (stationId, modelId) para hidratar al próximo mount.
+  useEffect(() => {
+    if (!_bootCacheKey) return;
+    if (boot.detecting) return; // no persistir el estado transitorio
+    const existing = readLiveCache<StationBootCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS) ?? {};
+    existing[_bootCacheKey] = boot;
+    writeLiveCache<StationBootCache>(LIVE_CACHE_KEY, existing);
+  }, [boot, _bootCacheKey]);
 
   useEffect(() => {
     if (!stationId || !modelId) {

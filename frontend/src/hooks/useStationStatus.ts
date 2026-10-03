@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Client } from '@gradio/client';
 import { supabase } from '../lib/supabaseClient';
+import { readLiveCache, writeLiveCache } from '../lib/liveCache';
 
 export type StationStatus = 'online' | 'offline';
 
@@ -25,6 +26,14 @@ interface UseStationStatusResult {
 }
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const LIVE_CACHE_KEY = 'station_status';
+const LIVE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface StationStatusCache {
+  statusMap: Record<string, StationStatus>;
+  modelTypeMap: Record<string, 'image' | 'video' | 'audio'>;
+  bootingIds: string[];
+}
 // Mismo umbral que useStationBoot: evita alimentar bootingIds con filas
 // INSTALLING/CONNECTING muertas.
 const ORPHAN_BOOTING_THRESHOLD_MS = 25 * 60 * 1000;
@@ -44,10 +53,11 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 export function useStationStatus(stationId: string | null): UseStationStatusResult {
-  const [statusMap, setStatusMap] = useState<Record<string, StationStatus>>({});
-  const [modelTypeMap, setModelTypeMap] = useState<Record<string, 'image' | 'video' | 'audio'>>({});
-  const [bootingIds, setBootingIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const _cached = readLiveCache<StationStatusCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS);
+  const [statusMap, setStatusMap] = useState<Record<string, StationStatus>>(() => _cached?.statusMap ?? {});
+  const [modelTypeMap, setModelTypeMap] = useState<Record<string, 'image' | 'video' | 'audio'>>(() => _cached?.modelTypeMap ?? {});
+  const [bootingIds, setBootingIds] = useState<string[]>(() => _cached?.bootingIds ?? []);
+  const [loading, setLoading] = useState<boolean>(() => _cached === null);
 
   const fetchAndCheck = useCallback(async () => {
     if (!stationId) {
@@ -111,6 +121,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       const token = session?.access_token;
 
       const now = Date.now();
+      const prevStatusMap = statusMap;
       const results: Record<string, StationStatus> = {};
 
       // 4. Determinar estado por cada modelo
@@ -137,7 +148,10 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
             results[modelId] = (statusVal === 'READY' || statusVal === 'BUSY') ? 'online' : 'offline';
           } catch (e: any) {
             void 0;
-            results[modelId] = 'offline';
+            // Timeout != offline. La cola de Gradio puede estar ocupada por
+            // /generate, o el tunnel puede estar momentaneamente lento.
+            // Preservar el estado previo para no marcar offline sin motivo.
+            results[modelId] = prevStatusMap[modelId] ?? 'offline';
           }
         })
       );
@@ -150,7 +164,16 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       void 0;
       setLoading(false);
     }
-  }, [stationId]);
+  }, [stationId, statusMap]);
+
+  // Persistir el estado cada vez que cambie, para hidratar al próximo mount.
+  useEffect(() => {
+    if (Object.keys(statusMap).length === 0 && Object.keys(modelTypeMap).length === 0) {
+      // Todavía no llegó el primer fetch real. No pisar el cache.
+      return;
+    }
+    writeLiveCache<StationStatusCache>(LIVE_CACHE_KEY, { statusMap, modelTypeMap, bootingIds });
+  }, [statusMap, modelTypeMap, bootingIds]);
 
   useEffect(() => {
     fetchAndCheck();

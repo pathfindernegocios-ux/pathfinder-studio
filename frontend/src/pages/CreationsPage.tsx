@@ -4,11 +4,17 @@ import { AlertTriangle, Palette } from "lucide-react";
 import { useCreations } from '../hooks/useCreations';
 import type { Creation } from '../types';
 import { CreationThumbnail } from '../components/CreationThumbnail';
+import { readLiveCache, writeLiveCache } from '../lib/liveCache';
+
+const LIVE_CACHE_KEY = 'creations';
+const LIVE_CACHE_TTL_MS = 10 * 60 * 1000;
+interface CreationsCache { items: Creation[]; }
 
 const CreationsPage: React.FC = () => {
   const { getCreations } = useCreations();
-  const [creations, setCreations] = useState<Creation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const _cached = readLiveCache<CreationsCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS);
+  const [creations, setCreations] = useState<Creation[]>(() => _cached?.items ?? []);
+  const [loading, setLoading] = useState<boolean>(() => _cached === null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
 
@@ -20,6 +26,7 @@ const CreationsPage: React.FC = () => {
         const data = await getCreations();
         void 0;
         setCreations(data || []);
+        writeLiveCache<CreationsCache>(LIVE_CACHE_KEY, { items: data || [] });
       } catch (err) {
         void 0;
         setError('No se pudieron cargar tus creaciones.');

@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import type { ReactNode } from "react";
 import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
+import { readLiveCache, writeLiveCache } from "../lib/liveCache";
 import { getChatLabel, getRuntimeId } from "../config/models";
 import { useRuntime } from "../hooks/useRuntime";
 import { useStationStatus } from "../hooks/useStationStatus";
@@ -396,11 +397,29 @@ export function GenerationProvider({
   // Historial por capability. Cada notebook (imagen / video / audio)
   // mantiene su propia slice. Cambiar de capability sólo cambia la vista,
   // no pisa items de las otras.
-  const [sessionHistoryByCapability, setSessionHistoryByCapability] = useState<Record<CapabilityId, SessionItem[]>>({
-    image: [],
-    video: [],
-    audio: [],
+  const [sessionHistoryByCapability, setSessionHistoryByCapability] = useState<Record<CapabilityId, SessionItem[]>>(() => {
+    const cached = readLiveCache<Record<CapabilityId, SessionItem[]>>('studio_history', 5 * 60 * 1000);
+    if (cached) {
+      return {
+        image: (cached.image || []).slice(-5),
+        video: (cached.video || []).slice(-5),
+        audio: (cached.audio || []).slice(-5),
+      };
+    }
+    return { image: [], video: [], audio: [] };
   });
+
+  // Persistir slice completo (truncado a 5 por cap) para hidratar en F5.
+  useEffect(() => {
+    const truncated: Record<CapabilityId, SessionItem[]> = {
+      image: sessionHistoryByCapability.image.slice(-5),
+      video: sessionHistoryByCapability.video.slice(-5),
+      audio: sessionHistoryByCapability.audio.slice(-5),
+    };
+    if (truncated.image.length || truncated.video.length || truncated.audio.length) {
+      writeLiveCache('studio_history', truncated);
+    }
+  }, [sessionHistoryByCapability]);
 
   // Derivado: la slice de la capability activa. Todos los consumidores
   // (StudioPage, FCM) siguen leyendo `sessionHistory` como antes.
@@ -751,7 +770,11 @@ export function GenerationProvider({
       const client = await imageRuntime.getClient();
       const items = await fetchSessionHistoryFor(client);
       if (cancelled) return;
-      setHistoryForCap('image', items.filter(it => !deletedIdsRef.current.has(it.id)));
+      setHistoryForCap('image', prev => {
+        if (items.length === 0 && prev.length > 0) return prev;
+        if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
+        return items.filter(it => !deletedIdsRef.current.has(it.id));
+      });
     })();
     return () => { cancelled = true; };
   }, [imageRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
@@ -763,7 +786,11 @@ export function GenerationProvider({
       const client = await videoRuntime.getClient();
       const items = await fetchSessionHistoryFor(client);
       if (cancelled) return;
-      setHistoryForCap('video', items.filter(it => !deletedIdsRef.current.has(it.id)));
+      setHistoryForCap('video', prev => {
+        if (items.length === 0 && prev.length > 0) return prev;
+        if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
+        return items.filter(it => !deletedIdsRef.current.has(it.id));
+      });
     })();
     return () => { cancelled = true; };
   }, [videoRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
@@ -775,7 +802,11 @@ export function GenerationProvider({
       const client = await audioRuntime.getClient();
       const items = await fetchSessionHistoryFor(client);
       if (cancelled) return;
-      setHistoryForCap('audio', items.filter(it => !deletedIdsRef.current.has(it.id)));
+      setHistoryForCap('audio', prev => {
+        if (items.length === 0 && prev.length > 0) return prev;
+        if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
+        return items.filter(it => !deletedIdsRef.current.has(it.id));
+      });
     })();
     return () => { cancelled = true; };
   }, [audioRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);

@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PathfinderLogo from './PathfinderLogo';
 import { supabase } from '../lib/supabaseClient';
+import { clearLiveCache } from '../lib/liveCache';
 import { 
   StudioIcon, 
   CreationsIcon, 
@@ -30,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
   const { session, profile } = useAuth();
 
   const handleLogout = async () => {
+    clearLiveCache();
     await supabase.auth.signOut();
   };
 
