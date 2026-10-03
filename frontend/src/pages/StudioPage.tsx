@@ -509,7 +509,11 @@ const StudioPage: React.FC = () => {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {phases.map((phase, idx) => {
-                      const isDone = progressN >= phase.max;
+                      // Cuando el notebook esta READY o BUSY, el boot ya termino.
+                      // El progress en BUSY representa la generacion, no el arranque,
+                      // asi que no debe usarse para marcar el ultimo step como activo.
+                      const bootComplete = boot.state === 'READY' || boot.state === 'BUSY';
+                      const isDone = bootComplete || progressN >= phase.max;
                       const isActive = !isDone && idx === activeIdx;
                       return (
                         <div
