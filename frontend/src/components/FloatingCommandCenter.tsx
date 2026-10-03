@@ -5,7 +5,7 @@ import { useGenerationContext } from '../context/GenerationContext';
 import { useModels } from '../hooks/useModels';
 import Callout from './Callout';
 import { supabase } from '../lib/supabaseClient';
-import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil } from 'lucide-react';
+import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil, Square } from 'lucide-react';
 import PathfinderLogo from './PathfinderLogo';
 import PathfinderSpinner from './PathfinderSpinner';
 import AudioTrimmer from './AudioTrimmer';
@@ -598,7 +598,10 @@ const FloatingCommandCenter: React.FC = () => {
   const { 
     handleGenerate,
     handleGenerateStoryboard,
-    isLoading, 
+    isLoading,
+    handleCancel,
+    isCancelling,
+    canCancel, 
     capability,
     setCapability, 
     activeImageModelId, 
@@ -2678,13 +2681,25 @@ const FloatingCommandCenter: React.FC = () => {
               disabled={isLoading}
             />
             <button
-              onClick={isCurrentModelLocked ? () => navigate('/pricing') : handleGenerateClick}
-              disabled={isCurrentModelLocked ? false : (!prompt.trim() || isLoading || !storyboardValid)}
+              onClick={
+                isCurrentModelLocked
+                  ? () => navigate('/pricing')
+                  : (isLoading && canCancel
+                      ? handleCancel
+                      : handleGenerateClick)
+              }
+              disabled={
+                isCurrentModelLocked
+                  ? false
+                  : (isLoading
+                      ? (!canCancel || isCancelling)
+                      : (!prompt.trim() || !storyboardValid))
+              }
               className={isLoading && !isCurrentModelLocked ? 'pf-generating-btn' : ''}
               style={{
                 position: 'absolute', right: '0', bottom: '0',
                 background: isLoading
-                  ? '#0A0A0A'
+                  ? '#DC2626'
                   : (!prompt.trim() ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)'),
                 color: isLoading
                   ? '#FFFFFF'
@@ -2695,7 +2710,10 @@ const FloatingCommandCenter: React.FC = () => {
                 padding: '7px 18px',
                 borderRadius: '99px',
                 border: 'none',
-                cursor: !prompt.trim() || isLoading || !storyboardValid ? 'not-allowed' : 'pointer',
+                cursor: isLoading
+                  ? (canCancel && !isCancelling ? 'pointer' : 'not-allowed')
+                  : (!prompt.trim() || !storyboardValid ? 'not-allowed' : 'pointer'),
+                opacity: isCancelling ? 0.65 : 1,
                 transition: 'all 0.2s ease',
                 whiteSpace: 'nowrap',
                 display: 'flex',
@@ -2707,13 +2725,15 @@ const FloatingCommandCenter: React.FC = () => {
             >
               {isLoading && !isCurrentModelLocked ? (
                 <>
-                  <PathfinderSpinner size={16} />
-                  <span>Generando</span>
-                  <span className="pf-dots">
-                    <span>.</span>
-                    <span>.</span>
-                    <span>.</span>
-                  </span>
+                  <Square size={13} fill="currentColor" strokeWidth={0} />
+                  <span>{isCancelling ? 'Cancelando' : 'Detener'}</span>
+                  {isCancelling && (
+                    <span className="pf-dots">
+                      <span>.</span>
+                      <span>.</span>
+                      <span>.</span>
+                    </span>
+                  )}
                 </>
               ) : isCurrentModelLocked ? (
                 <>
