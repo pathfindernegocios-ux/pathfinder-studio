@@ -346,6 +346,44 @@ html {
 }
 
 /* ============================================================
+   PathfinderSpinner — orbe nebular (botón Generar)
+   ============================================================ */
+.pf-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.pf-spinner-ring-outer {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pf-spinner-rotate 2.4s linear infinite;
+}
+.pf-spinner-ring-inner {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pf-spinner-rotate 1.6s linear infinite reverse;
+}
+.pf-spinner-core {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pf-spinner-pulse 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.75));
+}
+@keyframes pf-spinner-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes pf-spinner-pulse {
+  0%, 100% { transform: scale(1);    opacity: 0.9; }
+  50%      { transform: scale(1.35); opacity: 1;   }
+}
+.pf-spinner-paused .pf-spinner-ring-outer,
+.pf-spinner-paused .pf-spinner-ring-inner,
+.pf-spinner-paused .pf-spinner-core {
+  animation: none;
+}
+
+/* ============================================================
    Pathfinder logo — giro al generar
    ============================================================ */
 .pf-logo-spin {

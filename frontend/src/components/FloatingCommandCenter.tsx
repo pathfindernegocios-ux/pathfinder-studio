@@ -7,6 +7,7 @@ import Callout from './Callout';
 import { supabase } from '../lib/supabaseClient';
 import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil } from 'lucide-react';
 import PathfinderLogo from './PathfinderLogo';
+import PathfinderSpinner from './PathfinderSpinner';
 import AudioTrimmer from './AudioTrimmer';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useStationBoot } from '../hooks/useStationBoot';
@@ -109,6 +110,19 @@ interface PersistedStudioSelection {
   videoLoras?: PersistedLoraItem[];
   /** Modo de generación: single-scene (default) o storyboard multi-escena */
   mode?: 'single' | 'storyboard';
+
+  /** Draft de params por modelo — sobrevive refresh/navegación antes de generar. */
+  params?: PersistedStudioParams;
+}
+
+interface PersistedStudioParams {
+  video?: Partial<VideoParams>;
+  wan?: Partial<WanParams>;
+  ltx25?: Partial<Ltx25Params>;
+  krea?: Partial<KreaParams>;
+  flux?: Partial<FluxParams>;
+  qwen?: Partial<QwenParams>;
+  tts?: Partial<TtsParams>;
 }
 
 const fileToDataUri = (file: File): Promise<string> =>
@@ -156,6 +170,56 @@ function loadVideoLoras(): { name: string; mult: string; enabled: boolean }[] {
 function loadStoryboardMode(): 'single' | 'storyboard' {
   const persisted = loadPersistedStudioSelection()?.mode;
   return persisted === 'storyboard' ? 'storyboard' : 'single';
+}
+
+// ── Persistencia del draft de params por modelo ──
+// Guarda solo primitivos (strings, numbers, booleans, null).
+// Los File (refs, máscaras, audios) NO se persisten.
+
+const VIDEO_PERSIST_KEYS: (keyof VideoParams)[] = [
+  'duration', 'resolution', 'aspectRatio', 'guideScale', 'seed', 'matchAudioDur',
+];
+const WAN_PERSIST_KEYS: (keyof WanParams)[] = [
+  'mode', 'duration', 'resolution', 'aspectRatio', 'steps', 'guideScale',
+  'shift', 'sampler', 'seed', 'forcePreset',
+];
+const LTX25_PERSIST_KEYS: (keyof Ltx25Params)[] = [
+  'mode', 'removeBg', 'duration', 'resolution', 'aspectRatio',
+  'pipeline', 'audioCfg', 'steps', 'seed',
+];
+const KREA_PERSIST_KEYS: (keyof KreaParams)[] = [
+  'negativePrompt', 'steps', 'resolution', 'aspectRatio', 'seed',
+  'numImages', 'stylePreset',
+];
+const FLUX_PERSIST_KEYS: (keyof FluxParams)[] = [
+  'negativePrompt', 'steps', 'resolution', 'aspectRatio', 'seed', 'numImages',
+  'refModeLabel', 'modelModeLabel', 'fluxGuideScale', 'embeddedGuidance',
+];
+const QWEN_PERSIST_KEYS: (keyof QwenParams)[] = [
+  'task', 'mode', 'stylePreset', 'transparent', 'negativePrompt',
+  'resolution', 'aspectRatio', 'seed', 'numImages', 'strength',
+];
+const TTS_PERSIST_KEYS: (keyof TtsParams)[] = [
+  'voiceMode', 'voiceInstruction', 'emotionInstruction', 'language', 'duration',
+  'seed', 'steps', 'guideScale', 'speechSpeed', 'temperature', 'topP', 'topK',
+  'textNormalization',
+];
+
+function pickPersistable<T extends object>(obj: T, keys: (keyof T)[]): Partial<T> {
+  const out: Partial<T> = {};
+  for (const k of keys) {
+    const v = obj[k];
+    if (v === undefined) continue;
+    if (v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+function hydrateParams<T extends object>(defaults: T, persisted?: Partial<T> | null): T {
+  if (!persisted) return defaults;
+  return { ...defaults, ...persisted };
 }
 
 const LTX25_DEFAULT_LORAS = [
@@ -649,116 +713,130 @@ const FloatingCommandCenter: React.FC = () => {
   const ttsVoiceModeOptions = isTtsOmni ? TTS_OMNI_VOICE_MODES : TTS_INDEX_VOICE_MODES;
   const ttsLangOptions = isTtsOmni ? TTS_OMNI_LANGS : TTS_INDEX_LANGS;
   
-  const [videoParams, setVideoParams] = useState<VideoParams>({
-    imageStartFile: null,
-    imageEndFile: null,
-    audioFile: null,
-    duration: '5 Seconds (121 frames)',
-    resolution: '480p',
-    aspectRatio: '16:9 Landscape',
-    guideScale: 1.0,
-    seed: -1,
-    matchAudioDur: false,
-    loraItems: loadVideoLoras(),
-  });
+  const [videoParams, setVideoParams] = useState<VideoParams>(() =>
+    hydrateParams<VideoParams>({
+      imageStartFile: null,
+      imageEndFile: null,
+      audioFile: null,
+      duration: '5 Seconds (121 frames)',
+      resolution: '480p',
+      aspectRatio: '16:9 Landscape',
+      guideScale: 1.0,
+      seed: -1,
+      matchAudioDur: false,
+      loraItems: loadVideoLoras(),
+    }, loadPersistedStudioSelection()?.params?.video)
+  );
 
-  const [wanParams, setWanParams] = useState<WanParams>({
-    mode: 'i2v',
-    imageStartFile: null,
-    imageEndFile: null,
-    duration: '5s (81 frames)',
-    resolution: '480p',
-    aspectRatio: '16:9 Landscape',
-    steps: 4,
-    guideScale: 1.0,
-    shift: 5.0,
-    sampler: 'UniPC (recomendado)',
-    seed: -1,
-    forcePreset: false,
-    loraItems: loadWanLoras(),
-  });
+  const [wanParams, setWanParams] = useState<WanParams>(() =>
+    hydrateParams<WanParams>({
+      mode: 'i2v',
+      imageStartFile: null,
+      imageEndFile: null,
+      duration: '5s (81 frames)',
+      resolution: '480p',
+      aspectRatio: '16:9 Landscape',
+      steps: 4,
+      guideScale: 1.0,
+      shift: 5.0,
+      sampler: 'UniPC (recomendado)',
+      seed: -1,
+      forcePreset: false,
+      loraItems: loadWanLoras(),
+    }, loadPersistedStudioSelection()?.params?.wan)
+  );
 
-  const [ltx25Params, setLtx25Params] = useState<Ltx25Params>({
-    mode: 'KI',
-    removeBg: true,
-    ref1: null,
-    ref2: null,
-    ref3: null,
-    ref4: null,
-    ref5: null,
-    duration: '3 Seconds (73 frames - Standard)',
-    resolution: 'Balanced (480p - ~3-5 min)',
-    aspectRatio: '16:9 Landscape',
-    pipeline: 'Single stage (fast - recommended for T4)',
-    audioCfg: 1.0,
-    steps: 8,
-    seed: -1,
-    loraItems: loadLtx25Loras(),
-  });
+  const [ltx25Params, setLtx25Params] = useState<Ltx25Params>(() =>
+    hydrateParams<Ltx25Params>({
+      mode: 'I',
+      removeBg: false,
+      ref1: null,
+      ref2: null,
+      ref3: null,
+      ref4: null,
+      ref5: null,
+      duration: '3 Seconds (73 frames - Standard)',
+      resolution: 'Balanced (480p - ~3-5 min)',
+      aspectRatio: '16:9 Landscape',
+      pipeline: 'Single stage (fast - recommended for T4)',
+      audioCfg: 1.0,
+      steps: 8,
+      seed: -1,
+      loraItems: loadLtx25Loras(),
+    }, loadPersistedStudioSelection()?.params?.ltx25)
+  );
 
-  const [kreaParams, setKreaParams] = useState<KreaParams>({
-    negativePrompt: '',
-    steps: 8,
-    resolution: '1024px (Standard)',
-    aspectRatio: '1:1 Square',
-    seed: -1,
-    numImages: 1,
-    stylePreset: 'None',
-  });
+  const [kreaParams, setKreaParams] = useState<KreaParams>(() =>
+    hydrateParams<KreaParams>({
+      negativePrompt: '',
+      steps: 8,
+      resolution: '1024px (Standard)',
+      aspectRatio: '1:1 Square',
+      seed: -1,
+      numImages: 1,
+      stylePreset: 'None',
+    }, loadPersistedStudioSelection()?.params?.krea)
+  );
 
-  const [fluxParams, setFluxParams] = useState<FluxParams>({
-    negativePrompt: '',
-    steps: 4,
-    resolution: '1024px (Estándar)',
-    aspectRatio: '1:1 Cuadrado',
-    seed: -1,
-    numImages: 1,
-    refFiles: [],
-    refModeLabel: 'Sujeto/Escenario + Personas u Objetos (KI)',
-    maskFile: null,
-    modelModeLabel: 'Masked Denoising : Inpainted area may reuse some content that has been masked',
-    fluxGuideScale: 5,
-    embeddedGuidance: 1,
-  });
+  const [fluxParams, setFluxParams] = useState<FluxParams>(() =>
+    hydrateParams<FluxParams>({
+      negativePrompt: '',
+      steps: 4,
+      resolution: '1024px (Estándar)',
+      aspectRatio: '1:1 Cuadrado',
+      seed: -1,
+      numImages: 1,
+      refFiles: [],
+      refModeLabel: 'Sujeto/Escenario + Personas u Objetos (KI)',
+      maskFile: null,
+      modelModeLabel: 'Masked Denoising : Inpainted area may reuse some content that has been masked',
+      fluxGuideScale: 5,
+      embeddedGuidance: 1,
+    }, loadPersistedStudioSelection()?.params?.flux)
+  );
 
-  const [qwenParams, setQwenParams] = useState<QwenParams>({
-    task: 'Crear',
-    mode: 'Turbo HQ',
-    stylePreset: 'None',
-    transparent: false,
-    negativePrompt: '',
-    resolution: '1024px (recommended)',
-    aspectRatio: '1:1 Square',
-    seed: -1,
-    numImages: 1,
-    refFiles: [],
-    editImageFile: null,
-    editMaskFile: null,
-    strength: 1.0,
-  });
+  const [qwenParams, setQwenParams] = useState<QwenParams>(() =>
+    hydrateParams<QwenParams>({
+      task: 'Crear',
+      mode: 'Turbo HQ',
+      stylePreset: 'None',
+      transparent: false,
+      negativePrompt: '',
+      resolution: '1024px (recommended)',
+      aspectRatio: '1:1 Square',
+      seed: -1,
+      numImages: 1,
+      refFiles: [],
+      editImageFile: null,
+      editMaskFile: null,
+      strength: 1.0,
+    }, loadPersistedStudioSelection()?.params?.qwen)
+  );
 
   const qwenImageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const qwenMaskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const qwenPaintingRef = useRef<boolean>(false);
   const [qwenEditImageUrl, setQwenEditImageUrl] = useState<string | null>(null);
 
-  const [ttsParams, setTtsParams] = useState<TtsParams>({
-    voiceMode: 'VD',
-    voiceInstruction: 'female, young adult, moderate pitch',
-    emotionInstruction: '',
-    audioGuide: null,
-    audioGuide2: null,
-    language: 'Auto',
-    duration: 'Custom (auto)',
-    seed: -1,
-    steps: 32,
-    guideScale: 2.0,
-    speechSpeed: 1.0,
-    temperature: 0.8,
-    topP: 0.8,
-    topK: 30,
-    textNormalization: true,
-  });
+  const [ttsParams, setTtsParams] = useState<TtsParams>(() =>
+    hydrateParams<TtsParams>({
+      voiceMode: 'VD',
+      voiceInstruction: 'female, young adult, moderate pitch',
+      emotionInstruction: '',
+      audioGuide: null,
+      audioGuide2: null,
+      language: 'Auto',
+      duration: 'Custom (auto)',
+      seed: -1,
+      steps: 32,
+      guideScale: 2.0,
+      speechSpeed: 1.0,
+      temperature: 0.8,
+      topP: 0.8,
+      topK: 30,
+      textNormalization: true,
+    }, loadPersistedStudioSelection()?.params?.tts)
+  );
 
   // Limpieza de URLs huérfanas
   useEffect(() => {
@@ -832,10 +910,15 @@ const FloatingCommandCenter: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Persistir la selección actual (sobrevive refresh y navegación) ──
+  // ── Persistir la selección actual + draft de params ──
+  // Read-modify-write: preserva `mode` (storyboard) y otras keys.
+  // Sobrevive F5, cerrar pestaña, perder internet, cambiar de tab.
   useEffect(() => {
     try {
+      const raw = localStorage.getItem(STUDIO_SELECTION_KEY);
+      const prev = raw ? JSON.parse(raw) : {};
       localStorage.setItem(STUDIO_SELECTION_KEY, JSON.stringify({
+        ...prev,
         activeTab,
         selectedVideoModelId,
         selectedImageModelId,
@@ -843,6 +926,15 @@ const FloatingCommandCenter: React.FC = () => {
         wanLoras: wanParams.loraItems,
         ltx25Loras: ltx25Params.loraItems,
         videoLoras: videoParams.loraItems,
+        params: {
+          video: pickPersistable(videoParams, VIDEO_PERSIST_KEYS),
+          wan: pickPersistable(wanParams, WAN_PERSIST_KEYS),
+          ltx25: pickPersistable(ltx25Params, LTX25_PERSIST_KEYS),
+          krea: pickPersistable(kreaParams, KREA_PERSIST_KEYS),
+          flux: pickPersistable(fluxParams, FLUX_PERSIST_KEYS),
+          qwen: pickPersistable(qwenParams, QWEN_PERSIST_KEYS),
+          tts: pickPersistable(ttsParams, TTS_PERSIST_KEYS),
+        },
       }));
     } catch {
       // noop (localStorage puede fallar en modo privado)
@@ -852,9 +944,13 @@ const FloatingCommandCenter: React.FC = () => {
     selectedVideoModelId,
     selectedImageModelId,
     selectedTtsModelId,
-    wanParams.loraItems,
-    ltx25Params.loraItems,
-    videoParams.loraItems,
+    wanParams,
+    ltx25Params,
+    videoParams,
+    kreaParams,
+    fluxParams,
+    qwenParams,
+    ttsParams,
   ]);
 
   // ── AUTO-SELECT POR BOOT (Fase 2 extendida) ──
@@ -2550,9 +2646,7 @@ const FloatingCommandCenter: React.FC = () => {
             >
               {isLoading && !isCurrentModelLocked ? (
                 <>
-                  <span className="pf-logo-spin">
-                    <PathfinderLogo size={16} />
-                  </span>
+                  <PathfinderSpinner size={16} />
                   <span>Generando</span>
                   <span className="pf-dots">
                     <span>.</span>
@@ -2568,7 +2662,7 @@ const FloatingCommandCenter: React.FC = () => {
               ) : (
                 <>
                   <span>{activeTab === 'audio' ? 'Generar Audio' : 'Generar'}</span>
-                  <PathfinderLogo size={16} />
+                  <PathfinderSpinner size={16} paused />
                 </>
               )}
             </button>

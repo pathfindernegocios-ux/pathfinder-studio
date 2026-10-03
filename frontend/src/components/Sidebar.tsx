@@ -112,7 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
               flexShrink: 0,
             }}
           >
-            <PathfinderLogo size={40} />
+            <PathfinderLogo size={28} />
           </button>
         ) : (
           <Link 
@@ -120,13 +120,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
             style={{ 
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '8px',
               textDecoration: 'none',
               overflow: 'hidden',
               flexShrink: 0,
             }}
           >
-            <PathfinderLogo size={40} />
+            <PathfinderLogo size={24} />
             <span
               style={{
                 fontFamily: 'var(--pf-font-display, system-ui)', 
@@ -234,9 +234,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
       {/* User Section */}
       <div style={{ 
         padding: '16px', 
-        borderTop: '1px solid var(--pf-border-subtle, #2A2D31)', 
-        background: 'var(--pf-glass-surface, rgba(255,255,255,0.02))', 
-        backdropFilter: 'blur(12px)' 
+        borderTop: '1px solid var(--pf-border-subtle, #2A2D31)'
       }}>
         {session && profile ? (
           <div ref={menuRef} style={{ position: 'relative' }}>
@@ -257,16 +255,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                background: menuOpen ? 'var(--pf-glass-surface, rgba(255,255,255,0.05))' : 'transparent',
+                background: menuOpen ? 'rgba(255,255,255,0.04)' : 'transparent',
                 border: 'none',
                 borderRadius: '10px',
-                padding: '6px',
+                padding: '6px 8px',
                 cursor: 'pointer',
                 transition: 'background 0.15s ease',
                 justifyContent: collapsed ? 'center' : 'flex-start',
               }}
               onMouseEnter={(e) => {
-                if (!menuOpen) e.currentTarget.style.background = 'var(--pf-glass-surface, rgba(255,255,255,0.05))';
+                if (!menuOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
               }}
               onMouseLeave={(e) => {
                 if (!menuOpen) e.currentTarget.style.background = 'transparent';
@@ -426,10 +424,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
                   onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--pf-bg-secondary, #FAFAFA)')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" />
-                  </svg>
+                  <SettingsIcon size={16} />
                   Configuración
                 </Link>
 
