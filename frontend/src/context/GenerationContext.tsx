@@ -840,7 +840,11 @@ export function GenerationProvider({
 
   const handleGenerate = useCallback(
     async (params: GenerateParams) => {
-      if (!gradioUrl || !params.prompt.trim()) return;
+      if (!params.prompt.trim()) return;
+      if (!gradioUrl) {
+        setErrorMsg("La estación aún no está conectada. Esperá unos segundos y volvé a intentar.");
+        return;
+      }
 
       const localStart = Date.now() / 1000;
       generationStartRef.current = localStart;

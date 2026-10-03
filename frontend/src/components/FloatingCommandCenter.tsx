@@ -1723,10 +1723,10 @@ const FloatingCommandCenter: React.FC = () => {
             loraMults: videoParams.loraItems.filter(x => x.enabled).map(x => x.mult || '1.0').join(' '),
           });
         } else if (isVideoLtx25Msr) {
-          // LTX 2.5 MSR (Multi-Subject Reference)
+          // LTX 2.5 MSR o LTX 2.3 MSR (comparten UI, distinto runtimeId)
           await handleGenerate({
             prompt,
-            videoModelId: 'ltx-2.5-msr',
+            videoModelId: selectedVideoModelId,
             msrMode: ltx25Params.mode,
             removeBg: ltx25Params.removeBg,
             msrRef1: ltx25Params.ref1,
