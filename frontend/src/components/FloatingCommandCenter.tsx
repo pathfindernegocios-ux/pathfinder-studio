@@ -1172,6 +1172,9 @@ const FloatingCommandCenter: React.FC = () => {
         aspectRatio: string;
         params: Record<string, unknown>;
         refUrls: string[];
+        startImageUrl?: string | null;
+        endImageUrl?: string | null;
+        audioUrl?: string | null;
       }>;
       const detail = custom.detail;
       if (!detail) return;
@@ -1329,23 +1332,81 @@ const FloatingCommandCenter: React.FC = () => {
         }));
       }
 
+      // ── Reponer archivos de referencia al hacer Variación ──
+      // Descarga cada URL del tunel y la convierte en File local.
+      // Cubre LTX MSR (ref1..ref5), Flux (refFiles), Qwen (refFiles),
+      // TTS (audioGuide/audioGuide2) y LTX 2.3 / Wan (start/end/audio).
+      const _downloadAsFile = async (url: string, fallbackName: string): Promise<File | null> => {
+        try {
+          const ctrl = new AbortController();
+          const killer = setTimeout(() => ctrl.abort(), 15000);
+          const res = await fetch(url, { signal: ctrl.signal });
+          clearTimeout(killer);
+          if (!res.ok) return null;
+          const blob = await res.blob();
+          const ext = (blob.type.split('/')[1] || 'bin').split(';')[0];
+          return new File([blob], `${fallbackName}.${ext}`, { type: blob.type || 'application/octet-stream' });
+        } catch { return null; }
+      };
+
+      // 1) refUrls -> depende del modelo (LTX MSR, Flux, Qwen, TTS)
       if (Array.isArray(detail.refUrls) && detail.refUrls.length > 0) {
         try {
+          const urls = detail.refUrls.slice(0, 5);
           const files: File[] = [];
-          for (let i = 0; i < detail.refUrls.length; i++) {
-            const url = detail.refUrls[i];
-            const res = await fetch(url);
-            const blob = await res.blob();
-            const ext = (blob.type.split('/')[1] || 'png').split(';')[0];
-            const f = new File([blob], `ref_${i + 1}.${ext}`, { type: blob.type });
-            files.push(f);
+          for (let i = 0; i < urls.length; i++) {
+            const f = await _downloadAsFile(urls[i], `ref_${i + 1}`);
+            if (f) files.push(f);
           }
-          if (isFlux && files.length > 0) {
+
+          if (detail.modelId === 'ltx-2.3-msr' || detail.modelId === 'ltx-2.5-msr') {
+            setLtx25Params(prev => ({
+              ...prev,
+              ref1: files[0] ?? prev.ref1,
+              ref2: files[1] ?? prev.ref2,
+              ref3: files[2] ?? prev.ref3,
+              ref4: files[3] ?? prev.ref4,
+              ref5: files[4] ?? prev.ref5,
+            }));
+          } else if (isFlux && files.length > 0) {
             handleFluxRefFilesChange(files);
+          } else if (detail.modelId === 'qwen-image-2.1' && files.length > 0) {
+            setQwenParams(prev => ({ ...prev, refFiles: files }));
+          } else if (detail.modelId === 'tts-dual' && files.length > 0) {
+            setTtsParams(prev => ({
+              ...prev,
+              audioGuide: files[0] ?? prev.audioGuide,
+              audioGuide2: files[1] ?? prev.audioGuide2,
+            }));
           }
         } catch (err) {
           void 0;
         }
+      }
+
+      // 2) startImageUrl / endImageUrl / audioUrl -> LTX 2.3 y Wan
+      if (detail.modelId === 'ltx-2.3') {
+        const [s, e, a] = await Promise.all([
+          detail.startImageUrl ? _downloadAsFile(detail.startImageUrl, 'start') : Promise.resolve(null),
+          detail.endImageUrl   ? _downloadAsFile(detail.endImageUrl,   'end')   : Promise.resolve(null),
+          detail.audioUrl      ? _downloadAsFile(detail.audioUrl,      'audio') : Promise.resolve(null),
+        ]);
+        setVideoParams(prev => ({
+          ...prev,
+          imageStartFile: s ?? prev.imageStartFile,
+          imageEndFile:   e ?? prev.imageEndFile,
+          audioFile:      a ?? prev.audioFile,
+        }));
+      } else if (detail.modelId === 'wan-dual' || detail.modelId.startsWith('wan-')) {
+        const [s, e] = await Promise.all([
+          detail.startImageUrl ? _downloadAsFile(detail.startImageUrl, 'start') : Promise.resolve(null),
+          detail.endImageUrl   ? _downloadAsFile(detail.endImageUrl,   'end')   : Promise.resolve(null),
+        ]);
+        setWanParams(prev => ({
+          ...prev,
+          imageStartFile: s ?? prev.imageStartFile,
+          imageEndFile:   e ?? prev.imageEndFile,
+        }));
       }
     };
 

@@ -305,6 +305,9 @@ const StudioPage: React.FC = () => {
         aspectRatio: item.aspectRatio,
         params: item.params || {},
         refUrls: item.refUrls || [],
+        startImageUrl: item.startImageUrl || null,
+        endImageUrl: item.endImageUrl || null,
+        audioUrl: item.audioUrl || null,
       }
     }));
   };

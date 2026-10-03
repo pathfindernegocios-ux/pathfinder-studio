@@ -73,6 +73,12 @@ export interface SessionItem {
   params?: Record<string, unknown>;
   /** URLs de las imágenes de referencia persistidas (para Variación) */
   refUrls?: string[];
+  /** URL del start frame persistido (para Variación en LTX 2.3 / Wan i2v). */
+  startImageUrl?: string;
+  /** URL del end frame persistido (para Variación en LTX 2.3 / Wan). */
+  endImageUrl?: string;
+  /** URL del audio guia persistido (para Variación en LTX 2.3 / TTS). */
+  audioUrl?: string;
   /** URLs de cada escena completada (para mostrarlas mientras corre el storyboard). */
   sceneUrls?: string[];
   /** Metadata de storyboard. Solo presente si la generación fue multi-escena. */
@@ -318,6 +324,9 @@ function mapBackendItem(raw: any): SessionItem {
     })(),
     params: mapBackendParams(raw.parameters),
     refUrls: Array.isArray(raw.ref_urls) ? raw.ref_urls.map(String) : undefined,
+    startImageUrl: typeof raw.start_image_url === 'string' && raw.start_image_url ? String(raw.start_image_url) : undefined,
+    endImageUrl: typeof raw.end_image_url === 'string' && raw.end_image_url ? String(raw.end_image_url) : undefined,
+    audioUrl: typeof raw.audio_url === 'string' && raw.audio_url ? String(raw.audio_url) : undefined,
     sceneUrls: Array.isArray(raw.scene_urls) ? raw.scene_urls.map(String) : undefined,
     elapsedSeconds: (() => {
       const meta = (raw.metadata && typeof raw.metadata === 'object') ? raw.metadata : {};
