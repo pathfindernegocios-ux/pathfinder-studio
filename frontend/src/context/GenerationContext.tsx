@@ -419,6 +419,23 @@ export function GenerationProvider({
     return () => window.clearInterval(interval);
   }, [isLoading]);
 
+  // Multi-notebook: isLoading refleja si el MODELO ACTIVO en la capability
+  // activa tiene una generación corriendo. Si el user cambia de tab o de
+  // modelo (dentro del mismo tab), y el nuevo modelo no tiene generaciones
+  // activas, el botón Generar se desbloquea sin frenar al otro modelo.
+  useEffect(() => {
+    const activeRuntimeId = capability === 'image'
+      ? activeImageModelId
+      : capability === 'audio'
+        ? 'tts-dual'
+        : activeVideoModelId;
+
+    const activeModelIsGenerating = sessionHistoryByCapability[capability].some(
+      it => it.isGenerating && (it.modelId === activeRuntimeId || !it.modelId)
+    );
+    setIsLoading(activeModelIsGenerating);
+  }, [capability, activeImageModelId, activeVideoModelId, sessionHistoryByCapability]);
+
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
     let cancelled = false;
