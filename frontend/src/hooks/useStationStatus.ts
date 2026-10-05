@@ -1,5 +1,5 @@
 // src/hooks/useStationStatus.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Client } from '@gradio/client';
 import { supabase } from '../lib/supabaseClient';
 import { readLiveCache, writeLiveCache } from '../lib/liveCache';
@@ -58,6 +58,15 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
   const [modelTypeMap, setModelTypeMap] = useState<Record<string, 'image' | 'video' | 'audio'>>(() => _cached?.modelTypeMap ?? {});
   const [bootingIds, setBootingIds] = useState<string[]>(() => _cached?.bootingIds ?? []);
   const [loading, setLoading] = useState<boolean>(() => _cached === null);
+
+  // Ref con el último statusMap: se usa DENTRO de fetchAndCheck para preservar
+  // el estado previo en caso de timeout de /status. NO va en las deps del
+  // useCallback (crearía un loop: fetchAndCheck -> setStatusMap -> nueva
+  // referencia de fetchAndCheck -> useEffect -> fetchAndCheck -> ...).
+  const statusMapRef = useRef<Record<string, StationStatus>>(statusMap);
+  useEffect(() => {
+    statusMapRef.current = statusMap;
+  }, [statusMap]);
 
   const fetchAndCheck = useCallback(async () => {
     if (!stationId) {
@@ -121,7 +130,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       const token = session?.access_token;
 
       const now = Date.now();
-      const prevStatusMap = statusMap;
+      const prevStatusMap = statusMapRef.current;
       const results: Record<string, StationStatus> = {};
 
       // 4. Determinar estado por cada modelo
@@ -164,7 +173,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       void 0;
       setLoading(false);
     }
-  }, [stationId, statusMap]);
+  }, [stationId]);
 
   // Persistir el estado cada vez que cambie, para hidratar al próximo mount.
   useEffect(() => {
