@@ -1,6 +1,7 @@
 // src/App.tsx
 import React, { useState, useEffect } from "react";
 import {
+  BrowserRouter,
   Routes,
   Route,
   Navigate,
@@ -274,6 +275,7 @@ function App() {
     <ThemeProvider enabled={true}>
       <GenerationProvider stationId={session?.user?.id || null}>
         <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
+      <BrowserRouter>
         <Routes>
           {/* ============================================================
               PÚBLICAS
@@ -416,6 +418,7 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </BrowserRouter>
       </GenerationProvider>
     </ThemeProvider>
   );
