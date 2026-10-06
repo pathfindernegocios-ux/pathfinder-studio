@@ -9,6 +9,7 @@ export type StationStatus = 'online' | 'offline';
 interface RuntimeRow {
   model_id: string;
   gradio_url: string | null;
+  gradio_urls: string[] | null;
   state: string;
   model_type: string | null;
   created_at: string;
@@ -44,6 +45,9 @@ const POLL_MS =
     ? POLL_MS_MOBILE
     : POLL_MS_DESKTOP;
 const TIMEOUT_MS = 10_000;
+// Mismo TTL que useGradioClient: si una URL falla, se salta por 30s para
+// no reintentar en cada poll (que es cada 30-60s).
+const COLD_TTL_MS = 30_000;
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -68,6 +72,10 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
     statusMapRef.current = statusMap;
   }, [statusMap]);
 
+  // Deuda 3: URLs frías. Map url -> timestamp de expiración del frío.
+  // Evita reintentar contra la misma URL muerta en cada poll.
+  const coldRef = useRef<Map<string, number>>(new Map());
+
   const fetchAndCheck = useCallback(async () => {
     if (!stationId) {
       setStatusMap({});
@@ -81,7 +89,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       // 1. Traer todas las filas de runtimes del usuario
       const { data, error } = await supabase
         .from('runtimes')
-        .select('model_id, gradio_url, state, model_type, created_at, updated_at')
+        .select('model_id, gradio_url, gradio_urls, state, model_type, created_at, updated_at')
         .eq('station_id', stationId)
         .order('created_at', { ascending: false });
 
@@ -138,7 +146,14 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
         Array.from(latestByModel.entries()).map(async ([modelId, row]) => {
           const ageMs = now - new Date(row.created_at).getTime();
 
-          if (ageMs > MAX_AGE_MS || !row.gradio_url) {
+          // Deuda 3: usar el array gradio_urls si existe; fallback a gradio_url
+          // para filas viejas. Permite que el poll de status siga funcionando
+          // cuando Cloudflare cae y solo Gradio share responde.
+          const urls = (row.gradio_urls && row.gradio_urls.length > 0)
+            ? row.gradio_urls
+            : (row.gradio_url ? [row.gradio_url] : []);
+
+          if (ageMs > MAX_AGE_MS || urls.length === 0) {
             results[modelId] = 'offline';
             return;
           }
@@ -147,19 +162,29 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
             return;
           }
 
-          try {
-            void 0;
-            const client = await withTimeout(Client.connect(row.gradio_url), TIMEOUT_MS);
-            void 0;
-            const statusResult = await withTimeout(client.predict('/status', [token]), TIMEOUT_MS);
-            const statusVal = Array.isArray(statusResult.data) ? statusResult.data[0] : statusResult.data;
-            void 0;
-            results[modelId] = (statusVal === 'READY' || statusVal === 'BUSY') ? 'online' : 'offline';
-          } catch (e: any) {
-            void 0;
-            // Timeout != offline. La cola de Gradio puede estar ocupada por
-            // /generate, o el tunnel puede estar momentaneamente lento.
-            // Preservar el estado previo para no marcar offline sin motivo.
+          const nowMs = Date.now();
+          let gotResponse = false;
+
+          for (const url of urls) {
+            const coldUntil = coldRef.current.get(url);
+            if (coldUntil && coldUntil > nowMs) continue;
+
+            try {
+              const client = await withTimeout(Client.connect(url), TIMEOUT_MS);
+              const statusResult = await withTimeout(client.predict('/status', [token]), TIMEOUT_MS);
+              const statusVal = Array.isArray(statusResult.data) ? statusResult.data[0] : statusResult.data;
+              results[modelId] = (statusVal === 'READY' || statusVal === 'BUSY') ? 'online' : 'offline';
+              gotResponse = true;
+              break;
+            } catch {
+              // Marcar esta URL como fría y probar la siguiente.
+              coldRef.current.set(url, Date.now() + COLD_TTL_MS);
+            }
+          }
+
+          if (!gotResponse) {
+            // Ninguna URL respondió. Preservar el estado previo para no
+            // marcar offline sin motivo (puede ser timeout transitorio).
             results[modelId] = prevStatusMap[modelId] ?? 'offline';
           }
         })
