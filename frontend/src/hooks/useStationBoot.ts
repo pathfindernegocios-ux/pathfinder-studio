@@ -13,12 +13,21 @@ export type BootState =
   | 'ERROR'
   | 'STALE';
 
+// P2: estado de conexion derivado del heartbeat del notebook.
+//   alive       -> last_heartbeat_at < 30s
+//   reconnecting-> 30s <= last_heartbeat_at < 90s
+//   offline     -> last_heartbeat_at >= 90s
+//   unknown     -> sin latido todavia (notebook booteando o fila vieja)
+export type ConnectionState = 'alive' | 'reconnecting' | 'offline' | 'unknown';
+
 export interface BootInfo {
   state: BootState;
   progress: number;            // 0.0 – 1.0
   stepMessage: string | null;  // mensaje narrativo del paso actual
   updatedAt: string | null;
   gradioUrl: string | null;
+  lastHeartbeatAt: string | null;  // P2: ultimo latido del notebook
+  connectionState: ConnectionState; // P2: derivado de lastHeartbeatAt
   isBooting: boolean;          // INSTALLING o CONNECTING (y sin stale)
   isReady: boolean;            // READY o BUSY
   isError: boolean;
@@ -49,6 +58,9 @@ const ORPHAN_ERROR_THRESHOLD_MS = 30 * 60 * 1000;
 // El notebook murió a mitad del arranque sin limpiar su fila. Sin este filtro,
 // el auto-select de boot elige el modelo fantasma y pisa al modelo activo.
 const ORPHAN_BOOTING_THRESHOLD_MS = 25 * 60 * 1000;
+// P2: umbrales del heartbeat.
+const HEARTBEAT_ALIVE_MS = 30 * 1000;
+const HEARTBEAT_RECONNECTING_MS = 90 * 1000;
 
 const LIVE_CACHE_KEY = 'station_boot';
 const LIVE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -60,6 +72,8 @@ const DETECTING: BootInfo = {
   stepMessage: null,
   updatedAt: null,
   gradioUrl: null,
+  lastHeartbeatAt: null,
+  connectionState: 'unknown',
   isBooting: false,
   isReady: false,
   isError: false,
@@ -73,6 +87,8 @@ const IDLE: BootInfo = {
   stepMessage: null,
   updatedAt: null,
   gradioUrl: null,
+  lastHeartbeatAt: null,
+  connectionState: 'unknown',
   isBooting: false,
   isReady: false,
   isError: false,
@@ -133,7 +149,7 @@ export function useStationBoot(
       try {
         const { data, error } = await supabase
           .from('runtimes')
-          .select('state, progress, step_message, updated_at, gradio_url')
+          .select('state, progress, step_message, updated_at, gradio_url, last_heartbeat_at')
           .eq('station_id', stationId)
           .eq('model_id', modelId)
           .order('created_at', { ascending: false })
@@ -154,6 +170,7 @@ export function useStationBoot(
           step_message: string | null;
           updated_at: string | null;
           gradio_url: string | null;
+          last_heartbeat_at: string | null;
         };
 
         const state = (row.state || 'idle') as BootState;
@@ -178,12 +195,30 @@ export function useStationBoot(
           (state === 'INSTALLING' || state === 'CONNECTING') &&
           ageMs > STALE_THRESHOLD_MS;
 
+        // P2: derivar connectionState del ultimo latido.
+        const lastHeartbeatAt = row.last_heartbeat_at;
+        const hbAgeMs = lastHeartbeatAt
+          ? Date.now() - new Date(lastHeartbeatAt).getTime()
+          : Infinity;
+        let connectionState: ConnectionState;
+        if (!lastHeartbeatAt) {
+          connectionState = 'unknown';
+        } else if (hbAgeMs < HEARTBEAT_ALIVE_MS) {
+          connectionState = 'alive';
+        } else if (hbAgeMs < HEARTBEAT_RECONNECTING_MS) {
+          connectionState = 'reconnecting';
+        } else {
+          connectionState = 'offline';
+        }
+
         const info: BootInfo = {
           state: isStale ? 'STALE' : state,
           progress,
           stepMessage: row.step_message,
           updatedAt,
           gradioUrl: row.gradio_url,
+          lastHeartbeatAt,
+          connectionState,
           isBooting:
             (state === 'INSTALLING' || state === 'CONNECTING') && !isStale,
           isReady: state === 'READY' || state === 'BUSY',
