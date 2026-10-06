@@ -614,12 +614,17 @@ export function GenerationProvider({
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         if (!token) { if (!cancelled) setRecoveryState("idle"); return; }
-        const result = await client.predict("/generation_status", [token]);
-        const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-        const info = (raw && typeof raw === "object" && Object.keys(raw as object).length > 0)
-          ? raw as GenerationInfo
-          : undefined;
-        if (!cancelled) {
+
+        const fetchInfo = async (jwt: string) => {
+          const result = await client.predict("/generation_status", [jwt]);
+          const raw = Array.isArray(result.data) ? result.data[0] : result.data;
+          return (raw && typeof raw === "object" && Object.keys(raw as object).length > 0)
+            ? raw as GenerationInfo
+            : undefined;
+        };
+
+        const applyInfo = (info: GenerationInfo | undefined) => {
+          if (cancelled) return;
           if (info && info.status && info.status !== "idle") {
             setGenerationInfo(info);
             if (info.status === "preparing" || info.status === "running") {
@@ -634,8 +639,32 @@ export function GenerationProvider({
                 if (storedUrl) setVideoSrc(storedUrl);
               }
             }
-          } else { setRecoveryState("idle"); }
+          } else {
+            setRecoveryState("idle");
+          }
+        };
+
+        let info = await fetchInfo(token);
+
+        // El backend devuelve {} cuando verify_jwt falla (Supabase responde
+        // 403 session_not_found). En ese caso intentar refresh antes de
+        // asumir "idle": el JWT local puede estar bien pero la sesión
+        // revocada del lado servidor.
+        if (!info && !cancelled) {
+          const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+          if (cancelled) return;
+          if (refreshErr || !refreshData.session) {
+            // El refresh token también murió → forzar logout para que el
+            // user vuelva a loguearse (SIGNED_OUT redirige a /auth).
+            setRecoveryState("idle");
+            await supabase.auth.signOut();
+            return;
+          }
+          info = await fetchInfo(refreshData.session.access_token);
+          if (cancelled) return;
         }
+
+        applyInfo(info);
       } catch { if (!cancelled) setRecoveryState("idle"); }
     };
     recover();
