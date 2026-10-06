@@ -3,9 +3,21 @@ import { supabase } from "../lib/supabaseClient";
 import type { CapabilityId, Status } from "../types";
 import { useGradioClient } from "./useGradioClient";
 
+// Compara dos arrays de strings por contenido. Se usa para evitar que
+// setGradioUrls dispare reconexiones cuando el array es equivalente.
+function sameStringArray(a: string[], b: string[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 interface ImageRuntime {
   model_id: string;
   gradio_url: string;
+  gradio_urls: string[] | null;
 }
 
 interface UseRuntimeParams {
@@ -19,6 +31,7 @@ interface UseRuntimeParams {
 
 export function useRuntime({ stationId, capability = "video", modelId = null }: UseRuntimeParams) {
   const [gradioUrl, setGradioUrl] = useState<string | null>(null);
+  const [gradioUrls, setGradioUrls] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>("UNKNOWN");
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [sessionUptime, setSessionUptime] = useState<string>("00:00:00");
@@ -28,6 +41,7 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
   useEffect(() => {
     if (!stationId) {
       setGradioUrl(null);
+      setGradioUrls([]);
       setStatus("UNKNOWN");
       setSessionStartTime(null);
       setSessionUptime("00:00:00");
@@ -43,18 +57,18 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
         // Obtener todos los runtimes de imagen
         const { data, error } = await supabase
           .from("runtimes")
-          .select("gradio_url, state, model_id, created_at")
+          .select("gradio_url, gradio_urls, state, model_id, created_at")
           .eq("station_id", stationId)
           .eq("model_type", "image")
           .order("created_at", { ascending: false });
 
         if (!error && data && data.length > 0) {
-          const rows = data as { gradio_url: string; state: Status; model_id: string; created_at: string }[];
+          const rows = data as { gradio_url: string; gradio_urls: string[] | null; state: Status; model_id: string; created_at: string }[];
 
           // Dedup por model_id: la fila mas reciente gana.
           // Sin esto, si hay filas huerfanas de sesiones anteriores, el frontend
           // puede elegir una URL muerta con gradio_url viejo.
-          const latestByModel = new Map<string, { gradio_url: string; state: Status; model_id: string; created_at: string }>();
+          const latestByModel = new Map<string, { gradio_url: string; gradio_urls: string[] | null; state: Status; model_id: string; created_at: string }>();
           for (const r of rows) {
             const prev = latestByModel.get(r.model_id);
             if (!prev || new Date(r.created_at).getTime() > new Date(prev.created_at).getTime()) {
@@ -63,7 +77,7 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
           }
           const deduped = Array.from(latestByModel.values());
 
-          setImageModels(deduped.map((r) => ({ model_id: r.model_id, gradio_url: r.gradio_url })));
+          setImageModels(deduped.map((r) => ({ model_id: r.model_id, gradio_url: r.gradio_url, gradio_urls: r.gradio_urls })));
 
           setActiveImageModelId((prev) => {
             if (prev && deduped.some((r) => r.model_id === prev)) return prev;
@@ -77,13 +91,14 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
           setImageModels([]);
           setActiveImageModelId(null);
           setGradioUrl(null);
+          setGradioUrls([]);
           setStatus("UNKNOWN");
         }
       } else if (modelType === "audio") {
         // Audio: filtra por model_id si se provee (ej: 'tts-dual')
         let query = supabase
           .from("runtimes")
-          .select("gradio_url, state, model_id")
+          .select("gradio_url, gradio_urls, state, model_id")
           .eq("station_id", stationId)
           .eq("model_type", "audio")
           .order("created_at", { ascending: false })
@@ -96,9 +111,14 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
         const { data, error } = await query.maybeSingle();
 
         if (!error && data && data.gradio_url) {
+          const nextUrls = (data.gradio_urls && data.gradio_urls.length > 0)
+            ? data.gradio_urls
+            : [data.gradio_url];
           setGradioUrl((prev) => (prev === data.gradio_url ? prev : data.gradio_url));
+          setGradioUrls((prev) => sameStringArray(prev, nextUrls) ? prev : nextUrls);
         } else {
           setGradioUrl(null);
+          setGradioUrls([]);
           setStatus("UNKNOWN");
         }
 
@@ -108,7 +128,7 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
         // Video: filtra por model_id si se provee (ltx-2.3, ltx-2.5-msr, wan-dual)
         let query = supabase
           .from("runtimes")
-          .select("gradio_url, state")
+          .select("gradio_url, gradio_urls, state")
           .eq("station_id", stationId)
           .eq("model_type", "video")
           .order("created_at", { ascending: false })
@@ -121,10 +141,15 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
         const { data, error } = await query.maybeSingle();
 
         if (!error && data && data.gradio_url) {
+          const nextUrls = (data.gradio_urls && data.gradio_urls.length > 0)
+            ? data.gradio_urls
+            : [data.gradio_url];
           setGradioUrl((prev) => (prev === data.gradio_url ? prev : data.gradio_url));
+          setGradioUrls((prev) => sameStringArray(prev, nextUrls) ? prev : nextUrls);
           // El estado lo actualizará /status; no usamos data.state
         } else {
           setGradioUrl(null);
+          setGradioUrls([]);
           setStatus("UNKNOWN");
         }
 
@@ -144,15 +169,20 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
 
     const selected = imageModels.find((m) => m.model_id === activeImageModelId);
     if (selected) {
+      const nextUrls = (selected.gradio_urls && selected.gradio_urls.length > 0)
+        ? selected.gradio_urls
+        : [selected.gradio_url];
       setGradioUrl((prev) => (prev === selected.gradio_url ? prev : selected.gradio_url));
+      setGradioUrls((prev) => sameStringArray(prev, nextUrls) ? prev : nextUrls);
       // No tocar status aquí
     } else {
       setGradioUrl(null);
+      setGradioUrls([]);
       setStatus("UNKNOWN");
     }
   }, [activeImageModelId, imageModels, capability]);
 
-  const { getClient } = useGradioClient(gradioUrl);
+  const { getClient } = useGradioClient(gradioUrls.length > 0 ? gradioUrls : null);
 
   useEffect(() => {
     if (!gradioUrl) return;
@@ -212,6 +242,7 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
 
   return {
     gradioUrl,
+    gradioUrls,
     status,
     sessionUptime: sessionUptime,
     getClient,
