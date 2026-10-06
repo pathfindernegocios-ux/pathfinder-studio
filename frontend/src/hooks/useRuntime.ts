@@ -43,19 +43,31 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
         // Obtener todos los runtimes de imagen
         const { data, error } = await supabase
           .from("runtimes")
-          .select("gradio_url, state, model_id")
+          .select("gradio_url, state, model_id, created_at")
           .eq("station_id", stationId)
           .eq("model_type", "image")
           .order("created_at", { ascending: false });
 
         if (!error && data && data.length > 0) {
-          const runtimes = data as { gradio_url: string; state: Status; model_id: string }[];
+          const rows = data as { gradio_url: string; state: Status; model_id: string; created_at: string }[];
 
-          setImageModels(runtimes.map((r) => ({ model_id: r.model_id, gradio_url: r.gradio_url })));
+          // Dedup por model_id: la fila mas reciente gana.
+          // Sin esto, si hay filas huerfanas de sesiones anteriores, el frontend
+          // puede elegir una URL muerta con gradio_url viejo.
+          const latestByModel = new Map<string, { gradio_url: string; state: Status; model_id: string; created_at: string }>();
+          for (const r of rows) {
+            const prev = latestByModel.get(r.model_id);
+            if (!prev || new Date(r.created_at).getTime() > new Date(prev.created_at).getTime()) {
+              latestByModel.set(r.model_id, r);
+            }
+          }
+          const deduped = Array.from(latestByModel.values());
+
+          setImageModels(deduped.map((r) => ({ model_id: r.model_id, gradio_url: r.gradio_url })));
 
           setActiveImageModelId((prev) => {
-            if (prev && runtimes.some((r) => r.model_id === prev)) return prev;
-            return runtimes[0].model_id;
+            if (prev && deduped.some((r) => r.model_id === prev)) return prev;
+            return deduped[0].model_id;
           });
 
           // No tocar gradioUrl ni status aquí; lo maneja el efecto siguiente

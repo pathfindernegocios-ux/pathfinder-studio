@@ -99,9 +99,13 @@ export function useStationBoot(
   }, [boot.state]);
 
   // Persistir a cache por (stationId, modelId) para hidratar al próximo mount.
+  // NO persistimos estados transitorios (BUSY/INSTALLING/CONNECTING): si el
+  // notebook ya termino, el cache miente al siguiente mount y bloquea el
+  // flujo de Generar. El poll los reconstruye en <=15s.
   useEffect(() => {
     if (!_bootCacheKey) return;
-    if (boot.detecting) return; // no persistir el estado transitorio
+    if (boot.detecting) return;
+    if (boot.state === 'BUSY' || boot.state === 'INSTALLING' || boot.state === 'CONNECTING') return;
     const existing = readLiveCache<StationBootCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS) ?? {};
     existing[_bootCacheKey] = boot;
     writeLiveCache<StationBootCache>(LIVE_CACHE_KEY, existing);

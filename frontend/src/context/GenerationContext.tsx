@@ -1374,7 +1374,15 @@ export function GenerationProvider({
         }
       } catch (err) {
         void 0;
-        setErrorMsg(err instanceof Error ? err.message : "Error al generar.");
+        const errMsg = err instanceof Error ? err.message : "Error al generar.";
+        setErrorMsg(errMsg);
+        // Marcar el item local como error para liberar el boton Generar y no
+        // dejarlo pegado en "Detener" cuando client.predict falla.
+        setHistoryForCap(cap, prev => prev.map(item =>
+          item.id === userItemId
+            ? { ...item, isGenerating: false, status: 'temporary' as const, errorMessage: errMsg }
+            : item
+        ));
         setGenerationInfo(prev => ({ ...prev, status: "error", finished_at: Date.now() / 1000 }));
       } finally {
         setIsLoading(false);
