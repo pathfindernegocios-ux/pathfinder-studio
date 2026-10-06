@@ -653,11 +653,26 @@ export function GenerationProvider({
         if (!info && !cancelled) {
           const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
           if (cancelled) return;
-          if (refreshErr || !refreshData.session) {
-            // El refresh token también murió → forzar logout para que el
-            // user vuelva a loguearse (SIGNED_OUT redirige a /auth).
+
+          // Distinguir error de red/servidor de error de auth.
+          // AuthRetryableFetchError (status 0 o >= 500) significa que no
+          // pudimos validar el refresh token contra Supabase. NO desloguear:
+          // la sesión puede seguir siendo válida y el próximo poll reintenta.
+          const isNetworkOrServerError = refreshErr != null && (
+            refreshErr.status === 0 ||
+            (typeof refreshErr.status === "number" && refreshErr.status >= 500)
+          );
+
+          if (isNetworkOrServerError) {
             setRecoveryState("idle");
-            await supabase.auth.signOut();
+            return;
+          }
+
+          if (refreshErr || !refreshData.session) {
+            // El refresh token murió (4xx). Forzar logout local para que
+            // el user vuelva a loguearse (SIGNED_OUT redirige a /auth).
+            setRecoveryState("idle");
+            await supabase.auth.signOut({ scope: "local" });
             return;
           }
           info = await fetchInfo(refreshData.session.access_token);

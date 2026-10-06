@@ -32,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
 
   const handleLogout = async () => {
     clearLiveCache();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
   };
 
   // Dropdown de usuario

@@ -30,7 +30,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
 
   const handleLogout = async () => {
     setMenuOpen(false);
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     navigate("/");
   };
 

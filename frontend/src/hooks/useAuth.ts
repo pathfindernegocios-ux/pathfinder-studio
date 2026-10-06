@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { clearLiveCache } from "../lib/liveCache";
 import type { Profile, AccountStatus } from "../types";
 
 interface UseAuthResult {
@@ -94,6 +95,7 @@ export function useAuth(): UseAuthResult {
         setSession(session);
 
         if (!session) {
+          clearLiveCache();
           setHasEnteredStudio(false);
           setProfile(null);
           setIsProfileLoading(false);
@@ -124,7 +126,8 @@ export function useAuth(): UseAuthResult {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    clearLiveCache();
+    await supabase.auth.signOut({ scope: "local" });
     setSession(null);
     setProfile(null);
     setHasEnteredStudio(false);

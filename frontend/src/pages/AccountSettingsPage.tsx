@@ -327,7 +327,7 @@ const AccountSettingsPage: React.FC = () => {
         return;
       }
 
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
       window.location.href = "/auth";
     } catch (err) {
       void 0;

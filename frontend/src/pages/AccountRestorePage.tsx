@@ -59,7 +59,7 @@ const AccountRestorePage: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     window.location.href = "/auth";
   };
 
