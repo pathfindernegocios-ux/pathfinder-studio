@@ -1,9 +1,10 @@
 // src/context/GenerationContext.tsx
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
 import { readLiveCache, writeLiveCache } from "../lib/liveCache";
+import { rebaseMediaUrl } from "../lib/mediaUrl";
 import { getChatLabel, getRuntimeId } from "../config/models";
 import { useRuntime } from "../hooks/useRuntime";
 import { useStationStatus } from "../hooks/useStationStatus";
@@ -436,7 +437,31 @@ export function GenerationProvider({
 
   // Derivado: la slice de la capability activa. Todos los consumidores
   // (StudioPage, FCM) siguen leyendo `sessionHistory` como antes.
-  const sessionHistory = sessionHistoryByCapability[capability];
+  // Deuda 4: recombinamos la base de las URLs de media con el gradioUrl
+  // activo. Cuando el túnel rota (Cloudflare -> Gradio share o viceversa),
+  // este useMemo se re-ejecuta y las URLs guardadas apuntan al túnel vivo.
+  // Solo se toca el path /gradio_api/...; el resto se deja tal cual.
+  const sessionHistory = useMemo(() => {
+    const slice = sessionHistoryByCapability[capability];
+    if (!gradioUrl) return slice;
+    return slice.map((item) => ({
+      ...item,
+      mediaUrls: item.mediaUrls.map((u) => rebaseMediaUrl(u, gradioUrl)),
+      startImageUrl: item.startImageUrl
+        ? rebaseMediaUrl(item.startImageUrl, gradioUrl)
+        : undefined,
+      endImageUrl: item.endImageUrl
+        ? rebaseMediaUrl(item.endImageUrl, gradioUrl)
+        : undefined,
+      audioUrl: item.audioUrl ? rebaseMediaUrl(item.audioUrl, gradioUrl) : undefined,
+      sceneUrls: item.sceneUrls
+        ? item.sceneUrls.map((u) => rebaseMediaUrl(u, gradioUrl))
+        : undefined,
+      refUrls: item.refUrls
+        ? item.refUrls.map((u) => rebaseMediaUrl(u, gradioUrl))
+        : undefined,
+    }));
+  }, [sessionHistoryByCapability, capability, gradioUrl]);
 
   // Wrapper compatible con la API previa: acepta valor directo o updater,
   // y escribe siempre sobre la slice de la capability activa. Esto permite
