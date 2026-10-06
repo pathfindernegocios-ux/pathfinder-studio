@@ -403,6 +403,10 @@ export function GenerationProvider({
     refresh: refreshStationStatus,
   } = useStationStatus(stationId);
 
+  // Ref sincronizado con setHistoryForCap para poder llamarlo desde dentro
+  // del poll sin agregarlo a las deps del useEffect (evita loops).
+  const setHistoryForCapRef = useRef<(cap: CapabilityId, updater: (prev: SessionItem[]) => SessionItem[]) => void>(() => {});
+
   // Historial por capability. Cada notebook (imagen / video / audio)
   // mantiene su propia slice. Cambiar de capability sólo cambia la vista,
   // no pisa items de las otras.
@@ -460,6 +464,9 @@ export function GenerationProvider({
     },
     []
   );
+  useEffect(() => {
+    setHistoryForCapRef.current = setHistoryForCap;
+  }, [setHistoryForCap]);
   const [isLoading, setIsLoading] = useState(false);
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -473,6 +480,11 @@ export function GenerationProvider({
 
   const lastLogSeqRef = useRef<number>(0);
   const generationStartRef = useRef<number>(0);
+  // Detección de generación huérfana: si el server deja de responder o
+  // reporta idle durante N polls consecutivos mientras localmente hay un
+  // item isGenerating, se marca como error. Cubre el caso "server muerto
+  // o reiniciado a mitad de generación".
+  const pollIdleCountRef = useRef<number>(0);
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
   useEffect(() => {
@@ -503,6 +515,20 @@ export function GenerationProvider({
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
     let cancelled = false;
+    const ORPHAN_POLL_THRESHOLD = 3;
+
+    const markOrphan = () => {
+      const errMsg = "La generación se interrumpió. El servidor dejó de responder.";
+      setHistoryForCapRef.current(capability, prev => prev.map(it =>
+        it.isGenerating
+          ? { ...it, isGenerating: false, status: 'temporary' as const, errorMessage: errMsg }
+          : it
+      ));
+      setErrorMsg(errMsg);
+      setIsLoading(false);
+      pollIdleCountRef.current = 0;
+    };
+
     const poll = async () => {
       try {
         const client = await getClient();
@@ -519,9 +545,22 @@ export function GenerationProvider({
 
         if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) return;
 
+        const isActive = info?.status === "preparing" || info?.status === "running";
+        if (isActive) pollIdleCountRef.current = 0;
+
+        const isIdleOrMissing = !info || info.status === "idle";
+        if (isIdleOrMissing && !cancelled) {
+          pollIdleCountRef.current += 1;
+          if (pollIdleCountRef.current >= ORPHAN_POLL_THRESHOLD) {
+            markOrphan();
+            return;
+          }
+        }
+
         if (!cancelled) {
           setGenerationInfo(info ?? null);
           if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
+            pollIdleCountRef.current = 0;
             setIsLoading(false);
             if (info.status === "complete" && capability === "video") {
               const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
@@ -530,7 +569,9 @@ export function GenerationProvider({
           }
         }
       } catch (err) {
-        void 0;
+        if (cancelled) return;
+        pollIdleCountRef.current += 1;
+        if (pollIdleCountRef.current >= ORPHAN_POLL_THRESHOLD) markOrphan();
       }
     };
     poll();
@@ -932,6 +973,7 @@ export function GenerationProvider({
 
       const localStart = Date.now() / 1000;
       generationStartRef.current = localStart;
+      pollIdleCountRef.current = 0;
 
       setIsLoading(true);
       setErrorMsg(null);
@@ -1409,6 +1451,7 @@ export function GenerationProvider({
 
       const localStart = Date.now() / 1000;
       generationStartRef.current = localStart;
+      pollIdleCountRef.current = 0;
 
       setIsLoading(true);
       setErrorMsg(null);
