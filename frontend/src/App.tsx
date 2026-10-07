@@ -7,11 +7,15 @@ import {
   Navigate,
   Outlet,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { useIsMobile } from "./hooks/useIsMobile";
-import { GenerationProvider } from "./context/GenerationContext";
+import { GenerationProvider, useGenerationContext } from "./context/GenerationContext";
 import { ThemeProvider } from "./hooks/useTheme";
+import { supabase } from "./lib/supabaseClient";
+import { setPostAuthRedirect } from "./lib/postAuthRedirect";
+import { SessionExpiredModal } from "./components/SessionExpiredModal";
 import type { Profile } from "./types";
 
 // Componentes
@@ -48,6 +52,45 @@ import WhatIsPathfinderPage from "./pages/WhatIsPathfinderPage";
 import WelcomePage from "./pages/WelcomePage";
 import AcademyPage, { AcademyContent } from "./pages/AcademyPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
+
+// ---------------------------------------------------------------------------
+// SessionExpiredBridge — P4-b
+//
+// Lee sessionExpired del contexto. Cuando es true:
+//   1. Guarda el path actual para volver despues del re-login.
+//   2. Monta el modal bloqueante con countdown.
+//   3. Al llegar a 0: signOut local + navigate('/auth').
+//
+// Vive dentro del BrowserRouter (puede usar useNavigate) pero fuera de
+// Routes (cubre todas las paginas).
+// ---------------------------------------------------------------------------
+const SessionExpiredBridge: React.FC = () => {
+  const { sessionExpired, resetSessionExpired } = useGenerationContext();
+  const navigate = useNavigate();
+
+  // Guardar el path apenas se marca la sesion como expirada. Si el user
+  // navega mientras el modal esta visible, no cambiamos la intencion.
+  useEffect(() => {
+    if (sessionExpired) {
+      setPostAuthRedirect(window.location.pathname + window.location.search);
+    }
+  }, [sessionExpired]);
+
+  if (!sessionExpired) return null;
+
+  return (
+    <SessionExpiredModal
+      onExpired={async () => {
+        // Reset ANTES de navigate: el bridge vive fuera de Routes y sigue
+        // renderizando en /auth. Sin este reset el modal se queda pegado
+        // sobre la pantalla de login (bug reportado en QA).
+        resetSessionExpired();
+        await supabase.auth.signOut({ scope: "local" });
+        navigate("/auth", { replace: true });
+      }}
+    />
+  );
+};
 
 // ---------------------------------------------------------------------------
 // LoadingScreen
@@ -276,6 +319,7 @@ function App() {
       <GenerationProvider stationId={session?.user?.id || null}>
         <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>
+        <SessionExpiredBridge />
         <Routes>
           {/* ============================================================
               PÚBLICAS

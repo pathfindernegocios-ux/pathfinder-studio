@@ -185,6 +185,14 @@ interface GenerationContextValue {
   backendError: string | null;
   canCancel: boolean;
   recoveryState: RecoveryState;
+  // P4-b: true cuando recover() detecto que el JWT fue rechazado por el
+  // backend y el refresh token tambien murio (4xx). El SessionExpiredBridge
+  // monta un modal bloqueante con countdown y dispara el re-login.
+  sessionExpired: boolean;
+  /** Resetea el flag. Se llama desde el bridge despues del countdown,
+   *  antes de hacer signOut + navigate, para que el modal no se muestre
+   *  en la pantalla de /auth. */
+  resetSessionExpired: () => void;
   status: Status;
   sessionUptime: string;
   activeImageModelId: string | null;
@@ -502,6 +510,36 @@ export function GenerationProvider({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("checking");
+  const [sessionExpired, setSessionExpired] = useState<boolean>(false);
+  const resetSessionExpired = useCallback(() => setSessionExpired(false), []);
+
+  // P4-b: poll cada 30s. Llama a supabase.auth.getUser() (que consulta al
+  // servidor). Si responde 401/403, la sesion fue revocada del lado servidor
+  // y disparamos el modal. Sin este poll, el frontend solo detectaba la
+  // revocacion al montar recover() o al hacer F5.
+  useEffect(() => {
+    let cancelled = false;
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const { error } = await supabase.auth.getUser();
+        if (cancelled) return;
+        if (
+          error &&
+          typeof error.status === "number" &&
+          error.status >= 400 &&
+          error.status < 500
+        ) {
+          setSessionExpired(true);
+        }
+      } catch {
+        // Red o timeout: no es revocacion. El proximo poll reintenta.
+      }
+    };
+    const interval = window.setInterval(checkSession, 30_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, []);
 
   const lastLogSeqRef = useRef<number>(0);
   const generationStartRef = useRef<number>(0);
@@ -694,10 +732,13 @@ export function GenerationProvider({
           }
 
           if (refreshErr || !refreshData.session) {
-            // El refresh token murió (4xx). Forzar logout local para que
-            // el user vuelva a loguearse (SIGNED_OUT redirige a /auth).
+            // El refresh token murió (4xx). P4-b: NO hacer signOut directo.
+            // Marcamos sessionExpired y el SessionExpiredBridge monta un
+            // modal bloqueante con countdown (patrón Meshery/Backstage),
+            // que al llegar a 0 hace signOut + redirect a /auth. Así el
+            // user ve qué pasó y no lo pateamos en silencio.
             setRecoveryState("idle");
-            await supabase.auth.signOut({ scope: "local" });
+            setSessionExpired(true);
             return;
           }
           info = await fetchInfo(refreshData.session.access_token);
@@ -1658,7 +1699,7 @@ export function GenerationProvider({
     videoSrc, imageSrcs, videoRatio, setVideoRatio, setVideoSrc, setImageSrcs,
     statusMsg, setStatusMsg, errorMsg, setErrorMsg, isCancelling,
     handleGenerate, handleGenerateStoryboard, handleCancel, progressFrac, liveElapsedSec, remainingSec,
-    completedDurationSec, backendError, canCancel, recoveryState, status,
+    completedDurationSec, backendError, canCancel, recoveryState, sessionExpired, resetSessionExpired, status,
     sessionUptime, activeImageModelId, setActiveImageModelId, imageModels,
     activeVideoModelId, setActiveVideoModelId,
     sessionHistory, appendSessionItem, updateSessionItem, removeSessionItem, discardSessionItem, clearSessionHistory,
