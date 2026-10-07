@@ -331,21 +331,38 @@ const StudioPage: React.FC = () => {
         const isDetecting = boot.detecting;
         const isBooting = boot.isBooting;
         const isStale = boot.isStale;
-        const isError = boot.isError;
-        // El pill usa el check REAL (stationStatusMap vía Gradio) como fuente
-        // de verdad. Una fila 'READY' en Supabase puede estar huérfana (el
-        // notebook murió pero la fila no se borró). Solo confiamos en
-        // boot.isReady si el updated_at es fresco (< 3 min) — esa ventana
-        // cubre el delay entre que el notebook llega a READY y el poll de
-        // useStationStatus lo confirma.
+
+        // connectionState del heartbeat (P2). Es la señal de "el notebook
+        // está vivo". Umbrales: <30s alive, 30-90s reconnecting, >=90s offline.
+        // Reglas de precedencia:
+        //   1. boot activo o stale -> manda el state, ignorar heartbeat
+        //      (el thread _heartbeat_loop recién arranca después de cargar
+        //      el motor, ~40s; el last_heartbeat_at puede estar viejo).
+        //   2. offline/reconnecting -> manda connectionState. El state de la
+        //      fila puede ser ERROR (residuo del último intento fallido) y
+        //      taparía el hecho de que el notebook murió.
+        //   3. alive + state=ERROR -> error real del notebook vivo.
+        //   4. alive + state=READY/BUSY -> ready.
+        const connState = boot.connectionState;
+        const isReconnecting = !isBooting && !isStale && connState === 'reconnecting';
+        const isOffline = !isBooting && !isStale && connState === 'offline';
+        const isError = boot.isError && !isOffline && !isReconnecting;
+
         const bootAgeMs = boot.updatedAt ? Date.now() - new Date(boot.updatedAt).getTime() : Infinity;
-        const isFreshReady = boot.isReady && bootAgeMs < 3 * 60 * 1000;
+        const isFreshReady =
+          boot.isReady &&
+          bootAgeMs < 3 * 60 * 1000 &&
+          (connState === 'alive' || connState === 'unknown');
         const isReady = isCurrentModelOnline || isFreshReady;
 
         const pct = Math.round(Math.max(0, Math.min(1, boot.progress)) * 100);
 
         const accent = isError
           ? '#F87171'
+          : isOffline
+          ? '#6B7280'
+          : isReconnecting
+          ? '#F59E0B'
           : isStale
           ? '#F59E0B'
           : isBooting || isDetecting
@@ -364,6 +381,10 @@ const StudioPage: React.FC = () => {
           ? 'Detectando estación...'
           : isError
           ? 'Algo salió mal'
+          : isOffline
+          ? 'Servidor desconectado'
+          : isReconnecting
+          ? 'Reconectando...'
           : isStale
           ? 'Sin señal hace 4 min'
           : isBooting
@@ -420,7 +441,7 @@ const StudioPage: React.FC = () => {
                   padding: '6px 12px 6px 10px',
                   borderRadius: '9999px',
                   background: 'var(--pf-bg-primary)',
-                  border: `1px solid ${isBooting || isDetecting ? 'rgba(34,211,238,0.25)' : isStale ? 'rgba(245,158,11,0.35)' : isError ? 'rgba(248,113,113,0.35)' : 'var(--pf-border-subtle)'}`,
+                  border: `1px solid ${isBooting || isDetecting ? 'rgba(34,211,238,0.25)' : isReconnecting ? 'rgba(245,158,11,0.35)' : isError ? 'rgba(248,113,113,0.35)' : 'var(--pf-border-subtle)'}`,
                   boxShadow: isBooting || isDetecting ? '0 0 0 3px rgba(34,211,238,0.08)' : '0 1px 2px rgba(0,0,0,0.04)',
                   fontFamily: 'var(--pf-font-ui)',
                   fontSize: '0.75rem',
@@ -461,7 +482,7 @@ const StudioPage: React.FC = () => {
                     height: '6px',
                     borderRadius: '50%',
                     background: accent,
-                    boxShadow: isReady ? '0 0 0 3px rgba(16,185,129,0.15)' : isError ? '0 0 0 3px rgba(248,113,113,0.15)' : isStale ? '0 0 0 3px rgba(245,158,11,0.15)' : 'none',
+                    boxShadow: isReady ? '0 0 0 3px rgba(16,185,129,0.15)' : isError ? '0 0 0 3px rgba(248,113,113,0.15)' : isReconnecting ? '0 0 0 3px rgba(245,158,11,0.15)' : 'none',
                     transition: 'all 0.3s ease',
                     flexShrink: 0,
                   }} />
@@ -603,7 +624,7 @@ const StudioPage: React.FC = () => {
                     </div>
                   )}
 
-                  {(isError || isStale) && (
+                  {(isError || isReconnecting || isOffline || isStale) && (
                     <div
                       style={{
                         marginTop: '14px',
@@ -614,8 +635,16 @@ const StudioPage: React.FC = () => {
                       <div
                         style={{
                           padding: '12px',
-                          background: isError ? 'rgba(248,113,113,0.06)' : 'rgba(245,158,11,0.06)',
-                          border: isError ? '1px solid rgba(248,113,113,0.25)' : '1px solid rgba(245,158,11,0.25)',
+                          background: isError
+                            ? 'rgba(248,113,113,0.06)'
+                            : isOffline
+                            ? 'rgba(107,114,128,0.06)'
+                            : 'rgba(245,158,11,0.06)',
+                          border: isError
+                            ? '1px solid rgba(248,113,113,0.25)'
+                            : isOffline
+                            ? '1px solid rgba(107,114,128,0.25)'
+                            : '1px solid rgba(245,158,11,0.25)',
                           borderRadius: '8px',
                         }}
                       >
@@ -623,13 +652,15 @@ const StudioPage: React.FC = () => {
                           style={{
                             fontSize: '0.75rem',
                             fontWeight: 600,
-                            color: isError ? '#F87171' : '#F59E0B',
+                            color: isError ? '#F87171' : isOffline ? '#9CA3AF' : '#F59E0B',
                             marginBottom: '6px',
                           }}
                         >
                           {isError
                             ? 'La estación se detuvo'
-                            : 'Sin actualizaciones hace más de 4 minutos'}
+                            : isOffline
+                            ? 'Servidor desconectado'
+                            : 'Reconectando con la estación'}
                         </div>
                         <div
                           style={{
@@ -640,7 +671,9 @@ const StudioPage: React.FC = () => {
                         >
                           {isError
                             ? 'Ve a Kaggle y revisa que la celda siga corriendo. Si se detuvo, presiona Run All y espera. También puedes actualizar esta página si no responde.'
-                            : 'Revisa Kaggle: probablemente la celda se pausó. Presiona Run All y espera unos minutos. También puedes actualizar esta página.'}
+                            : isOffline
+                            ? 'El notebook dejó de responder hace más de 90 segundos. Revisa que la celda siga corriendo en Kaggle o Colab.'
+                            : 'Sin latido del notebook hace 30 a 90 segundos. Puede ser un pico de red o el notebook reiniciándose. Espera unos segundos.'}
                         </div>
                       </div>
                     </div>

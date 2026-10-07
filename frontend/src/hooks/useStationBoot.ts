@@ -107,12 +107,17 @@ export function useStationBoot(
   const [boot, setBoot] = useState<BootInfo>(() => _bootCached ?? DETECTING);
   const hasFetchedOnce = useRef(false);
   const bootStateRef = useRef<BootState>('detecting');
+  const bootConnStateRef = useRef<ConnectionState>('unknown');
   const lastFetchRef = useRef<number>(0);
 
-  // Mantener el ref sincronizado con el último estado conocido
+  // Mantener los refs sincronizados con el último estado conocido
   useEffect(() => {
     bootStateRef.current = boot.state;
   }, [boot.state]);
+
+  useEffect(() => {
+    bootConnStateRef.current = boot.connectionState;
+  }, [boot.connectionState]);
 
   // Persistir a cache por (stationId, modelId) para hidratar al próximo mount.
   // NO persistimos estados transitorios (BUSY/INSTALLING/CONNECTING): si el
@@ -142,7 +147,15 @@ export function useStationBoot(
       // Skip interno: si el último fetch fue hace menos que el intervalo
       // mínimo para el estado actual, no hagas la query.
       const now = Date.now();
-      const minInterval = POLL_INTERVAL[bootStateRef.current] ?? 5000;
+      // Si el heartbeat está offline o reconnecting, pollear rápido: el
+      // notebook puede volver en cualquier momento y queremos detectarlo
+      // en pocos segundos. Sin esto, con state=ERROR el poll era 30s y la
+      // reconexión tardaba hasta medio minuto en reflejarse.
+      const cs = bootConnStateRef.current;
+      const minInterval =
+        (cs === 'offline' || cs === 'reconnecting')
+          ? 5000
+          : (POLL_INTERVAL[bootStateRef.current] ?? 5000);
       if (now - lastFetchRef.current < minInterval - 500) return;
       lastFetchRef.current = now;
 
