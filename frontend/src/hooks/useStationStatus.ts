@@ -14,6 +14,7 @@ interface RuntimeRow {
   model_type: string | null;
   created_at: string;
   updated_at: string;
+  last_heartbeat_at: string | null;
 }
 
 interface UseStationStatusResult {
@@ -89,7 +90,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       // 1. Traer todas las filas de runtimes del usuario
       const { data, error } = await supabase
         .from('runtimes')
-        .select('model_id, gradio_url, gradio_urls, state, model_type, created_at, updated_at')
+        .select('model_id, gradio_url, gradio_urls, state, model_type, created_at, updated_at, last_heartbeat_at')
         .eq('station_id', stationId)
         .order('created_at', { ascending: false });
 
@@ -158,6 +159,19 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
             return;
           }
           if (!token) {
+            results[modelId] = 'offline';
+            return;
+          }
+
+          // Bug B: el heartbeat es la fuente de verdad. Si el ultimo latido
+          // es viejo (>90s), el notebook esta muerto sin importar lo que
+          // diga /status o el estado previo. Marcar offline directo, sin
+          // intentar conectar. Sin esto, un predict que falla por timeout
+          // preservaba el estado previo INDEFINIDAMENTE y un notebook
+          // muerto podia quedar 'online' para siempre en el sidebar.
+          const hbAt = row.last_heartbeat_at;
+          const hbAgeMs = hbAt ? Date.now() - new Date(hbAt).getTime() : Infinity;
+          if (hbAgeMs > 90_000) {
             results[modelId] = 'offline';
             return;
           }

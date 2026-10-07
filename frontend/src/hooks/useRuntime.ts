@@ -87,9 +87,14 @@ export function useRuntime({ stationId, capability = "video", modelId = null }: 
           // No tocar gradioUrl ni status aquí; lo maneja el efecto siguiente
           // y el polling de /status. Así evitamos el parpadeo.
         } else {
-          // Solo si no hay runtimes, limpiar
+          // Solo si no hay runtimes, limpiar el estado de conexion.
+          // NO reseteamos activeImageModelId: la seleccion del modelo vive
+          // en el FCM (el user eligio Krea, Qwen, etc.). Si la pisamos a null,
+          // el pill del topbar desaparece (currentModelId=null en StudioPage)
+          // y el user queda sin feedback visual de que su modelo no esta
+          // arrancado. El pill debe poder mostrar "Estacion offline" cuando
+          // no hay fila en runtimes para el modelo seleccionado.
           setImageModels([]);
-          setActiveImageModelId(null);
           setGradioUrl(null);
           setGradioUrls([]);
           setStatus("UNKNOWN");
