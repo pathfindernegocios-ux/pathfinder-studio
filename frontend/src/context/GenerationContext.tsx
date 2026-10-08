@@ -433,15 +433,44 @@ export function GenerationProvider({
 
   // Persistir slice completo (truncado a 5 por cap) para hidratar en F5.
   useEffect(() => {
+    // Truncar 5 por MODELO (no 5 por capability) para no perder items
+    // de un modelo cuando otro modelo agrega items al mismo slice.
+    const truncateByModel = (items: SessionItem[]): SessionItem[] => {
+      const byModel = new Map<string, SessionItem[]>();
+      for (const it of items) {
+        const key = it.modelId || '__unknown__';
+        const arr = byModel.get(key) ?? [];
+        arr.push(it);
+        byModel.set(key, arr);
+      }
+      const out: SessionItem[] = [];
+      for (const arr of byModel.values()) {
+        out.push(...arr.slice(-5));
+      }
+      // Reordenar por createdAt ascendente (mismo orden que antes)
+      out.sort((a, b) => a.createdAt - b.createdAt);
+      return out;
+    };
+
     const truncated: Record<CapabilityId, SessionItem[]> = {
-      image: sessionHistoryByCapability.image.slice(-5),
-      video: sessionHistoryByCapability.video.slice(-5),
-      audio: sessionHistoryByCapability.audio.slice(-5),
+      image: truncateByModel(sessionHistoryByCapability.image),
+      video: truncateByModel(sessionHistoryByCapability.video),
+      audio: truncateByModel(sessionHistoryByCapability.audio),
     };
     if (truncated.image.length || truncated.video.length || truncated.audio.length) {
       writeLiveCache('studio_history', truncated);
     }
   }, [sessionHistoryByCapability]);
+
+  // Aislamiento visual: el slice de historial es por capability (image/
+  // video/audio). Krea y Qwen son ambos 'image' y comparten el array.
+  // Para que no se mezclen en la vista, filtramos por el modelId activo.
+  // La persistencia no cambia: el array sigue guardando todo.
+  const activeModelId = capability === 'image'
+    ? activeImageModelId
+    : capability === 'audio'
+      ? 'tts-dual'
+      : activeVideoModelId;
 
   // Derivado: la slice de la capability activa. Todos los consumidores
   // (StudioPage, FCM) siguen leyendo `sessionHistory` como antes.
@@ -451,8 +480,13 @@ export function GenerationProvider({
   // Solo se toca el path /gradio_api/...; el resto se deja tal cual.
   const sessionHistory = useMemo(() => {
     const slice = sessionHistoryByCapability[capability];
-    if (!gradioUrl) return slice;
-    return slice.map((item) => ({
+    // Filtrar por el modelo activo. Los items sin modelId se incluyen
+    // (compat con items viejos que no tenian el campo).
+    const filtered = activeModelId
+      ? slice.filter(it => it.modelId === activeModelId || !it.modelId)
+      : slice;
+    if (!gradioUrl) return filtered;
+    return filtered.map((item) => ({
       ...item,
       mediaUrls: item.mediaUrls.map((u) => rebaseMediaUrl(u, gradioUrl)),
       startImageUrl: item.startImageUrl
@@ -469,7 +503,7 @@ export function GenerationProvider({
         ? item.refUrls.map((u) => rebaseMediaUrl(u, gradioUrl))
         : undefined,
     }));
-  }, [sessionHistoryByCapability, capability, gradioUrl]);
+  }, [sessionHistoryByCapability, capability, gradioUrl, activeModelId]);
 
   // Wrapper compatible con la API previa: acepta valor directo o updater,
   // y escribe siempre sobre la slice de la capability activa. Esto permite
@@ -500,6 +534,12 @@ export function GenerationProvider({
   useEffect(() => {
     setHistoryForCapRef.current = setHistoryForCap;
   }, [setHistoryForCap]);
+  // Refs para usar dentro de los polls sin agregarlos a las deps.
+  const activeImageModelIdRef = useRef<string | null>(null);
+  const activeVideoModelIdRef = useRef<string>('ltx-2.3');
+  useEffect(() => { activeImageModelIdRef.current = activeImageModelId; }, [activeImageModelId]);
+  useEffect(() => { activeVideoModelIdRef.current = activeVideoModelId; }, [activeVideoModelId]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -933,7 +973,14 @@ export function GenerationProvider({
       setHistoryForCap('image', prev => {
         if (items.length === 0 && prev.length > 0) return prev;
         if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
-        return items.filter(it => !deletedIdsRef.current.has(it.id));
+        // Preservar items de OTROS modelos que ya estaban en el slice.
+        // El backend del notebook activo solo conoce SUS items. Si
+        // reemplazaramos, perderiamos el historial del otro modelo.
+        const backendIds = new Set(items.map(it => it.id));
+        const otherModels = prev.filter(
+          it => it.modelId && it.modelId !== activeImageModelId && !backendIds.has(it.id)
+        );
+        return [...items, ...otherModels].filter(it => !deletedIdsRef.current.has(it.id));
       });
     })();
     return () => { cancelled = true; };
@@ -949,7 +996,11 @@ export function GenerationProvider({
       setHistoryForCap('video', prev => {
         if (items.length === 0 && prev.length > 0) return prev;
         if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
-        return items.filter(it => !deletedIdsRef.current.has(it.id));
+        const backendIds = new Set(items.map(it => it.id));
+        const otherModels = prev.filter(
+          it => it.modelId && it.modelId !== activeVideoModelId && !backendIds.has(it.id)
+        );
+        return [...items, ...otherModels].filter(it => !deletedIdsRef.current.has(it.id));
       });
     })();
     return () => { cancelled = true; };
@@ -965,7 +1016,11 @@ export function GenerationProvider({
       setHistoryForCap('audio', prev => {
         if (items.length === 0 && prev.length > 0) return prev;
         if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
-        return items.filter(it => !deletedIdsRef.current.has(it.id));
+        const backendIds = new Set(items.map(it => it.id));
+        const otherModels = prev.filter(
+          it => it.modelId && it.modelId !== 'tts-dual' && !backendIds.has(it.id)
+        );
+        return [...items, ...otherModels].filter(it => !deletedIdsRef.current.has(it.id));
       });
     })();
     return () => { cancelled = true; };
@@ -977,19 +1032,24 @@ export function GenerationProvider({
   // Corta solo cuando su slice deja de tener items isGenerating.
   // Cada polling preserva el skeleton local (isGenerating:true con id msg-*)
   // que todavía no aparece en el backend.
-  const mergeWithOrphans = (items: SessionItem[], prev: SessionItem[]) => {
+  const mergeWithOrphans = (items: SessionItem[], prev: SessionItem[], activeModel: string | null) => {
     const backendIds = new Set(items.map(b => b.id));
     const backendGeneratingPrompts = new Set(
       items.filter(b => b.isGenerating).map(b => b.prompt)
     );
+    // Preservar items de OTROS modelos que ya estaban en el slice.
+    const otherModels = activeModel
+      ? prev.filter(it => it.modelId && it.modelId !== activeModel && !backendIds.has(it.id))
+      : [];
     const localOrphans = prev.filter(p =>
       p.isGenerating &&
       p.id.startsWith('msg-') &&
       !backendIds.has(p.id) &&
-      !backendGeneratingPrompts.has(p.prompt)
+      !backendGeneratingPrompts.has(p.prompt) &&
+      (!activeModel || !p.modelId || p.modelId === activeModel)
     );
-    if (localOrphans.length === 0) return items;
-    return [...items, ...localOrphans];
+    if (localOrphans.length === 0 && otherModels.length === 0) return items;
+    return [...items, ...localOrphans, ...otherModels];
   };
 
   const hasGeneratingImage = sessionHistoryByCapability.image.some(it => it.isGenerating);
@@ -1008,7 +1068,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('image', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev));
+            setHistoryForCap('image', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev, activeImageModelIdRef.current));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
@@ -1032,7 +1092,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('video', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev));
+            setHistoryForCap('video', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev, activeVideoModelIdRef.current));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
@@ -1056,7 +1116,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('audio', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev));
+            setHistoryForCap('audio', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev, 'tts-dual'));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
