@@ -304,7 +304,7 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
 // App
 // ---------------------------------------------------------------------------
 function App() {
-  const { session, profile, isProfileLoading } = useAuth();
+  const { session, profile, isProfileLoading, sessionRevokedAt } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (isProfileLoading) {
@@ -316,7 +316,7 @@ function App() {
 
   return (
     <ThemeProvider enabled={true}>
-      <GenerationProvider stationId={session?.user?.id || null}>
+      <GenerationProvider stationId={session?.user?.id || null} sessionRevokedAt={sessionRevokedAt}>
         <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>
         <SessionExpiredBridge />

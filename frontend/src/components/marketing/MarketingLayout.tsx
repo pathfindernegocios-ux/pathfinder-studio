@@ -1,4 +1,5 @@
 // src/components/marketing/MarketingLayout.tsx
+import { markVoluntaryLogout } from "../../lib/voluntaryLogout";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -30,6 +31,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
 
   const handleLogout = async () => {
     setMenuOpen(false);
+    markVoluntaryLogout();
     await supabase.auth.signOut({ scope: "local" });
     navigate("/");
   };

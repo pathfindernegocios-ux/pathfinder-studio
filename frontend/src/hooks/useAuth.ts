@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { clearLiveCache } from "../lib/liveCache";
+import { markVoluntaryLogout, wasRecentVoluntaryLogout, clearVoluntaryLogout } from "../lib/voluntaryLogout";
 import type { Profile, AccountStatus } from "../types";
 
 interface UseAuthResult {
@@ -21,6 +22,9 @@ interface UseAuthResult {
   accountStatus: AccountStatus | null;
   isOnboarded: boolean;
   isProfileLoading: boolean;
+  /** Timestamp del ultimo SIGNED_OUT involuntario detectado. null si no
+   *  hubo. Se resetea cuando llega una sesion nueva (re-login). */
+  sessionRevokedAt: number | null;
 }
 
 export function useAuth(): UseAuthResult {
@@ -31,6 +35,11 @@ export function useAuth(): UseAuthResult {
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [sessionRevokedAt, setSessionRevokedAt] = useState<number | null>(null);
+  // Trackea si alguna vez tuvimos sesion en el ciclo de vida del hook.
+  // Si recibimos SIGNED_OUT pero nunca tuvimos sesion, no fue una
+  // revocacion — el user simplemente nunca se logueo.
+  const hadSessionRef = useRef<boolean>(false);
 
   const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(() => {
     try {
@@ -82,6 +91,7 @@ export function useAuth(): UseAuthResult {
     // 1. Sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      hadSessionRef.current = !!session;
       if (session?.user?.id) {
         fetchProfile(session.user.id);
       } else {
@@ -95,6 +105,16 @@ export function useAuth(): UseAuthResult {
         setSession(session);
 
         if (!session) {
+          // Distinguir logout voluntario de revocacion server-side.
+          // Si ya teniamos sesion y NO fue un logout pedido por el user,
+          // es una revocacion involuntaria — disparamos el modal de
+          // sesion expirada via sessionRevokedAt.
+          if (hadSessionRef.current && !wasRecentVoluntaryLogout()) {
+            setSessionRevokedAt(Date.now());
+          } else {
+            clearVoluntaryLogout();
+          }
+          hadSessionRef.current = false;
           clearLiveCache();
           setHasEnteredStudio(false);
           setProfile(null);
@@ -103,6 +123,9 @@ export function useAuth(): UseAuthResult {
             localStorage.removeItem("pathfinder_has_entered_studio");
           } catch {}
         } else if (session.user?.id) {
+          // Nueva sesion activa: resetear el flag de revocacion.
+          hadSessionRef.current = true;
+          setSessionRevokedAt(null);
           await fetchProfile(session.user.id);
         }
       }
@@ -126,6 +149,9 @@ export function useAuth(): UseAuthResult {
   }
 
   async function handleLogout() {
+    // Marcar ANTES del signOut: cuando el SIGNED_OUT llegue, el flag
+    // estara fresco y no vamos a disparar el modal de sesion expirada.
+    markVoluntaryLogout();
     clearLiveCache();
     await supabase.auth.signOut({ scope: "local" });
     setSession(null);
@@ -150,5 +176,6 @@ export function useAuth(): UseAuthResult {
     accountStatus: profile?.account_status ?? null,
     isOnboarded: profile?.onboarding_completed_at != null,
     isProfileLoading,
+    sessionRevokedAt,
   };
 }

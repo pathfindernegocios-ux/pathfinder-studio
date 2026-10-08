@@ -1,4 +1,5 @@
 // src/components/Sidebar.tsx
+import { markVoluntaryLogout } from "../lib/voluntaryLogout";
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -31,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
   const { session, profile } = useAuth();
 
   const handleLogout = async () => {
+    markVoluntaryLogout();
     clearLiveCache();
     await supabase.auth.signOut({ scope: "local" });
   };

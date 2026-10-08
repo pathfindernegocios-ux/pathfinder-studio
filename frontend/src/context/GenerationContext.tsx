@@ -363,9 +363,11 @@ function mapBackendItem(raw: any): SessionItem {
 
 export function GenerationProvider({
   stationId,
+  sessionRevokedAt,
   children,
 }: {
   stationId: string | null;
+  sessionRevokedAt?: number | null;
   children: ReactNode;
 }) {
   const [capability, setCapability] = useState<CapabilityId>("video");
@@ -552,6 +554,13 @@ export function GenerationProvider({
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("checking");
   const [sessionExpired, setSessionExpired] = useState<boolean>(false);
   const resetSessionExpired = useCallback(() => setSessionExpired(false), []);
+
+  // Revocacion server-side detectada por useAuth (SIGNED_OUT involuntario).
+  // Cuando llega, dispara el modal de sesion expirada sin depender del poll
+  // de 30s. El poll queda como defensa en profundidad.
+  useEffect(() => {
+    if (sessionRevokedAt) setSessionExpired(true);
+  }, [sessionRevokedAt]);
 
   // P4-b: poll cada 30s. Llama a supabase.auth.getUser() (que consulta al
   // servidor). Si responde 401/403, la sesion fue revocada del lado servidor

@@ -1,4 +1,5 @@
 // src/pages/AccountSettingsPage.tsx
+import { markVoluntaryLogout } from "../lib/voluntaryLogout";
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
@@ -327,6 +328,7 @@ const AccountSettingsPage: React.FC = () => {
         return;
       }
 
+      markVoluntaryLogout();
       await supabase.auth.signOut({ scope: "local" });
       window.location.href = "/auth";
     } catch (err) {

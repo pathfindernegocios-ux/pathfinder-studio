@@ -1,3 +1,4 @@
+import { markVoluntaryLogout } from "../lib/voluntaryLogout";
 import React, { useEffect, useState } from "react";
 import { Hourglass } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -59,6 +60,7 @@ const AccountRestorePage: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    markVoluntaryLogout();
     await supabase.auth.signOut({ scope: "local" });
     window.location.href = "/auth";
   };

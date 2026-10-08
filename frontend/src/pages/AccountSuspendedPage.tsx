@@ -1,9 +1,11 @@
+import { markVoluntaryLogout } from "../lib/voluntaryLogout";
 import React from "react";
 import { Ban } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 const AccountSuspendedPage: React.FC = () => {
   const handleLogout = async () => {
+    markVoluntaryLogout();
     await supabase.auth.signOut({ scope: "local" });
     window.location.href = "/auth";
   };
