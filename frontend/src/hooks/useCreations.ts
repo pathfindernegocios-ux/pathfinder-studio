@@ -107,12 +107,13 @@ export function useCreations() {
       return [];
     }
 
-    // Filtro client-side: oculta las creaciones expiradas del frontend
-    // inmediatamente, sin esperar al cron de Supabase (corre cada 6h).
+    // Filtro client-side: solo filas con status 'ready' y expiración futura.
+    // - 'ready' descarta processing/failed/expired/deleted.
+    // - expiración futura descarta las que el cron todavía no limpió.
     // Cierra la ventana donde R2 ya borró el objeto pero la fila sigue viva.
     const now = Date.now();
     const list = (data as Creation[]).filter(
-      (c) => new Date(c.expires_at).getTime() > now
+      (c) => c.status === 'ready' && new Date(c.expires_at).getTime() > now
     );
     setCreations(list);
     return list;

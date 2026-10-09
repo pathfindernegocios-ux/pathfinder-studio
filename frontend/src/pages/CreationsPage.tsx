@@ -16,7 +16,7 @@ const CreationsPage: React.FC = () => {
   const [creations, setCreations] = useState<Creation[]>(() => _cached?.items ?? []);
   const [loading, setLoading] = useState<boolean>(() => _cached === null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
+  const [filter, setFilter] = useState<'all' | 'image' | 'video' | 'audio'>('all');
 
   useEffect(() => {
     const load = async () => {
@@ -37,20 +37,18 @@ const CreationsPage: React.FC = () => {
     load();
   }, [getCreations]);
 
-  // Filtrado optimizado
+  // Filtrado por media_type exclusivamente (fuente unica de verdad)
   const filteredCreations = useMemo(() => {
     if (filter === 'all') return creations;
-    return creations.filter(c => {
-      if (filter === 'video') return c.media_type === 'video' || (c.duration && c.duration !== '');
-      return c.media_type === 'image';
-    });
+    return creations.filter(c => c.media_type === filter);
   }, [creations, filter]);
 
-  // Conteo para estadísticas
+  // Conteo para estadisticas (media_type exclusivamente)
   const stats = useMemo(() => ({
     total: creations.length,
     images: creations.filter(c => c.media_type === 'image').length,
-    videos: creations.filter(c => c.media_type === 'video' || (c.duration && c.duration !== '')).length,
+    videos: creations.filter(c => c.media_type === 'video').length,
+    audios: creations.filter(c => c.media_type === 'audio').length,
   }), [creations]);
 
   if (loading) {
@@ -178,8 +176,19 @@ const CreationsPage: React.FC = () => {
                 maxWidth: '600px',
                 lineHeight: 1.6
               }}>
-                {stats.total > 0 
-                  ? `Has creado ${stats.total} piezas únicas. ${stats.videos} videos y ${stats.images} imágenes.` 
+                {stats.total > 0
+                  ? (() => {
+                      const parts: string[] = [];
+                      if (stats.videos > 0) parts.push(`${stats.videos} ${stats.videos === 1 ? 'video' : 'videos'}`);
+                      if (stats.images > 0) parts.push(`${stats.images} ${stats.images === 1 ? 'imagen' : 'imágenes'}`);
+                      if (stats.audios > 0) parts.push(`${stats.audios} ${stats.audios === 1 ? 'audio' : 'audios'}`);
+                      const list = parts.length === 0
+                        ? ''
+                        : parts.length === 1
+                          ? parts[0]
+                          : parts.slice(0, -1).join(', ') + ' y ' + parts[parts.length - 1];
+                      return `Has creado ${stats.total} ${stats.total === 1 ? 'pieza única' : 'piezas únicas'}.${list ? ' ' + list + '.' : ''}`;
+                    })()
                   : 'Tu galería está lista para recibir tus primeras obras maestras.'}
               </p>
             </div>
@@ -194,7 +203,7 @@ const CreationsPage: React.FC = () => {
                 border: '1px solid var(--pf-border-default)',
                 gap: '6px'
               }}>
-                {(['all', 'image', 'video'] as const).map((f) => (
+                {(['all', 'image', 'video', 'audio'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
@@ -213,10 +222,11 @@ const CreationsPage: React.FC = () => {
                       textTransform: 'capitalize'
                     }}
                   >
-                    {f === 'all' ? 'Todas' : f === 'image' ? 'Imágenes' : 'Videos'}
+                    {f === 'all' ? 'Todas' : f === 'image' ? 'Imágenes' : f === 'video' ? 'Videos' : 'Audios'}
                     {f === 'all' && ` (${stats.total})`}
                     {f === 'image' && ` (${stats.images})`}
                     {f === 'video' && ` (${stats.videos})`}
+                    {f === 'audio' && ` (${stats.audios})`}
                   </button>
                 ))}
               </div>
@@ -262,24 +272,25 @@ const CreationsPage: React.FC = () => {
               color: 'var(--pf-text-primary)',
               marginBottom: '12px'
             }}>
-              No hay {filter === 'all' ? 'creaciones' : filter === 'video' ? 'videos' : 'imágenes'} aún
+              No hay {filter === 'all' ? 'creaciones' : filter === 'video' ? 'videos' : filter === 'audio' ? 'audios' : 'imágenes'} aún
             </h3>
             <p style={{ fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
               Explora otras categorías o crea algo nuevo.
             </p>
           </div>
         ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
-            gap: '32px'
+          <div style={{
+            columnWidth: '320px',
+            columnGap: '20px',
           }}>
             {filteredCreations.map((creation, index) => (
               <div
                 key={creation.id}
                 style={{
+                  breakInside: 'avoid',
+                  marginBottom: '20px',
                   animation: `fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both`,
-                  animationDelay: `${index * 0.05}s`
+                  animationDelay: `${Math.min(index * 0.03, 0.3)}s`,
                 }}
               >
                 <CreationThumbnail creation={creation} />
@@ -293,7 +304,7 @@ const CreationsPage: React.FC = () => {
         @keyframes fadeInUp {
           from {
             opacity: 0;
-            transform: translateY(30px);
+            transform: translateY(12px);
           }
           to {
             opacity: 1;

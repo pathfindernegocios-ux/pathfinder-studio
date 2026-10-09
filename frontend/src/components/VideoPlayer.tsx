@@ -13,9 +13,15 @@ interface VideoPlayerProps {
   src: string;
   /** Cómo encaja el video en su contenedor. Default: "cover". */
   objectFit?: "cover" | "contain";
+  /** Color de fondo del contenedor. Default: "#000000".
+   *  Usar "transparent" cuando el contenedor padre tiene su propio fondo. */
+  background?: string;
+  /** Aspect ratio del video ("16:9", "9:16", "1:1").
+   *  Si se pasa, el contenedor se ajusta a esa proporcion dentro del padre. */
+  aspectRatio?: string | null;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover" }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", background = "#000000", aspectRatio = null }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<number | null>(null);
@@ -118,6 +124,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover" }) =
 
   const progress = duration > 0 ? currentTime / duration : 0;
 
+  // Convierte "16:9" a "16 / 9" para CSS aspect-ratio
+  const aspectRatioCss =
+    aspectRatio && typeof aspectRatio === "string" && aspectRatio.includes(":") && aspectRatio !== "auto"
+      ? aspectRatio.replace(":", " / ")
+      : null;
+
   return (
     <div
       ref={containerRef}
@@ -125,12 +137,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover" }) =
       onMouseLeave={handleMouseLeave}
       style={{
         position: "relative",
-        width: "100%",
-        height: "100%",
-        background: "#000000",
+        background: background,
         borderRadius: "12px",
         overflow: "hidden",
         cursor: showControls ? "default" : "none",
+        // Cuando hay aspectRatio, el contenedor se ajusta a la proporcion
+        // del video y se centra en el padre. Si no, ocupa todo el espacio.
+        ...(aspectRatioCss && !isFullscreen
+          ? {
+              aspectRatio: aspectRatioCss,
+              height: "78vh",
+              maxWidth: "100%",
+              margin: "0 auto",
+            }
+          : {
+              width: "100%",
+              height: "100%",
+            }),
       }}
     >
       <video

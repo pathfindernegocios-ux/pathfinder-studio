@@ -131,18 +131,34 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
             }}
           >
             <PathfinderLogo size={24} />
-            <span
-              style={{
-                fontFamily: 'var(--pf-font-display, system-ui)', 
-                fontSize: '1.25rem', 
-                fontWeight: 800, 
-                color: 'var(--pf-text-primary, #F2F2F2)', 
-                letterSpacing: '-0.03em',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              Pathfinder
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+              <span
+                style={{
+                  fontFamily: 'var(--pf-font-display, system-ui)', 
+                  fontSize: '1.25rem', 
+                  fontWeight: 800, 
+                  color: 'var(--pf-text-primary, #F2F2F2)', 
+                  letterSpacing: '-0.03em',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Pathfinder
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--pf-font-ui, system-ui)',
+                  fontSize: '0.6rem',
+                  fontWeight: 600,
+                  color: 'var(--pf-text-muted, #6E747D)',
+                  letterSpacing: '0.24em',
+                  textTransform: 'uppercase',
+                  marginTop: '4px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Studio
+              </span>
+            </div>
           </Link>
         )}
         

@@ -5,9 +5,8 @@ import { useGenerationContext } from '../context/GenerationContext';
 import { useModels } from '../hooks/useModels';
 import Callout from './Callout';
 import { supabase } from '../lib/supabaseClient';
-import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Mic2, Pencil, Square } from 'lucide-react';
+import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Pencil, Square } from 'lucide-react';
 import PathfinderLogo from './PathfinderLogo';
-import PathfinderSpinner from './PathfinderSpinner';
 import AudioTrimmer from './AudioTrimmer';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useStationBoot } from '../hooks/useStationBoot';
@@ -823,7 +822,7 @@ const FloatingCommandCenter: React.FC = () => {
 
   const [ttsParams, setTtsParams] = useState<TtsParams>(() =>
     hydrateParams<TtsParams>({
-      voiceMode: 'VD',
+      voiceMode: 'Auto Voice (sin referencia)',
       voiceInstruction: 'female, young adult, moderate pitch',
       emotionInstruction: '',
       audioGuide: null,
@@ -995,7 +994,7 @@ const FloatingCommandCenter: React.FC = () => {
       setSelectedTtsModelId(model.id);
       setTtsParams(prev => ({
         ...prev,
-        voiceMode: model.id === 'omnivoice' ? 'VD' : 'A',
+        voiceMode: model.id === 'omnivoice' ? 'Auto Voice (sin referencia)' : 'Voice Cloning (1 referencia)',
         language: model.id === 'omnivoice' ? 'Auto' : 'Spanish',
         steps: model.id === 'omnivoice' ? 32 : 25,
       }));
@@ -1110,7 +1109,7 @@ const FloatingCommandCenter: React.FC = () => {
       setSelectedTtsModelId(targetModel.id);
       setTtsParams(prev => ({
         ...prev,
-        voiceMode: targetModel!.id === 'omnivoice' ? 'VD' : 'A',
+        voiceMode: targetModel!.id === 'omnivoice' ? 'Auto Voice (sin referencia)' : 'Voice Cloning (1 referencia)',
         language: targetModel!.id === 'omnivoice' ? 'Auto' : 'Spanish',
         steps: targetModel!.id === 'omnivoice' ? 32 : 25,
       }));
@@ -1790,7 +1789,7 @@ const FloatingCommandCenter: React.FC = () => {
       setSelectedTtsModelId(modelId);
       setTtsParams(prev => ({
         ...prev,
-        voiceMode: modelId === 'omnivoice' ? 'VD' : 'A',
+        voiceMode: modelId === 'omnivoice' ? 'Auto Voice (sin referencia)' : 'Voice Cloning (1 referencia)',
         language: modelId === 'omnivoice' ? 'Auto' : 'Spanish',
         steps: modelId === 'omnivoice' ? 32 : 25,
       }));
@@ -2607,7 +2606,7 @@ const FloatingCommandCenter: React.FC = () => {
                     style={{ display: 'none' }}
                   />
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'var(--pf-bg-secondary)', border: '1px dashed var(--pf-border-default)', borderRadius: '8px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)' }}>
-                    <Mic2 size={12} />
+                    <Mic size={12} />
                     <span>+ Audio 2</span>
                   </div>
                 </label>
@@ -2628,7 +2627,7 @@ const FloatingCommandCenter: React.FC = () => {
                       cursor: 'pointer',
                     }}
                   >
-                    <Mic2 size={12} />
+                    <Mic size={12} />
                     <span>Audio 2</span>
                     <Pencil size={10} />
                   </button>
@@ -2743,7 +2742,6 @@ const FloatingCommandCenter: React.FC = () => {
               ) : (
                 <>
                   <span>{activeTab === 'audio' ? 'Generar Audio' : 'Generar'}</span>
-                  <PathfinderSpinner size={16} paused />
                 </>
               )}
             </button>
