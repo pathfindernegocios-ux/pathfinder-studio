@@ -92,21 +92,38 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
               textDecoration: "none",
               display: "flex",
               alignItems: "center",
-              gap: "6px",
+              gap: "12px",
             }}
           >
-            <PathfinderLogo size={40} />
-            <span
-              style={{
-                fontFamily: "var(--pf-font-display, system-ui)",
-                fontSize: "1.125rem",
-                fontWeight: 800,
-                letterSpacing: "-0.03em",
-                color: "#FFFFFF",
-              }}
-            >
-              Pathfinder
-            </span>
+            <PathfinderLogo size={44} />
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+              <span
+                style={{
+                  fontFamily: "var(--pf-font-display, system-ui)",
+                  fontSize: "1.35rem",
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                  color: "#FFFFFF",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Pathfinder
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--pf-font-ui, system-ui)",
+                  fontSize: "0.6875rem",
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.5)",
+                  letterSpacing: "0.24em",
+                  textTransform: "uppercase",
+                  marginTop: "4px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Studio
+              </span>
+            </div>
           </Link>
 
           <nav

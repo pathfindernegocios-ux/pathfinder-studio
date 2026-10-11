@@ -116,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
               flexShrink: 0,
             }}
           >
-            <PathfinderLogo size={28} />
+            <PathfinderLogo size={32} />
           </button>
         ) : (
           <Link 
@@ -124,13 +124,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
             style={{ 
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '12px',
               textDecoration: 'none',
               overflow: 'hidden',
               flexShrink: 0,
             }}
           >
-            <PathfinderLogo size={24} />
+            <PathfinderLogo size={36} />
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
               <span
                 style={{
