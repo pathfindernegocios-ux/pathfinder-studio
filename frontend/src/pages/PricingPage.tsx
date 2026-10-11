@@ -6,6 +6,16 @@ import {
   FlaskConical,
   Gauge,
   RefreshCw,
+  Flame,
+  ShieldCheck,
+  RotateCcw,
+  XCircle,
+  Infinity as InfinityIcon,
+  Layers,
+  Clock,
+  Boxes,
+  Check,
+  Minus,
 } from "lucide-react";
 import PathfinderLogo from "../components/PathfinderLogo";
 import MarketingLayout from "../components/marketing/MarketingLayout";
@@ -41,69 +51,185 @@ function useCountdown(target: Date) {
 }
 
 // ============================================================
-// CHECK ICON
-// ============================================================
-// ============================================================
-// COUNTDOWN BAR
+// COUNTDOWN BAR (agresiva)
 // ============================================================
 const CountdownBar: React.FC = () => {
   const countdown = useCountdown(LAUNCH_DEADLINE);
   if (!countdown) return null;
 
   const { days, hours } = countdown;
-  const timeText =
-    days > 0
-      ? `Quedan ${days} ${days === 1 ? "día" : "días"} y ${hours} ${hours === 1 ? "hora" : "horas"}`
-      : `Quedan ${hours} ${hours === 1 ? "hora" : "horas"}`;
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const scrollToPlans = () => {
+    const el = document.getElementById("planes");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div
       style={{
         position: "relative",
-        background: "rgba(20, 10, 40, 0.7)",
-        backdropFilter: "blur(20px) saturate(160%)",
-        WebkitBackdropFilter: "blur(20px) saturate(160%)",
-        borderBottom: "1px solid rgba(139, 92, 246, 0.2)",
-        color: "rgba(255,255,255,0.9)",
-        padding: "12px 20px",
+        background:
+          "linear-gradient(90deg, #7C2D12 0%, #B45309 40%, #DC2626 100%)",
+        color: "#FFFFFF",
+        padding: "14px 20px",
         textAlign: "center",
         fontFamily: "var(--pf-font-ui, system-ui)",
-        fontSize: "0.8125rem",
-        fontWeight: 500,
-        letterSpacing: "0.02em",
+        fontSize: "0.9375rem",
+        fontWeight: 600,
+        letterSpacing: "0.01em",
         overflow: "hidden",
+        boxShadow: "0 8px 24px -12px rgba(220, 38, 38, 0.6)",
       }}
     >
-      {/* Blob sutil detrás del contenido */}
       <div
         aria-hidden
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse at center, rgba(139, 92, 246, 0.12) 0%, transparent 70%)",
+            "radial-gradient(ellipse at center, rgba(255,255,255,0.10) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />
 
-      <span
+      <div
         style={{
           position: "relative",
-          display: "inline-flex",
+          display: "flex",
           alignItems: "center",
-          gap: "10px",
-          flexWrap: "wrap",
           justifyContent: "center",
+          gap: "14px",
+          flexWrap: "wrap",
           zIndex: 1,
         }}
       >
-        <span className="pf-countdown-dot" />
-        <span style={{ fontWeight: 700, color: "#FFFFFF" }}>Precio de lanzamiento</span>
-        <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
-        <span>{timeText}</span>
-        <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
-        <span style={{ color: "rgba(255,255,255,0.65)" }}>Hasta el 31 de diciembre</span>
-      </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+          <Flame size={18} strokeWidth={2.5} />
+          <span style={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", fontSize: "0.8125rem" }}>
+            Precio de lanzamiento
+          </span>
+        </span>
+
+        <span style={{ color: "rgba(255,255,255,0.4)" }}>·</span>
+
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "baseline",
+              gap: "4px",
+              background: "rgba(0,0,0,0.25)",
+              padding: "3px 10px",
+              borderRadius: "6px",
+              fontFamily: "ui-monospace, SFMono-Regular, monospace",
+              fontWeight: 800,
+              fontSize: "0.9375rem",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {pad(days)}
+            <span style={{ fontSize: "0.6875rem", fontWeight: 600, opacity: 0.75 }}>DÍAS</span>
+          </span>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "baseline",
+              gap: "4px",
+              background: "rgba(0,0,0,0.25)",
+              padding: "3px 10px",
+              borderRadius: "6px",
+              fontFamily: "ui-monospace, SFMono-Regular, monospace",
+              fontWeight: 800,
+              fontSize: "0.9375rem",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {pad(hours)}
+            <span style={{ fontSize: "0.6875rem", fontWeight: 600, opacity: 0.75 }}>HRS</span>
+          </span>
+        </span>
+
+        <span style={{ color: "rgba(255,255,255,0.4)" }}>·</span>
+
+        <span style={{ color: "rgba(255,255,255,0.9)", fontWeight: 500, fontSize: "0.875rem" }}>
+          Después sube a <s style={{ opacity: 0.7 }}>$399</s> <strong>$249</strong>/mes
+        </span>
+
+        <button
+          onClick={scrollToPlans}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            background: "#FFFFFF",
+            color: "#7C2D12",
+            border: "none",
+            padding: "6px 14px",
+            borderRadius: "8px",
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.8125rem",
+            fontWeight: 700,
+            cursor: "pointer",
+            transition: "transform 0.15s, box-shadow 0.15s",
+            boxShadow: "0 4px 12px -4px rgba(0,0,0,0.4)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow = "0 6px 16px -4px rgba(0,0,0,0.5)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 4px 12px -4px rgba(0,0,0,0.4)";
+          }}
+        >
+          Asegurar precio
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// TRUST ROW
+// ============================================================
+const TrustRow: React.FC = () => {
+  const items = [
+    { Icon: ShieldCheck, label: "Pago seguro con Stripe" },
+    { Icon: RotateCcw, label: "14 días de reembolso" },
+    { Icon: XCircle, label: "Cancela cuando quieras" },
+    { Icon: InfinityIcon, label: "Sin créditos por imagen o video" },
+  ];
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: "12px 28px",
+        padding: "24px 24px 8px",
+        maxWidth: "1000px",
+        margin: "0 auto",
+      }}
+    >
+      {items.map(({ Icon, label }, i) => (
+        <div
+          key={i}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.8125rem",
+            color: "rgba(255,255,255,0.55)",
+            fontWeight: 500,
+          }}
+        >
+          <Icon size={14} strokeWidth={2.25} style={{ color: "rgba(34, 211, 238, 0.85)" }} />
+          <span>{label}</span>
+        </div>
+      ))}
     </div>
   );
 };
@@ -122,9 +248,13 @@ interface PlanProps {
   price: string;
   priceSuffix?: string;
   priceNote?: string;
+  priceStrikethrough?: string;
+  discountBadge?: string;
   categories: PlanCategory[];
   cta: React.ReactNode;
+  ctaFootnote?: string;
   highlighted?: boolean;
+  featured?: boolean;
   badge?: string;
   accent: { from: string; to: string; text: string };
   showCube?: boolean;
@@ -137,9 +267,13 @@ const PlanCard: React.FC<PlanProps> = ({
   price,
   priceSuffix,
   priceNote,
+  priceStrikethrough,
+  discountBadge,
   categories,
   cta,
+  ctaFootnote,
   highlighted,
+  featured,
   badge,
   accent,
   showCube,
@@ -150,32 +284,39 @@ const PlanCard: React.FC<PlanProps> = ({
       style={{
         position: "relative",
         background: "var(--pf-bg-elevated)",
-        border: highlighted ? "1px solid transparent" : "1px solid var(--pf-border-subtle)",
+        border: highlighted || featured ? "1px solid transparent" : "1px solid var(--pf-border-subtle)",
         borderRadius: "24px",
         padding: "36px 28px 28px 28px",
         display: "flex",
         flexDirection: "column",
-        boxShadow: highlighted
-          ? `0 0 60px -15px ${accent.from}66, 0 20px 40px -12px rgba(0,0,0,0.12)`
-          : "0 2px 8px rgba(0,0,0,0.03)",
+        boxShadow: featured
+          ? `0 0 80px -15px ${accent.from}88, 0 24px 48px -12px rgba(0,0,0,0.18)`
+          : highlighted
+            ? `0 0 60px -15px ${accent.from}66, 0 20px 40px -12px rgba(0,0,0,0.12)`
+            : "0 2px 8px rgba(0,0,0,0.03)",
         transition: "transform 0.2s, box-shadow 0.2s",
-        backgroundImage: highlighted
-          ? `linear-gradient(var(--pf-bg-elevated), var(--pf-bg-elevated)), linear-gradient(135deg, ${accent.from}, ${accent.to})`
-          : undefined,
-        backgroundOrigin: highlighted ? "border-box" : undefined,
-        backgroundClip: highlighted ? "padding-box, border-box" : undefined,
+        backgroundImage:
+          highlighted || featured
+            ? `linear-gradient(var(--pf-bg-elevated), var(--pf-bg-elevated)), linear-gradient(135deg, ${accent.from}, ${accent.to})`
+            : undefined,
+        backgroundOrigin: highlighted || featured ? "border-box" : undefined,
+        backgroundClip: highlighted || featured ? "padding-box, border-box" : undefined,
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "translateY(-4px)";
-        e.currentTarget.style.boxShadow = highlighted
-          ? `0 0 80px -15px ${accent.from}88, 0 24px 48px -12px rgba(0,0,0,0.18)`
-          : "0 12px 24px -8px rgba(0,0,0,0.08)";
+        e.currentTarget.style.boxShadow = featured
+          ? `0 0 100px -15px ${accent.from}aa, 0 28px 56px -12px rgba(0,0,0,0.22)`
+          : highlighted
+            ? `0 0 80px -15px ${accent.from}88, 0 24px 48px -12px rgba(0,0,0,0.18)`
+            : "0 12px 24px -8px rgba(0,0,0,0.08)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow = highlighted
-          ? `0 0 60px -15px ${accent.from}66, 0 20px 40px -12px rgba(0,0,0,0.12)`
-          : "0 2px 8px rgba(0,0,0,0.03)";
+        e.currentTarget.style.boxShadow = featured
+          ? `0 0 80px -15px ${accent.from}88, 0 24px 48px -12px rgba(0,0,0,0.18)`
+          : highlighted
+            ? `0 0 60px -15px ${accent.from}66, 0 20px 40px -12px rgba(0,0,0,0.12)`
+            : "0 2px 8px rgba(0,0,0,0.03)";
       }}
     >
       {showCube && (
@@ -211,6 +352,27 @@ const PlanCard: React.FC<PlanProps> = ({
           }}
         >
           {badge}
+        </div>
+      )}
+
+      {discountBadge && (
+        <div
+          style={{
+            position: "absolute",
+            top: "-14px",
+            right: "28px",
+            padding: "6px 12px",
+            background: "#DC2626",
+            color: "#FFFFFF",
+            borderRadius: "9999px",
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.6875rem",
+            fontWeight: 800,
+            letterSpacing: "0.04em",
+            boxShadow: "0 4px 12px -4px rgba(220, 38, 38, 0.6)",
+          }}
+        >
+          {discountBadge}
         </div>
       )}
 
@@ -276,6 +438,20 @@ const PlanCard: React.FC<PlanProps> = ({
               }}
             >
               {priceSuffix}
+            </span>
+          )}
+          {priceStrikethrough && (
+            <span
+              style={{
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.9375rem",
+                color: "var(--pf-text-muted)",
+                textDecoration: "line-through",
+                fontWeight: 500,
+                marginLeft: "6px",
+              }}
+            >
+              {priceStrikethrough}
             </span>
           )}
         </div>
@@ -381,6 +557,21 @@ const PlanCard: React.FC<PlanProps> = ({
       )}
 
       {cta}
+
+      {ctaFootnote && (
+        <div
+          style={{
+            marginTop: "12px",
+            textAlign: "center",
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.75rem",
+            color: "var(--pf-text-muted)",
+            lineHeight: 1.5,
+          }}
+        >
+          {ctaFootnote}
+        </div>
+      )}
     </div>
   );
 };
@@ -441,6 +632,430 @@ const StatusBanner: React.FC<{
         ×
       </button>
     </div>
+  );
+};
+
+// ============================================================
+// MULTI-RUNTIME BLOCK
+// ============================================================
+const MultiRuntimeBlock: React.FC = () => {
+  const items = [
+    {
+      Icon: Layers,
+      title: "Kaggle + Colab, a la vez",
+      body: "Dos runtimes en paralelo desde la misma cuenta. Uno genera video, el otro puede estar procesando imagen o audio.",
+      color: "#22D3EE",
+    },
+    {
+      Icon: Clock,
+      title: "+5 a 8 horas diarias",
+      body: "Las horas de Google Colab se suman a las 120 h/mes de tu plan. Más margen para crear sin tocar el límite semanal.",
+      color: "#A5B4FC",
+    },
+    {
+      Icon: Boxes,
+      title: "3 modelos en Colab",
+      body: "Qwen Image 2.1, Krea 2 Turbo y TTS Dual ya tienen versión Colab lista para correr desde tu cuenta.",
+      color: "#34D399",
+    },
+  ];
+
+  return (
+    <section
+      style={{
+        padding: "80px 24px",
+        background: "#050505",
+        borderTop: "1px solid rgba(139, 92, 246, 0.1)",
+        borderBottom: "1px solid rgba(139, 92, 246, 0.1)",
+      }}
+    >
+      <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 14px",
+              background: "rgba(34, 211, 238, 0.1)",
+              border: "1px solid rgba(34, 211, 238, 0.3)",
+              borderRadius: "9999px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.6875rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "#67E8F9",
+              marginBottom: "20px",
+            }}
+          >
+            <Layers size={12} strokeWidth={2.5} />
+            Nuevo en Creator y Founder
+          </div>
+          <h2
+            style={{
+              fontFamily: "var(--pf-font-display, system-ui)",
+              fontSize: "clamp(1.5rem, 3vw, 2rem)",
+              fontWeight: 800,
+              letterSpacing: "-0.03em",
+              margin: 0,
+              marginBottom: "16px",
+              color: "#FFFFFF",
+            }}
+          >
+            Genera video e imagen al mismo tiempo.
+          </h2>
+          <p
+            style={{
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "1rem",
+              color: "rgba(255,255,255,0.65)",
+              lineHeight: 1.6,
+              margin: 0,
+              maxWidth: "640px",
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          >
+            Tu cuenta ya no está atada a un solo runtime. Mientras una estación
+            genera video, puedes levantar Qwen Image 2.1 o TTS Dual en Google
+            Colab — sin pagar dos suscripciones, sin pelear con entornos.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: "20px",
+          }}
+        >
+          {items.map(({ Icon, title, body, color }, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "28px 24px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "16px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "12px",
+                  background: `${color}14`,
+                  border: `1px solid ${color}40`,
+                  color,
+                  marginBottom: "18px",
+                  boxShadow: `0 0 20px -8px ${color}80`,
+                }}
+              >
+                <Icon size={20} strokeWidth={2} />
+              </div>
+              <h3
+                style={{
+                  fontFamily: "var(--pf-font-display, system-ui)",
+                  fontSize: "1.0625rem",
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                  margin: 0,
+                  marginBottom: "8px",
+                  color: "#FFFFFF",
+                }}
+              >
+                {title}
+              </h3>
+              <p
+                style={{
+                  fontFamily: "var(--pf-font-ui, system-ui)",
+                  fontSize: "0.875rem",
+                  lineHeight: 1.6,
+                  color: "rgba(255,255,255,0.6)",
+                  margin: 0,
+                }}
+              >
+                {body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ============================================================
+// COMPARISON TABLE
+// ============================================================
+const ComparisonTable: React.FC = () => {
+  const rows: Array<{ label: string; free: string | boolean; creator: string | boolean; founder: string | boolean }> = [
+    { label: "GPU dedicada bajo demanda", free: true, creator: true, founder: true },
+    { label: "Horas de estación / mes", free: "120", creator: "120", founder: "120 × 6" },
+    { label: "Multi-runtime con Colab", free: false, creator: true, founder: true },
+    { label: "Imagen: Krea 2 Turbo", free: true, creator: true, founder: true },
+    { label: "Imagen: Flux 2 · Qwen 2.1", free: false, creator: true, founder: true },
+    { label: "Video: Wan 2.1 (i2v + t2v)", free: true, creator: true, founder: true },
+    { label: "Video: LTX 2.3 · LTX 2.5 MSR", free: false, creator: true, founder: true },
+    { label: "Audio: OmniVoice + Index TTS", free: false, creator: true, founder: true },
+    { label: "Mis Creaciones · retención", free: "7 días", creator: "Ilimitada", founder: "Ilimitada" },
+    { label: "Acceso anticipado a nuevos modelos", free: false, creator: false, founder: true },
+    { label: "Soporte", free: "Estándar", creator: "Prioritario", founder: "Directo" },
+  ];
+
+  const renderCell = (v: string | boolean, color: string) => {
+    if (v === true) return <Check size={18} strokeWidth={2.5} style={{ color }} />;
+    if (v === false) return <Minus size={18} strokeWidth={2} style={{ color: "rgba(255,255,255,0.25)" }} />;
+    return <span style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.8125rem", color: "rgba(255,255,255,0.75)" }}>{v}</span>;
+  };
+
+  return (
+    <section style={{ padding: "80px 24px", background: "#000000" }}>
+      <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+        <h2
+          style={{
+            fontFamily: "var(--pf-font-display, system-ui)",
+            fontSize: "clamp(1.5rem, 3vw, 2rem)",
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            textAlign: "center",
+            margin: 0,
+            marginBottom: "12px",
+            color: "#FFFFFF",
+          }}
+        >
+          Compara los planes
+        </h2>
+        <p
+          style={{
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.9375rem",
+            color: "rgba(255,255,255,0.6)",
+            textAlign: "center",
+            margin: "0 auto 40px",
+            lineHeight: 1.55,
+            maxWidth: "520px",
+          }}
+        >
+          Free para probar. Creator para el Estudio completo. Founder para 6 meses congelados y acceso prioritario.
+        </p>
+
+        <div
+          style={{
+            overflowX: "auto",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "16px",
+            background: "rgba(255,255,255,0.015)",
+          }}
+        >
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              minWidth: "640px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+            }}
+          >
+            <thead>
+              <tr>
+                <th
+                  style={{
+                    textAlign: "left",
+                    padding: "18px 20px",
+                    fontSize: "0.6875rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    color: "rgba(255,255,255,0.4)",
+                    borderBottom: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  Característica
+                </th>
+                {[
+                  { name: "Free", color: "#22D3EE" },
+                  { name: "Creator", color: "#A5B4FC" },
+                  { name: "Founder", color: "#C4B5FD" },
+                ].map((c) => (
+                  <th
+                    key={c.name}
+                    style={{
+                      textAlign: "center",
+                      padding: "18px 20px",
+                      fontSize: "0.8125rem",
+                      fontWeight: 800,
+                      letterSpacing: "-0.01em",
+                      color: c.color,
+                      borderBottom: "1px solid rgba(255,255,255,0.08)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {c.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr key={i} style={{ borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                  <td
+                    style={{
+                      padding: "14px 20px",
+                      fontSize: "0.875rem",
+                      color: "rgba(255,255,255,0.8)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {row.label}
+                  </td>
+                  <td style={{ textAlign: "center", padding: "14px 20px" }}>{renderCell(row.free, "#22D3EE")}</td>
+                  <td style={{ textAlign: "center", padding: "14px 20px" }}>{renderCell(row.creator, "#A5B4FC")}</td>
+                  <td style={{ textAlign: "center", padding: "14px 20px" }}>{renderCell(row.founder, "#C4B5FD")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ============================================================
+// VALUE STACK BLOCK
+// ============================================================
+const ValueStackBlock: React.FC = () => {
+  const items = [
+    { label: "GPU dedicada · 120 h/mes", value: "$1,200" },
+    { label: "Colab extra · 5 a 8 h/día", value: "$400" },
+    { label: "Catálogo de 8 modelos IA", value: "$800" },
+    { label: "Multi-runtime simultáneo", value: "$300" },
+    { label: "Mis Creaciones ilimitadas", value: "$200" },
+  ];
+
+  return (
+    <section
+      style={{
+        padding: "80px 24px",
+        background: "#050505",
+        borderTop: "1px solid rgba(139, 92, 246, 0.1)",
+      }}
+    >
+      <div style={{ maxWidth: "640px", margin: "0 auto" }}>
+        <h2
+          style={{
+            fontFamily: "var(--pf-font-display, system-ui)",
+            fontSize: "clamp(1.5rem, 3vw, 2rem)",
+            fontWeight: 800,
+            letterSpacing: "-0.03em",
+            textAlign: "center",
+            margin: 0,
+            marginBottom: "12px",
+            color: "#FFFFFF",
+          }}
+        >
+          Lo que obtienes en Creator
+        </h2>
+        <p
+          style={{
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.9375rem",
+            color: "rgba(255,255,255,0.6)",
+            textAlign: "center",
+            margin: "0 auto 36px",
+            lineHeight: 1.55,
+          }}
+        >
+          Valorado por separado, cada componente tiene un precio. Juntos, son una sola suscripción.
+        </p>
+
+        <div
+          style={{
+            padding: "28px 28px",
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "16px",
+          }}
+        >
+          {items.map((it, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: "16px",
+                padding: "10px 0",
+                borderBottom: i < items.length - 1 ? "1px dashed rgba(255,255,255,0.08)" : "none",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.9375rem",
+              }}
+            >
+              <span style={{ color: "rgba(255,255,255,0.7)" }}>{it.label}</span>
+              <span style={{ color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>{it.value}</span>
+            </div>
+          ))}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: "16px",
+              marginTop: "20px",
+              paddingTop: "20px",
+              borderTop: "1px solid rgba(255,255,255,0.15)",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+            }}
+          >
+            <span style={{ fontSize: "1rem", fontWeight: 700, color: "#FFFFFF" }}>Valor total</span>
+            <span
+              style={{
+                fontSize: "1rem",
+                fontWeight: 700,
+                color: "rgba(255,255,255,0.45)",
+                textDecoration: "line-through",
+              }}
+            >
+              $2,900
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: "16px",
+              marginTop: "8px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+            }}
+          >
+            <span style={{ fontSize: "1.125rem", fontWeight: 800, color: "#A5B4FC" }}>Pagas</span>
+            <span style={{ fontSize: "1.5rem", fontWeight: 800, color: "#A5B4FC", letterSpacing: "-0.02em" }}>
+              $249 <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "rgba(255,255,255,0.5)" }}>MXN/mes</span>
+            </span>
+          </div>
+        </div>
+
+        <p
+          style={{
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.75rem",
+            color: "rgba(255,255,255,0.4)",
+            textAlign: "center",
+            marginTop: "16px",
+            lineHeight: 1.5,
+          }}
+        >
+          Valores de referencia. No representan servicios de terceros.
+        </p>
+      </div>
+    </section>
   );
 };
 
@@ -672,7 +1287,7 @@ const PricingPage: React.FC = () => {
       <CountdownBar />
 
       {/* Hero */}
-      <section style={{ padding: "80px 24px 40px", textAlign: "center", background: "#000000" }}>
+      <section style={{ padding: "64px 24px 24px", textAlign: "center", background: "#000000" }}>
         <div style={{ maxWidth: "720px", margin: "0 auto" }}>
           <h1
             style={{
@@ -697,14 +1312,13 @@ const PricingPage: React.FC = () => {
               margin: 0,
             }}
           >
-            Accede a una estación con GPU dedicada y workflows preconfigurados
-            para imagen, video y audio. Sin créditos por imagen o video, sin
-            tokens, sin sorpresas.
+            Una estación con GPU dedicada, workflows listos y catálogo completo
+            de modelos IA. Sin créditos. Sin tokens. Sin sorpresas.
           </p>
         </div>
       </section>
 
-      <SignatureBlock />
+      <TrustRow />
 
       {showBanner && status && (status === "success" || status === "cancelled") && (
         <div style={{ padding: "24px 24px 0" }}>
@@ -734,7 +1348,7 @@ const PricingPage: React.FC = () => {
       )}
 
       {/* Plans */}
-      <section style={{ padding: "64px 24px 80px" }}>
+      <section id="planes" style={{ padding: "40px 24px 80px", background: "#000000" }}>
         <div
           style={{
             maxWidth: "1140px",
@@ -768,7 +1382,7 @@ const PricingPage: React.FC = () => {
                 items: ["120 h/mes · 30 por semana"],
               },
             ]}
-            disclaimer="Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo con todos los modelos, elige Creator o Founder."
+            disclaimer="Los modelos del plan Free están sujetos a disponibilidad. Para el Estudio completo, multi-runtime y todos los modelos, elige Creator o Founder."
             cta={
               session ? (
                 <Link
@@ -836,8 +1450,10 @@ const PricingPage: React.FC = () => {
             tagline="El Estudio completo."
             price="$249"
             priceSuffix="MXN · por mes"
-            priceNote="Sin contrato, cancelas cuando quieras."
-            badge="Recomendado"
+            priceStrikethrough="$399"
+            priceNote="Oferta hasta el 31 dic 2026. Después, $399/mes."
+            discountBadge="-38%"
+            badge="Más popular"
             highlighted
             showCube
             accent={{ from: "#6366F1", to: "#8B5CF6", text: "#A5B4FC" }}
@@ -849,6 +1465,15 @@ const PricingPage: React.FC = () => {
                   "120 h/mes · 30 por semana",
                   "Sin créditos por imagen o video",
                   "Workers duales (Wan, TTS)",
+                ],
+              },
+              {
+                title: "Multi-runtime con Colab",
+                items: [
+                  "Kaggle + Colab en paralelo",
+                  "Qwen Image 2.1 en Colab",
+                  "Krea 2 Turbo y TTS Dual, también en Colab",
+                  "+5 a 8 h diarias adicionales",
                 ],
               },
               {
@@ -891,7 +1516,7 @@ const PricingPage: React.FC = () => {
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
-                    padding: "12px 24px",
+                    padding: "14px 24px",
                     background:
                       loadingPlan !== null
                         ? "var(--pf-bg-tertiary)"
@@ -904,7 +1529,7 @@ const PricingPage: React.FC = () => {
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: loadingPlan !== null ? "wait" : "pointer",
                     transition: "opacity 0.15s",
                     boxShadow:
@@ -924,23 +1549,28 @@ const PricingPage: React.FC = () => {
           {/* Plan Founder */}
           <PlanCard
             name="Founder"
-            tagline="El Estudio completo, con prioridad."
+            tagline="6 meses congelados a precio de lanzamiento."
             price="$999"
             priceSuffix="MXN · 6 meses"
-            priceNote="Ahorras $495 MXN vs. mensual."
-            badge="Acceso prioritario"
+            priceStrikethrough="$2,394"
+            priceNote="Equivale a $166 MXN/mes. Oferta única hasta el 31 dic 2026."
+            discountBadge="-58%"
+            badge="Mejor valor"
+            featured
             accent={{ from: "#8B5CF6", to: "#EC4899", text: "#C4B5FD" }}
             categories={[
               {
-                title: "Todo de Creator",
+                title: "Todo de Creator · 6 meses",
                 items: [
                   "Mismos modelos, misma estación",
+                  "Multi-runtime con Colab",
                   "Sin créditos por imagen o video",
                 ],
               },
               {
-                title: "Prioridad Founder",
+                title: "Ventaja Founder",
                 items: [
+                  "Precio bloqueado por 6 meses (mientras Creator sube a $399)",
                   "Acceso anticipado a nuevos modelos",
                   "Primeros accesos a plantillas y funciones",
                   "Soporte directo",
@@ -953,7 +1583,7 @@ const PricingPage: React.FC = () => {
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
-                    padding: "12px 24px",
+                    padding: "14px 24px",
                     background: "rgba(139,92,246,0.12)",
                     color: "#C4B5FD",
                     border: "1px solid rgba(139,92,246,0.4)",
@@ -973,26 +1603,35 @@ const PricingPage: React.FC = () => {
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
-                    padding: "12px 24px",
-                    background: "transparent",
-                    color: "var(--pf-text-primary)",
-                    border: "1px solid rgba(139,92,246,0.4)",
+                    padding: "14px 24px",
+                    background:
+                      loadingPlan !== null
+                        ? "var(--pf-bg-tertiary)"
+                        : "linear-gradient(135deg, #8B5CF6, #EC4899)",
+                    color: "#FFFFFF",
+                    border: "none",
                     borderRadius: "10px",
                     fontFamily: "var(--pf-font-ui, system-ui)",
                     fontSize: "0.9375rem",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     cursor: loadingPlan !== null ? "wait" : "pointer",
-                    transition: "border-color 0.15s, background 0.15s",
+                    transition: "transform 0.15s, box-shadow 0.15s",
+                    boxShadow:
+                      loadingPlan !== null
+                        ? "none"
+                        : "0 8px 24px -8px rgba(139,92,246,0.7)",
                   }}
                   onMouseEnter={(e) => {
                     if (loadingPlan === null) {
-                      e.currentTarget.style.borderColor = "#8B5CF6";
-                      e.currentTarget.style.background = "rgba(139,92,246,0.06)";
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                      e.currentTarget.style.boxShadow = "0 12px 32px -8px rgba(139,92,246,0.9)";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(139,92,246,0.4)";
-                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = loadingPlan === null
+                      ? "0 8px 24px -8px rgba(139,92,246,0.7)"
+                      : "none";
                   }}
                 >
                   {loadingPlan === "founder"
@@ -1001,11 +1640,20 @@ const PricingPage: React.FC = () => {
                 </button>
               )
             }
+            ctaFootnote={hasFounder ? undefined : "Pago único. Sin renovación automática. Ahorras $1,395."}
           />
         </div>
       </section>
 
+      <MultiRuntimeBlock />
+
+      <ComparisonTable />
+
+      <ValueStackBlock />
+
       <NewModelsBlock />
+
+      <SignatureBlock />
 
       {/* FAQ */}
       <section
@@ -1034,6 +1682,18 @@ const PricingPage: React.FC = () => {
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {[
               {
+                q: "¿Qué es multi-runtime?",
+                a: "Tu cuenta puede tener más de una estación activa a la vez. En la práctica: generas video en Kaggle mientras Qwen Image 2.1 o TTS Dual corren en Google Colab. Disponible solo en Creator y Founder.",
+              },
+              {
+                q: "¿Colab reemplaza a Kaggle?",
+                a: "No. Colab se suma. Kaggle sigue siendo tu runtime principal, y Colab te da capacidad extra en paralelo. Puedes usar solo Kaggle, solo Colab, o los dos a la vez.",
+              },
+              {
+                q: "¿Por qué sube el precio el 31 de diciembre?",
+                a: "El precio actual es de lanzamiento. Desde el 1 de enero de 2027, Creator pasa a $399 MXN/mes. Quien compre antes de esa fecha congela el precio de lanzamiento durante su primer período. Founder lo congela por 6 meses.",
+              },
+              {
                 q: "¿Qué son las 120 horas al mes?",
                 a: "Cada plan incluye hasta 120 horas al mes de estación activa, con un límite de 30 horas por semana. Las horas se descuentan solo cuando tu estación está encendida: si no generas nada durante una hora, se apaga sola para no consumir tu cuota. El tiempo de carga de cada modelo también se descuenta, porque la estación permanece encendida durante el proceso. Las horas no utilizadas no se acumulan para el siguiente mes.",
               },
@@ -1043,23 +1703,23 @@ const PricingPage: React.FC = () => {
               },
               {
                 q: "¿Necesito algo para empezar?",
-                a: "Sí. Además de tu cuenta en Pathfinder, necesitas una cuenta de Kaggle (gratuita) para activar tu estación. La primera vez que uses un modelo vas a configurar tu entorno; a partir de ahí, cada sesión es más rápida. La guía paso a paso te lleva de cero a tu primera imagen en menos de 15 minutos.",
+                a: "Sí. Además de tu cuenta en Pathfinder, necesitas una cuenta de Kaggle (gratuita) para activar tu estación. Para multi-runtime, también una cuenta de Google para Colab. La primera vez que uses un modelo vas a configurar tu entorno; a partir de ahí, cada sesión es más rápida. La guía paso a paso te lleva de cero a tu primera imagen en menos de 15 minutos.",
               },
               {
                 q: "¿Qué incluye el plan Free?",
-                a: "Krea 2 Turbo (imagen), Wan 2.1 i2v (imagen a video) y Wan 2.1 t2v (texto a video). Incluye el Studio de creación y acceso a Mis Creaciones con retención de 7 días. Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo con todos los modelos, elige Creator o Founder.",
+                a: "Krea 2 Turbo (imagen), Wan 2.1 i2v (imagen a video) y Wan 2.1 t2v (texto a video). Incluye el Studio de creación y acceso a Mis Creaciones con retención de 7 días. Los modelos del plan Free están sujetos a disponibilidad y pueden cambiar con el tiempo. Para el Estudio completo, multi-runtime y todos los modelos, elige Creator o Founder.",
               },
               {
                 q: "¿Qué diferencia hay entre Free y Creator?",
-                a: "El plan Free es para probar Pathfinder y descubrir qué puedes crear. El plan Creator desbloquea el Estudio completo: todos los modelos actuales (Flux 2, LTX 2.3, LTX 2.5 MSR, Wan i2v, OmniVoice), todos los workflows, presets, LoRAs integradas, y todos los modelos que agreguemos en el futuro sin costo extra.",
+                a: "El plan Free es para probar Pathfinder y descubrir qué puedes crear. El plan Creator desbloquea el Estudio completo: todos los modelos actuales (Krea, Flux 2, Qwen Image 2.1, LTX 2.3, LTX 2.5 MSR, Wan i2v y t2v, OmniVoice e Index TTS), todos los workflows, presets, LoRAs integradas, multi-runtime con Colab, y todos los modelos que agreguemos en el futuro sin costo extra.",
               },
               {
                 q: "¿Qué incluye Creator?",
-                a: "El Estudio completo con todos los modelos del catálogo: Flux 2 Klein 4B, LTX 2.3, LTX 2.5 MSR, Wan 2.1 i2v y t2v, OmniVoice, más Krea 2 Turbo. Incluye todos los workflows, presets, LoRAs curadas, y los modelos que se agreguen en el futuro sin costo adicional. Renovación mensual, cancelas cuando quieras.",
+                a: "El Estudio completo con todos los modelos del catálogo. Incluye todos los workflows, presets, LoRAs curadas, multi-runtime con Google Colab (Qwen Image 2.1, Krea 2 Turbo, TTS Dual en paralelo), y los modelos que se agreguen en el futuro sin costo adicional. Renovación mensual, cancelas cuando quieras.",
               },
               {
                 q: "¿Qué incluye Founder?",
-                a: "Todo lo de Creator por 6 meses, con acceso prioritario: los nuevos modelos, plantillas y funcionalidades llegan primero a los usuarios Founder. Es un pago único de $999 MXN con precio de lanzamiento hasta el 31 de diciembre de 2026.",
+                a: "Todo lo de Creator por 6 meses, con el precio congelado a tarifa de lanzamiento, y acceso prioritario: los nuevos modelos, plantillas y funcionalidades llegan primero a los usuarios Founder. Es un pago único de $999 MXN con precio de lanzamiento hasta el 31 de diciembre de 2026.",
               },
               {
                 q: "¿Founder se renueva automáticamente?",
@@ -1131,19 +1791,41 @@ const PricingPage: React.FC = () => {
           textAlign: "center",
         }}
       >
-        <div style={{ maxWidth: "600px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "640px", margin: "0 auto" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 14px",
+              background: "rgba(220, 38, 38, 0.12)",
+              border: "1px solid rgba(220, 38, 38, 0.4)",
+              borderRadius: "9999px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.6875rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "#FCA5A5",
+              marginBottom: "20px",
+            }}
+          >
+            <Flame size={12} strokeWidth={2.5} />
+            El precio sube el 31 de diciembre
+          </div>
+
           <h2
             style={{
               fontFamily: "var(--pf-font-display, system-ui)",
               fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-              fontWeight: 700,
+              fontWeight: 800,
               letterSpacing: "-0.03em",
               margin: 0,
               marginBottom: "16px",
               color: "#FFFFFF",
             }}
           >
-            Empieza gratis hoy
+            Congela tu acceso a $249/mes.
           </h2>
           <p
             style={{
@@ -1154,25 +1836,46 @@ const PricingPage: React.FC = () => {
               lineHeight: 1.6,
             }}
           >
-            Sin tarjeta. Sin compromiso. Tu estación con GPU dedicada, lista
-            para crear desde el primer minuto.
+            Después del 31 de diciembre, Creator pasa a $399/mes. Founder congela el precio por 6 meses y suma acceso prioritario.
           </p>
-          <Link
-            to={session ? "/studio" : "/auth"}
-            style={{
-              textDecoration: "none",
-              display: "inline-block",
-              padding: "16px 40px",
-              background: "#FFFFFF",
-              color: "#0A0A0A",
-              borderRadius: "9999px",
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "1rem",
-              fontWeight: 700,
-            }}
-          >
-            {session ? "Ir al Studio" : "Crear cuenta gratis"}
-          </Link>
+
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+            <Link
+              to={session ? "/studio" : "/auth"}
+              style={{
+                textDecoration: "none",
+                display: "inline-block",
+                padding: "14px 32px",
+                background: "transparent",
+                color: "#FFFFFF",
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "9999px",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+              }}
+            >
+              {session ? "Ir al Studio" : "Empezar gratis"}
+            </Link>
+            <button
+              onClick={() => handleSelectPlan("founder")}
+              disabled={loadingPlan !== null}
+              style={{
+                padding: "14px 32px",
+                background: "linear-gradient(135deg, #8B5CF6, #EC4899)",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "9999px",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.9375rem",
+                fontWeight: 700,
+                cursor: loadingPlan !== null ? "wait" : "pointer",
+                boxShadow: "0 12px 32px -8px rgba(139,92,246,0.7)",
+              }}
+            >
+              {loadingPlan === "founder" ? "Redirigiendo..." : "Comprar Founder — $999"}
+            </button>
+          </div>
         </div>
       </section>
     </MarketingLayout>
