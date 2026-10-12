@@ -2281,7 +2281,7 @@ const FloatingCommandCenter: React.FC = () => {
               flexShrink: 0,
             }} />
             <span style={{ flex: 1 }}>
-              Tu estación está offline. <Link to="/station" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Descarga tu notebook</Link> y ejecútalo en Kaggle antes de generar.{" "}
+              Tu estación está offline. <Link to="/station" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Descarga tu workflow</Link> y ejecútalo en Kaggle antes de generar.{" "}
               <Link to="/how-it-works" style={{ color: 'inherit', fontWeight: 700, textDecoration: 'underline' }}>Ver guía paso a paso →</Link>
             </span>
             <button
