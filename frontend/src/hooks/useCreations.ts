@@ -60,11 +60,18 @@ export function useCreations() {
       }
       const blob = await fileRes.blob();
 
+      const CONTENT_TYPE_BY_MEDIA: Record<string, string> = {
+        image: "image/png",
+        video: "video/mp4",
+        audio: "audio/wav",
+      };
+      const contentType = CONTENT_TYPE_BY_MEDIA[params.mediaType] || "application/octet-stream";
+
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
         body: blob,
         headers: {
-          "Content-Type": params.mediaType === "image" ? "image/png" : "video/mp4",
+          "Content-Type": contentType,
         },
       });
 

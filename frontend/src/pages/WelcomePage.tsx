@@ -478,7 +478,7 @@ const WelcomePage: React.FC = () => {
           zIndex: 1,
         }}
       >
-        <div className="pf-reveal" style={{ width: "100%", maxWidth: "720px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div className="pf-reveal" style={{ width: "100%", maxWidth: "900px", display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div style={{ marginBottom: "32px" }}>
             <RocketLaunch />
           </div>
