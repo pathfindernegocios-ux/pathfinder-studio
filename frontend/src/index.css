@@ -625,3 +625,43 @@ html {
   opacity: 1;
   transform: translateY(0) rotate(0deg) scale(1);
 }
+
+/* ============================================================
+   Slider de volumen del VideoPlayer
+   ============================================================ */
+.pf-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 9999px;
+  outline: none;
+}
+.pf-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  transition: transform 0.15s;
+}
+.pf-volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.pf-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+}
+.pf-volume-slider::-moz-range-track {
+  height: 4px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 9999px;
+}

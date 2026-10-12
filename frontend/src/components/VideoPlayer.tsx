@@ -7,7 +7,7 @@
 // - Sin controles nativos del browser.
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { Play, Pause, Volume2, VolumeX, Maximize2 } from "lucide-react";
+import { Play, Pause, Volume2, Volume1, VolumeX, Maximize2 } from "lucide-react";
 
 interface VideoPlayerProps {
   src: string;
@@ -19,9 +19,12 @@ interface VideoPlayerProps {
   /** Aspect ratio del video ("16:9", "9:16", "1:1").
    *  Si se pasa, el contenedor se ajusta a esa proporcion dentro del padre. */
   aspectRatio?: string | null;
+  /** Si true, reproduce muted al montar. Default: true.
+   *  Si false, muestra el frame inicial + boton play grande hasta que el user de click. */
+  autoPlay?: boolean;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", background = "#000000", aspectRatio = null }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", background = "#000000", aspectRatio = null, autoPlay = true }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<number | null>(null);
@@ -32,6 +35,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", bac
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const volumeHideTimerRef = useRef<number | null>(null);
 
   // ── Sincronizar estado de fullscreen ──
   // Cuando el usuario entra/sale de fullscreen nativo, forzamos objectFit "contain"
@@ -44,14 +50,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", bac
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
-  // ── Autoplay muted al montar ──
+  // ── Autoplay muted al montar (o esperar al user si autoPlay=false) ──
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = true;
     setIsMuted(true);
-    v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-  }, [src]);
+    if (autoPlay) {
+      v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    } else {
+      setIsPlaying(false);
+      setShowControls(true);
+    }
+  }, [src, autoPlay]);
 
   // ── Auto-hide de controles ──
   const scheduleHide = useCallback(() => {
@@ -83,17 +94,59 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", bac
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
+      // En modo no-autoplay, el primer click del user desmutea automaticamente.
+      // En modo autoplay (estudio), se mantiene el muted salvo que el user lo cambie a mano.
+      if (!autoPlay && v.muted) {
+        v.muted = false;
+        setIsMuted(false);
+      }
       v.play().catch(() => void 0);
     } else {
       v.pause();
     }
-  }, []);
+  }, [autoPlay]);
 
   const toggleMute = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = !v.muted;
     setIsMuted(v.muted);
+    // Si desmutea y el volumen esta en 0, subir a 50%
+    if (!v.muted && v.volume === 0) {
+      v.volume = 0.5;
+      setVolume(0.5);
+    }
+    // Si desmutea y el volumen esta bien, sincronizar el estado
+    if (!v.muted && v.volume > 0) {
+      setVolume(v.volume);
+    }
+  }, []);
+
+  const handleVolumeChange = useCallback((newVolume: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    const clamped = Math.max(0, Math.min(1, newVolume));
+    v.volume = clamped;
+    setVolume(clamped);
+    if (clamped === 0) {
+      v.muted = true;
+      setIsMuted(true);
+    } else if (v.muted) {
+      v.muted = false;
+      setIsMuted(false);
+    }
+  }, []);
+
+  const scheduleVolumeHide = useCallback(() => {
+    if (volumeHideTimerRef.current) window.clearTimeout(volumeHideTimerRef.current);
+    volumeHideTimerRef.current = window.setTimeout(() => {
+      setShowVolumeSlider(false);
+    }, 2000);
+  }, []);
+
+  const showVolumeUI = useCallback(() => {
+    setShowVolumeSlider(true);
+    if (volumeHideTimerRef.current) window.clearTimeout(volumeHideTimerRef.current);
   }, []);
 
   const handleFullscreen = useCallback(() => {
@@ -198,22 +251,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", bac
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "56px",
-          height: "56px",
+          width: (!autoPlay && !isPlaying) ? "80px" : "56px",
+          height: (!autoPlay && !isPlaying) ? "80px" : "56px",
           borderRadius: "50%",
-          background: "rgba(0, 0, 0, 0.55)",
+          background: (!autoPlay && !isPlaying)
+            ? "linear-gradient(135deg, #8B5CF6, #6366F1)"
+            : "rgba(0, 0, 0, 0.55)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255, 255, 255, 0.25)",
+          border: (!autoPlay && !isPlaying)
+            ? "2px solid rgba(255, 255, 255, 0.35)"
+            : "1px solid rgba(255, 255, 255, 0.25)",
           color: "#FFFFFF",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
           padding: 0,
-          opacity: showControls ? 1 : 0,
-          transition: "opacity 0.25s ease, transform 0.15s ease",
-          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.5)",
+          opacity: (!autoPlay && !isPlaying) ? 1 : (showControls ? 1 : 0),
+          transition: "opacity 0.25s ease, transform 0.15s ease, width 0.2s ease, height 0.2s ease",
+          boxShadow: (!autoPlay && !isPlaying)
+            ? "0 12px 40px -8px rgba(139, 92, 246, 0.8)"
+            : "0 4px 16px rgba(0, 0, 0, 0.5)",
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = "translate(-50%, -50%) scale(1.08)";
@@ -229,7 +288,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", bac
         {isPlaying ? (
           <Pause size={22} fill="currentColor" strokeWidth={0} />
         ) : (
-          <Play size={22} fill="currentColor" strokeWidth={0} style={{ marginLeft: "3px" }} />
+          <Play
+            size={(!autoPlay && !isPlaying) ? 32 : 22}
+            fill="currentColor"
+            strokeWidth={0}
+            style={{ marginLeft: "3px" }}
+          />
         )}
       </button>
 
@@ -312,37 +376,80 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, objectFit = "cover", bac
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
 
-          <div style={{ display: "flex", gap: "6px" }}>
-            <button
-              onClick={toggleMute}
-              aria-label={isMuted ? "Activar sonido" : "Silenciar"}
+          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            <div
+              onMouseEnter={showVolumeUI}
+              onMouseLeave={scheduleVolumeHide}
               style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                background: "rgba(255,255,255,0.08)",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "rgba(255,255,255,0.9)",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                padding: 0,
-                transition: "background 0.15s, color 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-                e.currentTarget.style.color = "#FFFFFF";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                e.currentTarget.style.color = "rgba(255,255,255,0.9)";
+                gap: "8px",
               }}
             >
-              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
+              <button
+                onClick={toggleMute}
+                aria-label={isMuted ? "Activar sonido" : "Silenciar"}
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  background: "rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  color: "rgba(255,255,255,0.9)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "background 0.15s, color 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+                  e.currentTarget.style.color = "#FFFFFF";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                  e.currentTarget.style.color = "rgba(255,255,255,0.9)";
+                }}
+              >
+                {isMuted || volume === 0 ? (
+                  <VolumeX size={16} />
+                ) : volume < 0.5 ? (
+                  <Volume1 size={16} />
+                ) : (
+                  <Volume2 size={16} />
+                )}
+              </button>
+
+              <div
+                style={{
+                  width: showVolumeSlider ? "80px" : "0px",
+                  opacity: showVolumeSlider ? 1 : 0,
+                  overflow: "hidden",
+                  transition: "width 0.2s ease, opacity 0.2s ease",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                  aria-label="Volumen"
+                  className="pf-volume-slider"
+                  style={{
+                    width: "100%",
+                    accentColor: "#8B5CF6",
+                    cursor: "pointer",
+                  }}
+                />
+              </div>
+            </div>
 
             <button
               onClick={handleFullscreen}

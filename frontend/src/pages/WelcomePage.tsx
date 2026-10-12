@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, Rocket, Play, ArrowDown } from "lucide-react";
 import PathfinderLogo from "../components/PathfinderLogo";
+import VideoPlayer from "../components/VideoPlayer";
 
 // ============================================================
 // MEDIA URLs — subí los videos a Storage y pegá las URLs acá.
@@ -12,8 +13,9 @@ import PathfinderLogo from "../components/PathfinderLogo";
 //   "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/welcome-media/nombre.mp4"
 // ============================================================
 const WELCOME_MEDIA_URLS = {
-  step1_download: "", // Video: mock de Mi Estación → click Descargar
-  step2_kaggle:   "", // Video: Kaggle → Run All → "Estación lista"
+  step1_download: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step1-download.mp4", // Video: mock de Mi Estación → click Descargar
+  step2_activate: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step2-activate.mp4", // Video: Kaggle → Import Notebook → Encender → Run All
+  step3_ready:    "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step3-ready.mp4", // Video: Studio → progreso → Estación lista
 };
 
 // ============================================================
@@ -36,7 +38,7 @@ const VideoPlaceholder: React.FC<{
           background: "#0a0a12",
         }}
       >
-        <video src={url} controls preload="metadata" style={{ width: "100%", display: "block" }} />
+        <VideoPlayer src={url} aspectRatio="16/9" objectFit="contain" background="transparent" autoPlay={false} />
       </div>
     );
   }
@@ -456,7 +458,7 @@ const WelcomePage: React.FC = () => {
           <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "48px", maxWidth: "620px" }}>
             La primera carga tarda entre 5 y 15 minutos. Las siguientes veces arranca mucho más rápido.
           </p>
-          <VideoPlaceholder label="Cómo activar tu estación en Kaggle" url={WELCOME_MEDIA_URLS.step2_kaggle} />
+          <VideoPlaceholder label="Cómo activar tu estación en Kaggle" url={WELCOME_MEDIA_URLS.step2_activate} />
         </div>
       </section>
 
@@ -492,9 +494,10 @@ const WelcomePage: React.FC = () => {
           <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "20px", maxWidth: "620px" }}>
             No tienes que volver a Kaggle o Colab. No tienes que refrescar. No tienes que revisar el output del notebook. <strong style={{ color: "#ffffff" }}>Pathfinder te avisa.</strong>
           </p>
-          <p style={{ fontSize: "0.9375rem", lineHeight: 1.7, color: "rgba(255,255,255,0.5)", margin: 0, maxWidth: "620px" }}>
+          <p style={{ fontSize: "0.9375rem", lineHeight: 1.7, color: "rgba(255,255,255,0.5)", margin: 0, marginBottom: "48px", maxWidth: "620px" }}>
             Si eres de los que les gusta ver la cocina: la última celda del notebook también muestra <strong style={{ color: "#a5b4fc", fontFamily: "monospace" }}>READY</strong> cuando termina. Pero es opcional — el aviso te llega directo en Studio.
           </p>
+          <VideoPlaceholder label="Cómo verificar que tu estación está lista" url={WELCOME_MEDIA_URLS.step3_ready} />
         </div>
       </section>
 
