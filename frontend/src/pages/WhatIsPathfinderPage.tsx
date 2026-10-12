@@ -441,7 +441,7 @@ const WhatIsPathfinderPage: React.FC = () => {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
           <FeatureCard Icon={Palette} title="Seis modelos curados" body="Krea 2 Turbo, Flux 2 Klein 4B, LTX 2.3, LTX 2.5 MSR, Wan 2.1 Dual y TTS Dual. Cada uno con su workflow listo para usar." />
-          <FeatureCard Icon={Layers} title="Workers duales" body="Wan i2v + t2v en un mismo notebook. OmniVoice + Index TTS en otro. Cambia entre tareas sin reiniciar la estación." />
+          <FeatureCard Icon={Layers} title="Workers duales" body="Wan i2v + t2v en un mismo workflow. OmniVoice + Index TTS en otro. Cambia entre tareas sin reiniciar la estación." />
           <FeatureCard Icon={Sparkles} title="Sin créditos por generación" body="Dentro de tus horas de estación, generas lo que quieras. Sin tokens, sin unidades, sin sorpresas al final del mes." />
           <FeatureCard Icon={Cpu} title="Selección automática de modelo" body="El Studio detecta qué modelo está activo en tu estación y lo selecciona solo. Sin configuración manual." />
           <FeatureCard Icon={Cloud} title="Persistencia en la nube" body="Tus creaciones se guardan y quedan accesibles desde cualquier dispositivo, no solo desde el navegador donde generaste." />

@@ -213,7 +213,7 @@ const HomePage: React.FC = () => {
             {
               icon: <IconVideo />,
               title: "Workers duales",
-              body: "Cambia entre tareas sin reiniciar la estación. Wan i2v + t2v en un mismo notebook. OmniVoice + Index TTS en otro.",
+              body: "Cambia entre tareas sin reiniciar la estación. Wan i2v + t2v en un mismo workflow. OmniVoice + Index TTS en otro.",
             },
             {
               icon: <IconSparkles />,

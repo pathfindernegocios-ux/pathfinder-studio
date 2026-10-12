@@ -329,7 +329,7 @@ export const HowItWorksContent: React.FC = () => {
           >
             {[
               { n: "1", t: "Crea tu cuenta en Kaggle", d: "Una sola vez. Es gratis." },
-              { n: "2", t: "Descarga y ejecuta tu notebook", d: "Cada vez que quieras usar un modelo." },
+              { n: "2", t: "Descarga y ejecuta tu workflow", d: "Cada vez que quieras usar un modelo." },
               { n: "3", t: "Genera desde Pathfinder", d: "El Studio detecta tu estación y te deja crear." },
             ].map((s) => (
               <div key={s.n}>
@@ -457,10 +457,19 @@ export const HowItWorksContent: React.FC = () => {
         </Block>
 
         {/* ==================== BLOQUE 3 ==================== */}
-        <Block num="03" title="Descarga tu notebook desde Pathfinder">
+        <Block num="03" title="Descarga tu workflow desde Pathfinder">
           <p style={{ marginBottom: "20px" }}>
-            El <strong>notebook</strong> es el archivo que le dice a Kaggle qué modelo cargar y cómo
-            preparar tu estación. Cada modelo tiene el suyo. Los descargas desde Pathfinder.
+            Un <strong>workflow</strong> es una secuencia estructurada de pasos: le dice a Kaggle o Colab
+            qué modelo cargar, cómo configurarlo y qué hacer con tus prompts. Es la receta completa
+            que Pathfinder preparó por ti.
+          </p>
+          <p style={{ marginBottom: "20px" }}>
+            Técnicamente, ese workflow vive dentro de un <strong>notebook</strong> — un archivo que Kaggle
+            y Colab entienden de forma nativa. Cuando descargas un workflow desde Mi Estación,
+            descargas el notebook que lo contiene.
+          </p>
+          <p style={{ marginBottom: "20px" }}>
+            En otras palabras: <strong>workflow es lo que haces, notebook es el archivo con el que lo haces.</strong>
           </p>
 
           <Step>
@@ -470,7 +479,7 @@ export const HowItWorksContent: React.FC = () => {
             Verás una tarjeta por cada modelo (Krea, Flux, LTX). Elige el que quieras usar.
           </Step>
           <Step>
-            Haz clic en <strong>Descargar notebook</strong>. Se descargará un archivo{" "}
+            Haz clic en <strong>Descargar workflow</strong>. Se descargará un archivo{" "}
             <code
               style={{
                 background: "var(--pf-bg-secondary, #FAFAFA)",
@@ -491,20 +500,20 @@ export const HowItWorksContent: React.FC = () => {
 
           <MediaPlaceholder
             type="video"
-            label="Cómo descargar tu notebook desde Mi Estación"
+            label="Cómo descargar tu workflow desde Mi Estación"
             url={MEDIA_URLS.block3_download}
           />
 
           <Callout kind="tip">
-            Puedes descargar los 3 notebooks y guardarlos. Así los tienes a mano cuando quieras
+            Puedes descargar los 3 workflows y guardarlos. Así los tienes a mano cuando quieras
             cambiar de modelo.
           </Callout>
         </Block>
 
         {/* ==================== BLOQUE 4 ==================== */}
-        <Block num="04" title="Carga el notebook en Kaggle">
+        <Block num="04" title="Carga el workflow en Kaggle">
           <p style={{ marginBottom: "20px" }}>
-            Ahora subes el notebook a Kaggle y configuras el entorno de cómputo.
+            Ahora subes el workflow a Kaggle y configuras el entorno de cómputo.
           </p>
 
           <Step>
@@ -512,7 +521,7 @@ export const HowItWorksContent: React.FC = () => {
             <strong>Notebook</strong>.
           </Step>
           <Step>
-            Una vez abierto el notebook vacío, ve a <strong>File</strong> →{" "}
+            Una vez abierto el workflow vacío, ve a <strong>File</strong> →{" "}
             <strong>Import Notebook</strong>.
           </Step>
           <Step>
@@ -544,12 +553,12 @@ export const HowItWorksContent: React.FC = () => {
 
           <MediaPlaceholder
             type="video"
-            label="Cómo importar el notebook y configurar la GPU"
+            label="Cómo importar el workflow y configurar la GPU"
             url={MEDIA_URLS.block4_import}
           />
 
           <Callout kind="warn">
-            Sin <strong>GPU T4 x2</strong> activado, el notebook no va a funcionar. Sin{" "}
+            Sin <strong>GPU T4 x2</strong> activado, el workflow no va a funcionar. Sin{" "}
             <strong>Internet</strong>, no puede descargar los modelos.
           </Callout>
         </Block>
@@ -562,10 +571,10 @@ export const HowItWorksContent: React.FC = () => {
           </p>
 
           <Step>
-            En el notebook, haz clic en <strong>▶ Run All</strong> (arriba, junto a "Save Version").
+            En el workflow, haz clic en <strong>▶ Run All</strong> (arriba, junto a "Save Version").
           </Step>
           <Step>
-            El notebook va a instalar dependencias y descargar el modelo. Verás mucho texto,
+            El workflow va a instalar dependencias y descargar el modelo. Verás mucho texto,
             barras de progreso y mensajes. <strong>No cierres la pestaña.</strong>
           </Step>
           <Step>
@@ -611,7 +620,7 @@ export const HowItWorksContent: React.FC = () => {
           </Step>
           <Step>
             Cuando termine, verás el mensaje <strong>"Estación lista"</strong> en la última celda
-            del notebook. Eso significa que ya podés generar desde Pathfinder.
+            del workflow. Eso significa que ya podés generar desde Pathfinder.
           </Step>
 
           <MediaPlaceholder
@@ -630,7 +639,7 @@ export const HowItWorksContent: React.FC = () => {
         {/* ==================== BLOQUE 6 ==================== */}
         <Block num="06" title="Pathfinder detecta tu estación">
           <p style={{ marginBottom: "20px" }}>
-            Aquí viene la parte mágica. Una vez que el notebook termina de cargar, Pathfinder lo
+            Aquí viene la parte mágica. Una vez que el workflow termina de cargar, Pathfinder lo
             detecta automáticamente.
           </p>
 
@@ -660,7 +669,7 @@ export const HowItWorksContent: React.FC = () => {
           />
 
           <Callout kind="tip">
-            Si cargas el notebook de Krea y después el de LTX, Pathfinder cambia automáticamente el
+            Si cargas el workflow de Krea y después el de LTX, Pathfinder cambia automáticamente el
             selector. Podés tener varios modelos encendidos al mismo tiempo (aunque consumen más
             recursos de Kaggle).
           </Callout>
@@ -684,7 +693,7 @@ export const HowItWorksContent: React.FC = () => {
             . Descargalas antes de cerrar Kaggle.
           </Step>
           <Step>
-            <strong>Detén la sesión de Kaggle.</strong> En la pestaña del notebook, haz clic en el
+            <strong>Detén la sesión de Kaggle.</strong> En la pestaña del workflow, haz clic en el
             menú de los <strong>tres puntos (⋮)</strong> arriba a la derecha →{" "}
             <strong>Stop Session</strong>.
           </Step>
@@ -707,7 +716,7 @@ export const HowItWorksContent: React.FC = () => {
 
           <Callout kind="tip">
             La próxima vez que quieras crear, no necesitas volver a crear cuenta ni importar el
-            notebook. Solo ábrelo de nuevo en Kaggle (queda guardado en tu cuenta) y dale{" "}
+            workflow. Solo ábrelo de nuevo en Kaggle (queda guardado en tu cuenta) y dale{" "}
             <strong>Run All</strong>.
           </Callout>
         </Block>
@@ -744,7 +753,7 @@ export const HowItWorksContent: React.FC = () => {
               },
               {
                 q: "¿Es legal usar Kaggle para generar contenido?",
-                a: "Sí. Kaggle permite uso personal de sus notebooks y GPUs. Pathfinder te da las herramientas y la interfaz, vos operás tu propia estación de trabajo.",
+                a: "Sí. Kaggle permite uso personal de sus workflows y GPUs. Pathfinder te da las herramientas y la interfaz, vos operás tu propia estación de trabajo.",
               },
               {
                 q: "¿Qué pasa si Run All se pausa a la mitad?",
@@ -752,11 +761,11 @@ export const HowItWorksContent: React.FC = () => {
               },
               {
                 q: "¿Tengo que crear una cuenta de Kaggle nueva cada vez?",
-                a: "No. Tu cuenta de Kaggle es permanente. Solo la creas una vez. Después, cada vez que quieras usar Pathfinder, abrís Kaggle, abrís tu notebook y das Run All.",
+                a: "No. Tu cuenta de Kaggle es permanente. Solo la creas una vez. Después, cada vez que quieras usar Pathfinder, abres Kaggle, abres tu workflow y das Run All.",
               },
               {
-                q: "¿Tengo que importar el notebook cada vez?",
-                a: "No. Una vez importado, el notebook queda guardado en tu cuenta de Kaggle. La próxima vez que entres, lo abres desde tu lista de notebooks y das Run All directamente.",
+                q: "¿Tengo que importar el workflow cada vez?",
+                a: "No. Una vez importado, el workflow queda guardado en tu cuenta de Kaggle. La próxima vez que entres, lo abres desde tu lista de workflows y das Run All directamente.",
               },
               {
                 q: "¿Puedo tener varios modelos cargados al mismo tiempo?",

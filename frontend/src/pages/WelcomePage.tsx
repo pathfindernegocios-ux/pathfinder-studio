@@ -418,7 +418,7 @@ const WelcomePage: React.FC = () => {
             Descarga tu workflow.
           </h2>
           <p style={{ fontSize: "1.0625rem", lineHeight: 1.6, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "48px", maxWidth: "620px" }}>
-            En Mi Estación eliges el modelo que quieras usar. Descárgalo con un clic.
+            Mi Estación es donde viven todos los modelos disponibles. Cuando encuentres el que quieras usar, haz clic en <strong style={{ color: "#ffffff" }}>Descargar workflow</strong>.
           </p>
           <VideoPlaceholder label="Cómo descargar tu workflow" url={WELCOME_MEDIA_URLS.step1_download} />
         </div>
@@ -445,13 +445,16 @@ const WelcomePage: React.FC = () => {
             02 · Activa
           </div>
           <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3.5vw, 2.75rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: 0, marginBottom: "20px", color: "#ffffff" }}>
-            Actívalo en Kaggle.
+            Actívalo en Kaggle o Colab.
           </h2>
           <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "20px", maxWidth: "620px" }}>
-            Kaggle es gratis, sin tarjeta — solo necesitas una cuenta. Abre el workflow y dale <strong style={{ color: "#ffffff" }}>Run All</strong>.
+            Cada modelo vive en su propia plataforma: algunos corren en Kaggle, otros en Google Colab. Abre el notebook que descargaste donde corresponde y ejecuta <strong style={{ color: "#ffffff" }}>Run All</strong>.
           </p>
           <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "48px", maxWidth: "620px" }}>
-            <strong style={{ color: "#ffffff" }}>Run All no significa que ya está lista.</strong> Espera hasta que la última celda del notebook muestre <strong style={{ color: "#a5b4fc", fontFamily: "monospace" }}>Estado: READY</strong> en el output. La primera vez tarda entre 5 y 15 minutos, y el tiempo que la estación está encendida cuenta dentro de tus horas.
+            Y listo. No tienes que volver a mirar el notebook. Desde ese momento, <strong style={{ color: "#ffffff" }}>Pathfinder Studio te muestra el progreso de la instalación en tiempo real</strong> y te avisa cuando tu estación está lista.
+          </p>
+          <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "48px", maxWidth: "620px" }}>
+            La primera carga tarda entre 5 y 15 minutos. Las siguientes veces arranca mucho más rápido.
           </p>
           <VideoPlaceholder label="Cómo activar tu estación en Kaggle" url={WELCOME_MEDIA_URLS.step2_kaggle} />
         </div>
@@ -481,10 +484,16 @@ const WelcomePage: React.FC = () => {
             03 · Lista
           </div>
           <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.75rem, 3.5vw, 2.75rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.15, margin: 0, marginBottom: "20px", color: "#ffffff" }}>
-            Pathfinder la detecta.
+            Pathfinder detecta tu estación.
           </h2>
-          <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, maxWidth: "620px" }}>
-            Cuando el output diga <strong style={{ color: "#a5b4fc", fontFamily: "monospace" }}>READY</strong>, Pathfinder reconoce tu estación automáticamente. En Studio vas a ver el badge verde <strong style={{ color: "#10b981" }}>● Estación lista</strong> y ya puedes crear.
+          <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "20px", maxWidth: "620px" }}>
+            Pathfinder monitorea todo por ti. Mientras el modelo se instala, en Studio ves el progreso en vivo. Cuando termina, aparece el badge verde <strong style={{ color: "#10b981" }}>● Estación lista</strong> al lado del modelo — y ahí ya puedes crear.
+          </p>
+          <p style={{ fontSize: "1.0625rem", lineHeight: 1.7, color: "rgba(255,255,255,0.65)", margin: 0, marginBottom: "20px", maxWidth: "620px" }}>
+            No tienes que volver a Kaggle o Colab. No tienes que refrescar. No tienes que revisar el output del notebook. <strong style={{ color: "#ffffff" }}>Pathfinder te avisa.</strong>
+          </p>
+          <p style={{ fontSize: "0.9375rem", lineHeight: 1.7, color: "rgba(255,255,255,0.5)", margin: 0, maxWidth: "620px" }}>
+            Si eres de los que les gusta ver la cocina: la última celda del notebook también muestra <strong style={{ color: "#a5b4fc", fontFamily: "monospace" }}>READY</strong> cuando termina. Pero es opcional — el aviso te llega directo en Studio.
           </p>
         </div>
       </section>
