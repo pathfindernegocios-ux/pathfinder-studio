@@ -103,7 +103,7 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                   fontSize: "1.35rem",
                   fontWeight: 800,
                   letterSpacing: "-0.03em",
-                  color: "#FFFFFF",
+                  color: "#00B4FF",
                   whiteSpace: "nowrap",
                 }}
               >

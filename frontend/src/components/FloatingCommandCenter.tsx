@@ -6,7 +6,6 @@ import { useModels } from '../hooks/useModels';
 import Callout from './Callout';
 import { supabase } from '../lib/supabaseClient';
 import { Video, Image as ImageIcon, Music, Paperclip, X, Mic, Pencil, Square } from 'lucide-react';
-import PathfinderLogo from './PathfinderLogo';
 import AudioTrimmer from './AudioTrimmer';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useStationBoot } from '../hooks/useStationBoot';
@@ -2694,15 +2693,25 @@ const FloatingCommandCenter: React.FC = () => {
                       ? (!canCancel || isCancelling)
                       : (!prompt.trim() || !storyboardValid))
               }
-              className={isLoading && !isCurrentModelLocked ? 'pf-generating-btn' : ''}
+              className={[
+                isLoading && !isCurrentModelLocked ? 'pf-generating-btn' : '',
+                isCurrentModelLocked ? 'pf-unlock-btn' : '',
+              ].filter(Boolean).join(' ')}
               style={{
                 position: 'absolute', right: '0', bottom: '0',
                 background: isLoading
                   ? '#DC2626'
-                  : (!prompt.trim() ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)'),
+                  : isCurrentModelLocked
+                    ? 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)'
+                    : (!prompt.trim() ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)'),
                 color: isLoading
                   ? '#FFFFFF'
-                  : (!prompt.trim() ? 'var(--pf-text-muted)' : 'var(--pf-text-inverse, #FFFFFF)'),
+                  : isCurrentModelLocked
+                    ? '#FFFFFF'
+                    : (!prompt.trim() ? 'var(--pf-text-muted)' : 'var(--pf-text-inverse, #FFFFFF)'),
+                boxShadow: isCurrentModelLocked
+                  ? '0 8px 20px -6px rgba(139,92,246,0.7)'
+                  : 'none',
                 fontFamily: 'var(--pf-font-ui)',
                 fontSize: '13px',
                 fontWeight: 600,
@@ -2736,8 +2745,46 @@ const FloatingCommandCenter: React.FC = () => {
                 </>
               ) : isCurrentModelLocked ? (
                 <>
-                  <span>Desbloquear Creator</span>
-                  <PathfinderLogo size={16} />
+                  <span style={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+                    Desbloquear Creator
+                  </span>
+                  <span className="pf-unlock-wrapper">
+                    {/* Candado cerrado */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="pf-icon-lock"
+                      aria-hidden
+                    >
+                      <rect x="4" y="11" width="16" height="10" rx="2.5" />
+                      <path d="M8 11 V7.5 a4 4 0 0 1 8 0 V11" />
+                      <circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none" />
+                    </svg>
+
+                    {/* Candado abierto (shackle volado hacia arriba-derecha) */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="pf-icon-unlock"
+                      aria-hidden
+                    >
+                      <rect x="4" y="11" width="16" height="10" rx="2.5" />
+                      <path d="M8 11 V7.5 a4 4 0 0 1 7.5 -1.5" />
+                      <circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none" />
+                    </svg>
+                  </span>
                 </>
               ) : (
                 <>
