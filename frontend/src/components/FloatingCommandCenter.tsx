@@ -3817,36 +3817,6 @@ const FloatingCommandCenter: React.FC = () => {
                             step={0.05}
                           />
                         </div>
-                        <div>
-                          <NumberInput
-                            label="Temp"
-                            value={ttsParams.temperature}
-                            onChange={(v: number) => setTtsParams(prev => ({ ...prev, temperature: v }))}
-                            min={0.1}
-                            max={1.5}
-                            step={0.05}
-                          />
-                        </div>
-                        <div>
-                          <NumberInput
-                            label="Top P"
-                            value={ttsParams.topP}
-                            onChange={(v: number) => setTtsParams(prev => ({ ...prev, topP: v }))}
-                            min={0.5}
-                            max={1.0}
-                            step={0.05}
-                          />
-                        </div>
-                        <div>
-                          <NumberInput
-                            label="Top K"
-                            value={ttsParams.topK}
-                            onChange={(v: number) => setTtsParams(prev => ({ ...prev, topK: v }))}
-                            min={10}
-                            max={100}
-                            step={5}
-                          />
-                        </div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontFamily: 'var(--pf-font-ui)', color: 'var(--pf-text-secondary)', cursor: 'pointer' }}>
                           <input
                             type="checkbox"
