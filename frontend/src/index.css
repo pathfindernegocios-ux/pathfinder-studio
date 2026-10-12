@@ -586,3 +586,42 @@ html {
 .pf-creation-card:hover .pf-creation-overlay {
   opacity: 1;
 }
+
+
+/* ============================================================
+   Candado custom del boton Desbloquear Creator (FCM)
+   SVG inline, cerrado -> abierto con transicion dramatica
+   ============================================================ */
+.pf-unlock-wrapper {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pf-unlock-wrapper .pf-icon-lock,
+.pf-unlock-wrapper .pf-icon-unlock {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pf-unlock-wrapper .pf-icon-lock {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg) scale(1);
+}
+.pf-unlock-wrapper .pf-icon-unlock {
+  opacity: 0;
+  transform: translateY(10px) rotate(-35deg) scale(0.6);
+}
+.pf-unlock-btn:hover .pf-unlock-wrapper .pf-icon-lock {
+  opacity: 0;
+  transform: translateY(-10px) rotate(35deg) scale(0.6);
+}
+.pf-unlock-btn:hover .pf-unlock-wrapper .pf-icon-unlock {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg) scale(1);
+}

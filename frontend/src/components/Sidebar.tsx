@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PathfinderLogo from './PathfinderLogo';
+import { useTheme } from '../hooks/useTheme';
 import { supabase } from '../lib/supabaseClient';
 import { clearLiveCache } from '../lib/liveCache';
 import { 
@@ -28,6 +29,8 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
+  const { resolved } = useTheme();
+  const isLight = resolved === 'light';
   const location = useLocation();
   const { session, profile } = useAuth();
 
@@ -137,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
                   fontFamily: 'var(--pf-font-display, system-ui)', 
                   fontSize: '1.25rem', 
                   fontWeight: 800, 
-                  color: 'var(--pf-text-primary, #F2F2F2)', 
+                  color: isLight ? '#0143E0' : '#00B4FF', 
                   letterSpacing: '-0.03em',
                   whiteSpace: 'nowrap'
                 }}
