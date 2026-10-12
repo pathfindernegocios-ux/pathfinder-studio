@@ -1,7 +1,7 @@
 // src/pages/StationPage.tsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Download, Lock, Sparkles, Clock, CheckCircle2, Loader2, ExternalLink, HelpCircle } from 'lucide-react';
+import { Download, Lock, Sparkles, Clock, Loader2, ExternalLink, HelpCircle, Flame, Crown, Zap, Layers, ArrowRight } from 'lucide-react';
 import { useModels } from '../hooks/useModels';
 import type { ModelCatalogEntry } from '../hooks/useModels';
 import { supabase } from '../lib/supabaseClient';
@@ -10,6 +10,7 @@ import { Power } from 'lucide-react';
 import { useGenerationContext } from '../context/GenerationContext';
 import { usePurchase } from '../hooks/usePurchase';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -124,36 +125,93 @@ const CAPABILITY_LABEL: Record<string, string> = {
 };
 
 const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDownloading, isOnline, onShutdown, isShuttingDown, onUnlock, isUnlocking, canDownloadColab, onDownloadColab, isDownloadingColab, onColabLocked }) => {
-  const hasColabVariant = typeof (model.metadata as Record<string, unknown>)?.colab_template_path === 'string'
-    && ((model.metadata as Record<string, unknown>).colab_template_path as string).length > 0;
+  const [isHovered, setIsHovered] = React.useState(false);
 
-  const badge = (() => {
-    if (variant === 'owned') return { text: 'Disponible', color: '#10B981', bg: 'rgba(16,185,129,0.1)', Icon: CheckCircle2 };
-    if (variant === 'coming_soon') return { text: 'Próximamente', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', Icon: Clock };
-    return { text: 'Bloqueado', color: 'var(--pf-text-muted)', bg: 'rgba(107,114,128,0.1)', Icon: Lock };
-  })();
+  const hasColabVariant =
+    typeof (model.metadata as Record<string, unknown>)?.colab_template_path === 'string' &&
+    ((model.metadata as Record<string, unknown>).colab_template_path as string).length > 0;
+
+  const isColabOnly = (model.metadata as Record<string, unknown>)?.colab_only === true;
+
+  const CAPABILITY_COLORS: Record<string, { text: string; bg: string; border: string }> = {
+    image: { text: '#67E8F9', bg: 'rgba(34,211,238,0.1)', border: 'rgba(34,211,238,0.3)' },
+    video: { text: '#F472B6', bg: 'rgba(244,114,182,0.1)', border: 'rgba(244,114,182,0.3)' },
+    audio: { text: '#FBBF24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)' },
+  };
+  const capColor = CAPABILITY_COLORS[model.capability] || { text: 'var(--pf-text-muted)', bg: 'var(--pf-bg-tertiary)', border: 'var(--pf-border-subtle)' };
+
+  const STRENGTH_BADGES: Record<string, { text: string; color: string; bg: string; border: string }> = {
+    'qwen-image-2.1': { text: 'Sin censura', color: '#C4B5FD', bg: 'rgba(167,139,250,0.14)', border: 'rgba(167,139,250,0.4)' },
+    'flux-2-klein-4b': { text: 'Edicion precisa', color: '#93C5FD', bg: 'rgba(96,165,250,0.14)', border: 'rgba(96,165,250,0.4)' },
+    'ltx-2.3': { text: 'Con audio', color: '#F9A8D4', bg: 'rgba(244,114,182,0.14)', border: 'rgba(244,114,182,0.4)' },
+    'ltx-2.3-msr': { text: 'Multi-referencia', color: '#6EE7B7', bg: 'rgba(52,211,153,0.14)', border: 'rgba(52,211,153,0.4)' },
+    'ltx-2.5-msr': { text: 'Multi-ref 2.5', color: '#67E8F9', bg: 'rgba(34,211,238,0.14)', border: 'rgba(34,211,238,0.4)' },
+    'tts-dual': { text: 'Clonacion de voz', color: '#FCD34D', bg: 'rgba(251,191,36,0.14)', border: 'rgba(251,191,36,0.4)' },
+  };
+
+  const strength = STRENGTH_BADGES[model.id];
+
+  const isClickableLocked = variant === 'locked' && !!onUnlock;
+  const isOwnedOnline = variant === 'owned' && isOnline === true;
+
+  // ── Estilos dinámicos del wrapper ──
+  const wrapperStyle: React.CSSProperties = {
+    position: 'relative',
+    background: 'var(--pf-bg-elevated, var(--pf-bg-primary))',
+    border: isOwnedOnline
+      ? '1px solid rgba(16,185,129,0.5)'
+      : isClickableLocked && isHovered
+        ? '1px solid rgba(139,92,246,0.6)'
+        : '1px solid var(--pf-border-default)',
+    borderRadius: '20px',
+    padding: '22px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: isOwnedOnline
+      ? '0 0 40px -12px rgba(16,185,129,0.55), 0 8px 24px -12px rgba(0,0,0,0.08)'
+      : isClickableLocked && isHovered
+        ? '0 20px 48px -20px rgba(139,92,246,0.6), 0 8px 24px -12px rgba(0,0,0,0.08)'
+        : '0 1px 3px rgba(0,0,0,0.04)',
+    cursor: isClickableLocked ? (isUnlocking ? 'wait' : 'pointer') : 'default',
+    transform: isClickableLocked && isHovered ? 'translateY(-3px)' : 'none',
+    overflow: 'hidden',
+  };
 
   return (
     <div
-      style={{
-        background: 'var(--pf-bg-primary)',
-        border: '1px solid var(--pf-border-default)',
-        borderRadius: '16px',
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '14px',
-        transition: 'all 0.2s ease',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      }}
+      onClick={isClickableLocked && !isUnlocking ? onUnlock : undefined}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={wrapperStyle}
     >
-      {/* Thumbnail / placeholder */}
+      {/* Glow ring cuando online */}
+      {isOwnedOnline && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '20px',
+            padding: '1px',
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.4), rgba(16,185,129,0) 50%, rgba(16,185,129,0.4))',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            maskComposite: 'exclude',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {/* ── Thumbnail ── */}
       <div
         style={{
+          position: 'relative',
           width: '100%',
-          aspectRatio: '16/9',
+          aspectRatio: '16/10',
           background: 'var(--pf-bg-tertiary)',
-          borderRadius: '12px',
+          borderRadius: '14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -166,94 +224,188 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
           <img
             src={model.thumbnail_url}
             alt={model.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              filter: variant === 'coming_soon' ? 'blur(3px) brightness(0.7)' : 'none',
+              transition: 'transform 0.4s ease',
+              transform: isHovered && isClickableLocked ? 'scale(1.05)' : 'scale(1)',
+            }}
           />
         ) : (
           <Sparkles size={32} />
         )}
+
+        {/* Gradient overlay inferior */}
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.35) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* Dot ON pulsante (owned online) */}
+        {isOwnedOnline && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 11px',
+              background: 'rgba(0,0,0,0.7)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              borderRadius: '9999px',
+              fontFamily: 'var(--pf-font-ui, system-ui)',
+              fontSize: '0.6875rem',
+              fontWeight: 800,
+              color: '#10B981',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}
+          >
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#10B981',
+                boxShadow: '0 0 10px #10B981',
+                animation: 'pf-pulse 1.6s ease-in-out infinite',
+              }}
+            />
+            ON
+          </div>
+        )}
+
+        {/* Badge del "fuerte" (locked) */}
+        {variant === 'locked' && strength && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              padding: '5px 11px',
+              background: strength.bg,
+              border: `1px solid ${strength.border}`,
+              borderRadius: '9999px',
+              fontFamily: 'var(--pf-font-ui, system-ui)',
+              fontSize: '0.625rem',
+              fontWeight: 800,
+              color: strength.color,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+            }}
+          >
+            {strength.text}
+          </div>
+        )}
+
+        {/* Badge Próximamente (coming_soon) */}
+        {variant === 'coming_soon' && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              padding: '5px 11px',
+              background: 'rgba(245,158,11,0.2)',
+              border: '1px solid rgba(245,158,11,0.5)',
+              borderRadius: '9999px',
+              fontFamily: 'var(--pf-font-ui, system-ui)',
+              fontSize: '0.625rem',
+              fontWeight: 800,
+              color: '#FCD34D',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            Proximamente
+          </div>
+        )}
+
+        {/* Chip de capability (owned) */}
+        {variant === 'owned' && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              right: '12px',
+              padding: '4px 10px',
+              background: capColor.bg,
+              border: `1px solid ${capColor.border}`,
+              borderRadius: '9999px',
+              fontFamily: 'var(--pf-font-ui, system-ui)',
+              fontSize: '0.625rem',
+              fontWeight: 800,
+              color: capColor.text,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            {CAPABILITY_LABEL[model.capability] || model.capability}
+          </div>
+        )}
       </div>
 
-      {/* Header: nombre + badge */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div
-            style={{
-              fontFamily: 'var(--pf-font-display)',
-              fontSize: '1.0625rem',
-              fontWeight: 600,
-              color: 'var(--pf-text-primary)',
-              letterSpacing: '-0.02em',
-              marginBottom: '2px',
-            }}
-          >
-            {model.name}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontFamily: 'var(--pf-font-ui)',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              color: 'var(--pf-text-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            <span>{CAPABILITY_LABEL[model.capability] || model.capability}</span>
-            {variant === 'owned' && isOnline !== undefined && (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.6875rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  letterSpacing: '0',
-                  color: isOnline ? '#10B981' : 'var(--pf-text-muted)',
-                }}
-              >
-                <span style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  background: isOnline ? '#10B981' : 'var(--pf-text-muted)',
-                }} />
-                {isOnline ? 'Estación ON' : 'Estación OFF'}
-              </span>
-            )}
-          </div>
-        </div>
-        <span
+      {/* ── Nombre + estado ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '4px 10px',
-            borderRadius: '9999px',
-            fontSize: '0.6875rem',
-            fontWeight: 600,
-            fontFamily: 'var(--pf-font-ui)',
-            color: badge.color,
-            background: badge.bg,
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
+            fontFamily: 'var(--pf-font-display, system-ui)',
+            fontSize: '1.1875rem',
+            fontWeight: 700,
+            color: 'var(--pf-text-primary)',
+            letterSpacing: '-0.025em',
+            lineHeight: 1.2,
           }}
         >
-          <badge.Icon size={11} />
-          {badge.text}
-        </span>
+          {model.name}
+        </div>
+        {variant === 'owned' && isOnline !== undefined && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: 'var(--pf-font-ui, system-ui)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: isOnline ? '#10B981' : 'var(--pf-text-muted)',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: isOnline ? '#10B981' : 'var(--pf-text-muted)',
+                boxShadow: isOnline ? '0 0 8px #10B981' : 'none',
+              }}
+            />
+            {isOnline ? 'Estacion encendida' : 'Estacion apagada'}
+          </div>
+        )}
       </div>
 
-      {/* Descripción */}
+      {/* ── Descripción ── */}
       <p
         style={{
           margin: 0,
-          fontFamily: 'var(--pf-font-ui)',
-          fontSize: '0.8125rem',
-          lineHeight: 1.5,
+          fontFamily: 'var(--pf-font-ui, system-ui)',
+          fontSize: '0.875rem',
+          lineHeight: 1.55,
           color: 'var(--pf-text-secondary)',
           flex: 1,
         }}
@@ -261,218 +413,283 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
         {model.description}
       </p>
 
-      {/* Acción */}
+      {/* ── Acciones (owned) ── */}
       {variant === 'owned' && onDownload && (
-        <button
-          onClick={() => onDownload(model.id)}
-          disabled={isDownloading}
+        <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            background: isDownloading ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)',
-            color: isDownloading ? 'var(--pf-text-muted)' : 'var(--pf-bg-elevated)',
-            border: 'none',
-            borderRadius: '10px',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            cursor: isDownloading ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
+            flexDirection: 'column',
+            gap: '10px',
+            paddingTop: '14px',
+            borderTop: '1px solid var(--pf-border-subtle)',
           }}
         >
-          {isDownloading ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Descargando...
-            </>
-          ) : (
-            <>
-              <Download size={14} />
-              Descargar notebook
-            </>
+          <button
+            onClick={() => onDownload(model.id)}
+            disabled={isDownloading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '12px 16px',
+              background: isDownloading
+                ? 'var(--pf-bg-tertiary)'
+                : (isColabOnly
+                    ? 'linear-gradient(135deg, #F9AB00 0%, #FBBC04 100%)'
+                    : 'linear-gradient(135deg, #20BEFF 0%, #1E9DE0 100%)'),
+              color: isDownloading
+                ? 'var(--pf-text-muted)'
+                : (isColabOnly ? '#1A1A1A' : '#FFFFFF'),
+              border: 'none',
+              borderRadius: '11px',
+              fontFamily: 'var(--pf-font-ui, system-ui)',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              cursor: isDownloading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: isDownloading
+                ? 'none'
+                : (isColabOnly
+                    ? '0 8px 20px -8px rgba(249,171,0,0.65)'
+                    : '0 8px 20px -8px rgba(32,190,255,0.65)'),
+            }}
+            onMouseEnter={(e) => {
+              if (!isDownloading) {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = isColabOnly
+                  ? '0 12px 28px -8px rgba(249,171,0,0.9)'
+                  : '0 12px 28px -8px rgba(32,190,255,0.9)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = isDownloading
+                ? 'none'
+                : (isColabOnly
+                    ? '0 8px 20px -8px rgba(249,171,0,0.65)'
+                    : '0 8px 20px -8px rgba(32,190,255,0.65)');
+            }}
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Descargando...
+              </>
+            ) : (
+              <>
+                <Download size={14} />
+                {isColabOnly ? 'Descargar (Colab)' : 'Descargar notebook'}
+              </>
+            )}
+          </button>
+
+          {hasColabVariant && (
+            <button
+              onClick={() =>
+                canDownloadColab && onDownloadColab
+                  ? onDownloadColab(model.id)
+                  : onColabLocked?.()
+              }
+              disabled={isDownloadingColab}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '12px 16px',
+                background: canDownloadColab
+                  ? isDownloadingColab
+                    ? 'var(--pf-bg-tertiary)'
+                    : 'linear-gradient(135deg, #F9AB00 0%, #FBBC04 100%)'
+                  : 'linear-gradient(135deg, rgba(139,92,246,0.14), rgba(236,72,153,0.1))',
+                color: canDownloadColab
+                  ? isDownloadingColab
+                    ? 'var(--pf-text-muted)'
+                    : '#1A1A1A'
+                  : '#C4B5FD',
+                border: canDownloadColab ? 'none' : '1px solid rgba(139,92,246,0.45)',
+                borderRadius: '11px',
+                fontFamily: 'var(--pf-font-ui, system-ui)',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                cursor: isDownloadingColab ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease',
+                opacity: isDownloadingColab ? 0.6 : 1,
+                boxShadow:
+                  canDownloadColab && !isDownloadingColab
+                    ? '0 8px 20px -8px rgba(249,171,0,0.65)'
+                    : 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (canDownloadColab && !isDownloadingColab) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 12px 28px -8px rgba(249,171,0,0.9)';
+                } else if (!canDownloadColab) {
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(139,92,246,0.22), rgba(236,72,153,0.16))';
+                  e.currentTarget.style.borderColor = 'rgba(139,92,246,0.75)';
+                  e.currentTarget.style.boxShadow = '0 10px 24px -10px rgba(139,92,246,0.6)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow =
+                  canDownloadColab && !isDownloadingColab
+                    ? '0 8px 20px -8px rgba(249,171,0,0.65)'
+                    : 'none';
+                if (!canDownloadColab) {
+                  e.currentTarget.style.background =
+                    'linear-gradient(135deg, rgba(139,92,246,0.14), rgba(236,72,153,0.1))';
+                  e.currentTarget.style.borderColor = 'rgba(139,92,246,0.45)';
+                }
+              }}
+            >
+              {isDownloadingColab ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Descargando...
+                </>
+              ) : (
+                <>
+                  <Download size={14} />
+                  Descargar (Colab)
+                  {!canDownloadColab && (
+                    <span
+                      style={{
+                        marginLeft: '6px',
+                        padding: '3px 9px',
+                        borderRadius: '6px',
+                        background: 'rgba(139,92,246,0.25)',
+                        color: '#DDD6FE',
+                        fontSize: '0.625rem',
+                        fontWeight: 800,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Creator
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
           )}
-        </button>
+
+          {onShutdown && isOnline && (
+            <button
+              onClick={() => onShutdown(model.id)}
+              disabled={isShuttingDown}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                background: isShuttingDown ? 'rgba(239,68,68,0.08)' : 'transparent',
+                color: isShuttingDown ? 'var(--pf-text-muted)' : '#F87171',
+                border: `1px solid ${isShuttingDown ? 'var(--pf-border-default)' : 'rgba(239,68,68,0.35)'}`,
+                borderRadius: '11px',
+                fontFamily: 'var(--pf-font-ui, system-ui)',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+                cursor: isShuttingDown ? 'not-allowed' : 'pointer',
+                opacity: isShuttingDown ? 0.6 : 1,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (isShuttingDown) return;
+                e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.6)';
+              }}
+              onMouseLeave={(e) => {
+                if (isShuttingDown) return;
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderColor = 'rgba(239,68,68,0.35)';
+              }}
+            >
+              {isShuttingDown ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Apagando...
+                </>
+              ) : (
+                <>
+                  <Power size={14} />
+                  Apagar estacion
+                </>
+              )}
+            </button>
+          )}
+        </div>
       )}
 
-      {variant === 'owned' && hasColabVariant && (
-        <button
-          onClick={() => (canDownloadColab && onDownloadColab) ? onDownloadColab(model.id) : onColabLocked?.()}
-          disabled={isDownloadingColab}
+      {/* ── Footer locked ── */}
+      {variant === 'locked' && (
+        <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            background: canDownloadColab ? 'var(--pf-bg-tertiary)' : 'rgba(245,158,11,0.08)',
-            color: canDownloadColab ? 'var(--pf-text-secondary)' : '#B45309',
-            border: `1px solid ${canDownloadColab ? 'var(--pf-border-default)' : 'rgba(245,158,11,0.4)'}`,
-            borderRadius: '10px',
-            fontFamily: 'var(--pf-font-ui)',
+            justifyContent: 'space-between',
+            paddingTop: '14px',
+            marginTop: 'auto',
+            borderTop: '1px solid var(--pf-border-subtle)',
+            fontFamily: 'var(--pf-font-ui, system-ui)',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            color: isUnlocking
+              ? 'var(--pf-text-muted)'
+              : onUnlock
+                ? '#A78BFA'
+                : 'var(--pf-text-muted)',
+            letterSpacing: '-0.01em',
+            transition: 'color 0.2s',
+          }}
+        >
+          <span>
+            {isUnlocking
+              ? 'Redirigiendo a Stripe...'
+              : onUnlock
+                ? 'Desbloquear con Creator'
+                : 'Requiere plan Creator'}
+          </span>
+          {!isUnlocking && onUnlock && (
+            <ArrowRight
+              size={18}
+              strokeWidth={2.5}
+              style={{
+                color: 'var(--pf-text-primary)',
+                transition: 'transform 0.2s',
+                transform: isHovered ? 'translateX(4px)' : 'translateX(0)',
+                flexShrink: 0,
+              }}
+            />
+          )}
+          {!onUnlock && <Lock size={13} />}
+        </div>
+      )}
+
+      {/* ── Footer coming soon ── */}
+      {variant === 'coming_soon' && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: '14px',
+            marginTop: 'auto',
+            borderTop: '1px solid var(--pf-border-subtle)',
+            fontFamily: 'var(--pf-font-ui, system-ui)',
             fontSize: '0.8125rem',
             fontWeight: 600,
-            cursor: isDownloadingColab ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            opacity: isDownloadingColab ? 0.6 : 1,
-          }}
-        >
-          {isDownloadingColab ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Descargando...
-            </>
-          ) : (
-            <>
-              <Download size={14} />
-              Descargar (Colab)
-              {!canDownloadColab && (
-                <span style={{
-                  marginLeft: '4px',
-                  padding: '2px 6px',
-                  borderRadius: '6px',
-                  background: 'rgba(245,158,11,0.15)',
-                  color: '#B45309',
-                  fontSize: '0.625rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.03em',
-                }}>PRO</span>
-              )}
-            </>
-          )}
-        </button>
-      )}
-
-      {variant === 'owned' && onShutdown && isOnline && (
-        <button
-          onClick={() => onShutdown(model.id)}
-          disabled={isShuttingDown}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            background: isShuttingDown ? 'rgba(239, 68, 68, 0.08)' : 'transparent',
-            color: isShuttingDown ? 'var(--pf-text-muted)' : '#F87171',
-            border: `1px solid ${isShuttingDown ? 'var(--pf-border-default)' : 'rgba(239, 68, 68, 0.3)'}`,
-            borderRadius: '10px',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.875rem',
-            fontWeight: 500,
+            color: 'var(--pf-text-muted)',
             letterSpacing: '-0.01em',
-            cursor: isShuttingDown ? 'not-allowed' : 'pointer',
-            opacity: isShuttingDown ? 0.6 : 1,
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            if (isShuttingDown) return;
-            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-          }}
-          onMouseLeave={(e) => {
-            if (isShuttingDown) return;
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
           }}
         >
-          {isShuttingDown ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Apagando...
-            </>
-          ) : (
-            <>
-              <Power size={14} />
-              Apagar estación
-            </>
-          )}
-        </button>
-      )}
-
-      {variant === 'locked' && onUnlock && (
-        <button
-          onClick={onUnlock}
-          disabled={isUnlocking}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            background: isUnlocking ? 'var(--pf-bg-tertiary)' : 'var(--pf-text-primary)',
-            color: isUnlocking ? 'var(--pf-text-muted)' : 'var(--pf-text-inverse, #FFFFFF)',
-            border: 'none',
-            borderRadius: '10px',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            cursor: isUnlocking ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          {isUnlocking ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Redirigiendo...
-            </>
-          ) : (
-            <>
-              <Sparkles size={14} />
-              Desbloquear
-            </>
-          )}
-        </button>
-      )}
-
-      {variant === 'locked' && !onUnlock && (
-        <button
-          disabled
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            background: 'var(--pf-bg-secondary)',
-            color: 'var(--pf-text-muted)',
-            border: '1px solid var(--pf-border-default)',
-            borderRadius: '10px',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            cursor: 'not-allowed',
-          }}
-        >
-          <Lock size={14} />
-          Bloqueado
-        </button>
-      )}
-
-      {variant === 'coming_soon' && (
-        <button
-          disabled
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '10px 16px',
-            background: 'var(--pf-bg-secondary)',
-            color: 'var(--pf-text-muted)',
-            border: '1px solid var(--pf-border-default)',
-            borderRadius: '10px',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            cursor: 'not-allowed',
-          }}
-        >
-          <Clock size={14} />
-          Próximamente
-        </button>
+          <span>Proximamente</span>
+          <Clock size={13} />
+        </div>
       )}
     </div>
   );
@@ -486,6 +703,8 @@ const StationPage: React.FC = () => {
   const { stationStatusMap, refreshStationStatus } = useGenerationContext();
   const { startCheckout, state: purchaseState } = usePurchase();
   const { profile } = useAuth();
+  const { resolved } = useTheme();
+  const isLight = resolved === 'light';
   const navigate = useNavigate();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingColabId, setDownloadingColabId] = useState<string | null>(null);
@@ -553,14 +772,38 @@ const StationPage: React.FC = () => {
       >
         {/* Header */}
         <div style={{ marginBottom: '40px' }}>
+          {canDownloadColab && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                background: 'rgba(16,185,129,0.1)',
+                border: '1px solid rgba(16,185,129,0.35)',
+                borderRadius: '9999px',
+                fontFamily: 'var(--pf-font-ui, system-ui)',
+                fontSize: '0.6875rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: '#10B981',
+                marginBottom: '16px',
+              }}
+            >
+              <Crown size={12} strokeWidth={2.5} />
+              Creator activo
+            </div>
+          )}
           <h1
             style={{
               fontFamily: 'var(--pf-font-display)',
-              fontSize: '2rem',
-              fontWeight: 700,
-              letterSpacing: '-0.03em',
+              fontSize: '2.25rem',
+              fontWeight: 800,
+              letterSpacing: '-0.035em',
               margin: 0,
               marginBottom: '8px',
+              lineHeight: 1.15,
             }}
           >
             Mi Estación
@@ -575,7 +818,9 @@ const StationPage: React.FC = () => {
               lineHeight: 1.6,
             }}
           >
-            Descarga tus notebooks para correrlos en Kaggle. Cada modelo requiere un runtime activo.
+            {canDownloadColab
+              ? 'Los 8 modelos del catálogo, listos para correr. Sin créditos. Sin límites semanales.'
+              : 'Ocho modelos. Un solo lugar. Cero créditos. Descarga tus notebooks y corre tus runtimes en Kaggle o Google Colab — sin límites por generación.'}
           </p>
 
           <div
@@ -594,20 +839,58 @@ const StationPage: React.FC = () => {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: "10px 18px",
-                background: "var(--pf-text-primary, #0A0A0A)",
-                color: "var(--pf-text-inverse, #FFFFFF)",
+                padding: "11px 20px",
+                background: "linear-gradient(135deg, #20BEFF 0%, #1E9DE0 100%)",
+                color: "#FFFFFF",
                 borderRadius: "10px",
                 textDecoration: "none",
                 fontFamily: "var(--pf-font-ui, system-ui)",
                 fontSize: "0.875rem",
-                fontWeight: 600,
-                transition: "opacity 0.15s",
+                fontWeight: 700,
+                boxShadow: "0 8px 20px -8px rgba(32,190,255,0.7)",
+                transition: "transform 0.15s, box-shadow 0.15s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 12px 28px -8px rgba(32,190,255,0.9)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 8px 20px -8px rgba(32,190,255,0.7)";
+              }}
             >
               Abrir Kaggle
+              <ExternalLink size={14} />
+            </a>
+            <a
+              href="https://colab.research.google.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "11px 20px",
+                background: "linear-gradient(135deg, #F9AB00 0%, #FBBC04 100%)",
+                color: "#1A1A1A",
+                borderRadius: "10px",
+                textDecoration: "none",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.875rem",
+                fontWeight: 700,
+                boxShadow: "0 8px 20px -8px rgba(249,171,0,0.7)",
+                transition: "transform 0.15s, box-shadow 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 12px 28px -8px rgba(249,171,0,0.9)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 8px 20px -8px rgba(249,171,0,0.7)";
+              }}
+            >
+              Abrir Colab
               <ExternalLink size={14} />
             </a>
             <Link
@@ -640,6 +923,225 @@ const StationPage: React.FC = () => {
               ¿Cómo enciendo mi estación?
             </Link>
           </div>
+
+          {canDownloadColab && ownedModels.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                gap: '10px',
+                flexWrap: 'wrap',
+                marginTop: '20px',
+              }}
+            >
+              {[
+                { Icon: Layers, label: `${ownedModels.length} modelos` },
+                { Icon: Zap, label: '120 h/mes' },
+                { Icon: Sparkles, label: 'Sin créditos' },
+              ].map(({ Icon, label }, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    background: 'var(--pf-bg-secondary)',
+                    border: '1px solid var(--pf-border-default)',
+                    borderRadius: '9999px',
+                    fontFamily: 'var(--pf-font-ui, system-ui)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: 'var(--pf-text-secondary)',
+                  }}
+                >
+                  <Icon size={12} strokeWidth={2.25} />
+                  {label}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!canDownloadColab && (() => {
+            const deadline = new Date("2026-12-31T23:59:59-06:00").getTime();
+            const msLeft = Math.max(0, deadline - Date.now());
+            const daysLeft = Math.floor(msLeft / (1000 * 60 * 60 * 24));
+            const isPurchasing = purchaseState === 'loading';
+
+            return (
+              <div
+                style={{
+                  position: "relative",
+                  marginTop: "32px",
+                  padding: "32px 32px 28px",
+                  background: isLight
+                    ? "linear-gradient(135deg, rgba(139,92,246,0.07) 0%, rgba(236,72,153,0.05) 100%)"
+                    : "linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(236,72,153,0.12) 50%, rgba(34,211,238,0.08) 100%)",
+                  border: isLight
+                    ? "1px solid rgba(139,92,246,0.3)"
+                    : "1px solid rgba(139,92,246,0.4)",
+                  borderRadius: "18px",
+                  overflow: "hidden",
+                  boxShadow: isLight
+                    ? "0 12px 32px -16px rgba(139,92,246,0.25)"
+                    : "0 20px 60px -20px rgba(139,92,246,0.5)",
+                }}
+              >
+                {/* Glow decorativo — solo en dark/neon */}
+                {!isLight && (
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      top: "-40%",
+                      right: "-10%",
+                      width: "400px",
+                      height: "400px",
+                      background:
+                        "radial-gradient(circle, rgba(236,72,153,0.25) 0%, transparent 70%)",
+                      pointerEvents: "none",
+                    }}
+                  />
+                )}
+
+                <div
+                  style={{
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "20px",
+                    flexWrap: "wrap",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+                    {/* Badge de urgencia */}
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "5px 12px",
+                        background: isLight
+                          ? "rgba(220,38,38,0.08)"
+                          : "rgba(220,38,38,0.18)",
+                        border: isLight
+                          ? "1px solid rgba(220,38,38,0.35)"
+                          : "1px solid rgba(220,38,38,0.5)",
+                        borderRadius: "9999px",
+                        fontFamily: "var(--pf-font-ui, system-ui)",
+                        fontSize: "0.6875rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        color: isLight ? "#B91C1C" : "#FCA5A5",
+                        marginBottom: "14px",
+                      }}
+                    >
+                      <Flame size={12} strokeWidth={2.5} />
+                      Precio de lanzamiento · Quedan {daysLeft} días
+                    </div>
+
+                    {/* Título */}
+                    <div
+                      style={{
+                        fontFamily: "var(--pf-font-display, system-ui)",
+                        fontSize: "1.5rem",
+                        fontWeight: 800,
+                        letterSpacing: "-0.03em",
+                        color: "var(--pf-text-primary)",
+                        marginBottom: "8px",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      Desbloquea 5 modelos más.<br />
+                      <span style={{ color: isLight ? "#6D28D9" : "#A5B4FC" }}>
+                        Corre Kaggle y Colab al mismo tiempo.
+                      </span>
+                    </div>
+
+                    {/* Subtítulo */}
+                    <div
+                      style={{
+                        fontFamily: "var(--pf-font-ui, system-ui)",
+                        fontSize: "0.9375rem",
+                        color: "var(--pf-text-secondary)",
+                        lineHeight: 1.55,
+                        marginBottom: "20px",
+                        maxWidth: "560px",
+                      }}
+                    >
+                      Sin créditos por generación. Sin límites semanales.{" "}
+                      <strong style={{ color: "var(--pf-text-primary)" }}>
+                        $249/mes hasta el 31 dic
+                      </strong>{" "}
+                      — después sube a{" "}
+                      <s style={{ opacity: 0.7 }}>$399/mes</s>.
+                    </div>
+
+                    {/* CTA + microcopy */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "14px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <button
+                        onClick={() => startCheckout("creator")}
+                        disabled={isPurchasing}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          padding: "14px 28px",
+                          background: isPurchasing
+                            ? "rgba(139,92,246,0.4)"
+                            : "linear-gradient(135deg, #8B5CF6, #EC4899)",
+                          color: "#FFFFFF",
+                          border: "none",
+                          borderRadius: "12px",
+                          fontFamily: "var(--pf-font-ui, system-ui)",
+                          fontSize: "0.9375rem",
+                          fontWeight: 700,
+                          cursor: isPurchasing ? "wait" : "pointer",
+                          boxShadow: "0 12px 32px -8px rgba(139,92,246,0.8)",
+                          transition: "transform 0.15s, box-shadow 0.15s",
+                          whiteSpace: "nowrap",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isPurchasing) {
+                            e.currentTarget.style.transform = "translateY(-2px)";
+                            e.currentTarget.style.boxShadow =
+                              "0 16px 40px -8px rgba(139,92,246,1)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow =
+                            "0 12px 32px -8px rgba(139,92,246,0.8)";
+                        }}
+                      >
+                        {isPurchasing
+                          ? "Redirigiendo a Stripe..."
+                          : "Suscribirme — $249/mes"}
+                      </button>
+                      <div
+                        style={{
+                          fontFamily: "var(--pf-font-ui, system-ui)",
+                          fontSize: "0.75rem",
+                          color: "var(--pf-text-muted)",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        14 días de reembolso. Cancela cuando quieras.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Loading / Error */}
@@ -747,19 +1249,33 @@ const StationPage: React.FC = () => {
         {/* Sección 2: Catálogo */}
         {!loading && !error && (lockedModels.length > 0 || comingSoonModels.length > 0) && (
           <section>
-            <h2
-              style={{
-                fontFamily: 'var(--pf-font-display)',
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                letterSpacing: '-0.02em',
-                margin: 0,
-                marginBottom: '20px',
-                color: 'var(--pf-text-primary)',
-              }}
-            >
-              Explorar catálogo
-            </h2>
+            <div style={{ marginBottom: '24px' }}>
+              <h2
+                style={{
+                  fontFamily: 'var(--pf-font-display)',
+                  fontSize: '1.375rem',
+                  fontWeight: 700,
+                  letterSpacing: '-0.025em',
+                  margin: 0,
+                  marginBottom: '6px',
+                  color: 'var(--pf-text-primary)',
+                }}
+              >
+                Desbloquea {lockedModels.filter((m) => !m.coming_soon).length} modelos más con Creator
+              </h2>
+              <p
+                style={{
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '0.875rem',
+                  color: 'var(--pf-text-secondary)',
+                  margin: 0,
+                  lineHeight: 1.55,
+                  maxWidth: '620px',
+                }}
+              >
+                Los mejores pipelines del catalogo: sin censura, multi-referencia, clonacion de voz y video con audio. Click en cualquier card para suscribirte.
+              </p>
+            </div>
             <div
               style={{
                 display: 'grid',
@@ -783,6 +1299,86 @@ const StationPage: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* CTA grande al final del grid */}
+            {lockedModels.filter((m) => !m.coming_soon).length > 0 && (
+              <div
+                style={{
+                  marginTop: '32px',
+                  padding: '28px 32px',
+                  background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.05))',
+                  border: '1px solid rgba(139,92,246,0.3)',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '24px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--pf-font-display)',
+                      fontSize: '1.125rem',
+                      fontWeight: 700,
+                      letterSpacing: '-0.02em',
+                      color: 'var(--pf-text-primary)',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Un solo click te desbloquea todo.
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--pf-font-ui)',
+                      fontSize: '0.875rem',
+                      color: 'var(--pf-text-secondary)',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    $249/mes · 14 dias de reembolso · Cancela cuando quieras.
+                  </div>
+                </div>
+                <button
+                  onClick={() => startCheckout("creator")}
+                  disabled={purchaseState === 'loading'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '14px 28px',
+                    background: purchaseState === 'loading'
+                      ? 'rgba(139,92,246,0.4)'
+                      : 'linear-gradient(135deg, #8B5CF6, #EC4899)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontFamily: 'var(--pf-font-ui)',
+                    fontSize: '0.9375rem',
+                    fontWeight: 700,
+                    cursor: purchaseState === 'loading' ? 'wait' : 'pointer',
+                    boxShadow: '0 12px 32px -8px rgba(139,92,246,0.7)',
+                    whiteSpace: 'nowrap',
+                    transition: 'transform 0.15s, box-shadow 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (purchaseState !== 'loading') {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 16px 40px -8px rgba(139,92,246,0.95)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 12px 32px -8px rgba(139,92,246,0.7)';
+                  }}
+                >
+                  {purchaseState === 'loading'
+                    ? 'Redirigiendo a Stripe...'
+                    : 'Suscribirme a Creator'}
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -812,6 +1408,10 @@ const StationPage: React.FC = () => {
       <style>{`
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pf-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.15); }
+        }
       `}</style>
     </div>
   );
