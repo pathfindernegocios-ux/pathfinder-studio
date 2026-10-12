@@ -285,25 +285,62 @@ function applyStylePreset(prompt: string, stylePreset?: string): string {
 const DELETED_ITEMS_KEY = 'pf_deleted_items_v1';
 const DELETED_ITEMS_MAX = 200;
 
-function loadDeletedItems(): Set<string> {
+interface DeletedItemRecord {
+  id: string;
+  prompt?: string;
+  /** Momento en que el user borro el item. */
+  deletedAt?: number;
+}
+
+/** Un item del backend se considera eliminado si matchea por:
+ *  - ID exacto (caso normal), o
+ *  - mismo prompt Y createdAt ANTERIOR al momento del borrado
+ *    (caso optimista msg-* vs gen-*: el item real aparece despues).
+ *  Esta logica evita el falso positivo cuando el user borra un audio
+ *  y genera otro con el mismo prompt — el nuevo tiene createdAt posterior
+ *  al deletedAt y por lo tanto NO se filtra.
+ */
+function isItemDeleted(
+  item: { id: string; prompt?: string; createdAt?: number },
+  records: DeletedItemRecord[],
+): boolean {
+  for (const rec of records) {
+    if (rec.id === item.id) return true;
+    if (
+      rec.prompt &&
+      item.prompt &&
+      rec.prompt === item.prompt &&
+      typeof rec.deletedAt === 'number' &&
+      typeof item.createdAt === 'number' &&
+      item.createdAt < rec.deletedAt
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function loadDeletedItems(): DeletedItemRecord[] {
   try {
     const raw = localStorage.getItem(DELETED_ITEMS_KEY);
-    if (!raw) return new Set();
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(
-      parsed
-        .filter((e: unknown): e is { id: string } => !!e && typeof e === 'object' && typeof (e as { id?: unknown }).id === 'string')
-        .map((e) => e.id)
-    );
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((e: unknown): e is DeletedItemRecord => !!e && typeof e === 'object' && typeof (e as { id?: unknown }).id === 'string')
+      .map((e) => ({
+        id: e.id,
+        prompt: typeof e.prompt === 'string' ? e.prompt : undefined,
+        deletedAt: typeof e.deletedAt === 'number' ? e.deletedAt : undefined,
+      }));
   } catch {
-    return new Set();
+    return [];
   }
 }
 
-function persistDeletedItems(ids: Set<string>) {
+function persistDeletedItems(records: DeletedItemRecord[]) {
   try {
-    const arr = Array.from(ids).slice(-DELETED_ITEMS_MAX).map((id) => ({ id, t: Date.now() }));
+    const arr = records.slice(-DELETED_ITEMS_MAX);
     localStorage.setItem(DELETED_ITEMS_KEY, JSON.stringify(arr));
   } catch {
     // noop
@@ -376,7 +413,7 @@ export function GenerationProvider({
   // IDs de items borrados localmente. Filtra los hydrates/polls que traen el
   // /session_history del notebook (que no sabe del borrado). useRef para no
   // re-disparar los 6 useEffect.
-  const deletedIdsRef = useRef<Set<string>>(loadDeletedItems());
+  const deletedIdsRef = useRef<DeletedItemRecord[]>(loadDeletedItems());
 
   // 3 runtimes en paralelo — uno por capability/notebook.
   // Cada uno tiene su propio túnel Gradio, su propio getClient y su propio
@@ -919,14 +956,32 @@ export function GenerationProvider({
   }, []);
 
   const removeSessionItem = useCallback((id: string) => {
-    // Trackear el ID para que el proximo hydrate/poll del notebook no lo resucite.
-    deletedIdsRef.current.add(id);
-    persistDeletedItems(deletedIdsRef.current);
-    setSessionHistoryByCapability(prev => ({
-      image: prev.image.filter(it => it.id !== id),
-      video: prev.video.filter(it => it.id !== id),
-      audio: prev.audio.filter(it => it.id !== id),
-    }));
+    // Guardar el record completo (id + prompt + createdAt) para poder matchear
+    // tambien contra el ID real del backend si el optimista msg-* cambia a gen-*.
+    setSessionHistoryByCapability(prev => {
+      // Buscar el item en cualquier slice para extraer prompt + createdAt
+      const found =
+        prev.image.find(it => it.id === id) ||
+        prev.video.find(it => it.id === id) ||
+        prev.audio.find(it => it.id === id);
+
+      if (found) {
+        deletedIdsRef.current.push({
+          id,
+          prompt: found.prompt,
+          deletedAt: Date.now(),
+        });
+      } else {
+        deletedIdsRef.current.push({ id, deletedAt: Date.now() });
+      }
+      persistDeletedItems(deletedIdsRef.current);
+
+      return {
+        image: prev.image.filter(it => it.id !== id),
+        video: prev.video.filter(it => it.id !== id),
+        audio: prev.audio.filter(it => it.id !== id),
+      };
+    });
   }, []);
 
   const discardSessionItem = useCallback((id: string) => {
@@ -989,7 +1044,7 @@ export function GenerationProvider({
         const otherModels = prev.filter(
           it => it.modelId && it.modelId !== activeImageModelId && !backendIds.has(it.id)
         );
-        return [...items, ...otherModels].filter(it => !deletedIdsRef.current.has(it.id));
+        return [...items, ...otherModels].filter(it => !isItemDeleted(it, deletedIdsRef.current));
       });
     })();
     return () => { cancelled = true; };
@@ -1009,7 +1064,7 @@ export function GenerationProvider({
         const otherModels = prev.filter(
           it => it.modelId && it.modelId !== activeVideoModelId && !backendIds.has(it.id)
         );
-        return [...items, ...otherModels].filter(it => !deletedIdsRef.current.has(it.id));
+        return [...items, ...otherModels].filter(it => !isItemDeleted(it, deletedIdsRef.current));
       });
     })();
     return () => { cancelled = true; };
@@ -1029,7 +1084,7 @@ export function GenerationProvider({
         const otherModels = prev.filter(
           it => it.modelId && it.modelId !== 'tts-dual' && !backendIds.has(it.id)
         );
-        return [...items, ...otherModels].filter(it => !deletedIdsRef.current.has(it.id));
+        return [...items, ...otherModels].filter(it => !isItemDeleted(it, deletedIdsRef.current));
       });
     })();
     return () => { cancelled = true; };
@@ -1077,7 +1132,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('image', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev, activeImageModelIdRef.current));
+            setHistoryForCap('image', prev => mergeWithOrphans(items.filter(it => !isItemDeleted(it, deletedIdsRef.current)), prev, activeImageModelIdRef.current));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
@@ -1101,7 +1156,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('video', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev, activeVideoModelIdRef.current));
+            setHistoryForCap('video', prev => mergeWithOrphans(items.filter(it => !isItemDeleted(it, deletedIdsRef.current)), prev, activeVideoModelIdRef.current));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
@@ -1125,7 +1180,7 @@ export function GenerationProvider({
           if (cancelled) return;
           if (items.length > 0) {
             const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('audio', prev => mergeWithOrphans(items.filter(it => !deletedIdsRef.current.has(it.id)), prev, 'tts-dual'));
+            setHistoryForCap('audio', prev => mergeWithOrphans(items.filter(it => !isItemDeleted(it, deletedIdsRef.current)), prev, 'tts-dual'));
             if (!stillGenerating) return;
           }
         } catch { /* noop */ }
