@@ -709,8 +709,9 @@ const StationPage: React.FC = () => {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingColabId, setDownloadingColabId] = useState<string | null>(null);
 
-  const userPlan = ((profile as Record<string, unknown> | null)?.plan as string || 'standard').toLowerCase();
-  const canDownloadColab = ['creator', 'founder', 'pro'].includes(userPlan);
+  const isPlanReady = profile !== null;
+  const userPlan = ((profile as Record<string, unknown> | null)?.plan as string | undefined)?.toLowerCase() ?? null;
+  const canDownloadColab = userPlan !== null && ['creator', 'founder', 'pro'].includes(userPlan);
   const [shuttingDownId, setShuttingDownId] = useState<string | null>(null);
   const [shutdownTargetId, setShutdownTargetId] = useState<string | null>(null);
 
@@ -772,7 +773,7 @@ const StationPage: React.FC = () => {
       >
         {/* Header */}
         <div style={{ marginBottom: '40px' }}>
-          {canDownloadColab && (
+          {isPlanReady && canDownloadColab && (
             <div
               style={{
                 display: 'inline-flex',
@@ -818,7 +819,7 @@ const StationPage: React.FC = () => {
               lineHeight: 1.6,
             }}
           >
-            {canDownloadColab
+            {isPlanReady && canDownloadColab
               ? 'Los 8 modelos del catálogo, listos para correr. Sin créditos. Sin límites semanales.'
               : 'Ocho modelos. Un solo lugar. Cero créditos. Descarga tus notebooks y corre tus runtimes en Kaggle o Google Colab — sin límites por generación.'}
           </p>
@@ -924,7 +925,7 @@ const StationPage: React.FC = () => {
             </Link>
           </div>
 
-          {canDownloadColab && ownedModels.length > 0 && (
+          {isPlanReady && canDownloadColab && ownedModels.length > 0 && (
             <div
               style={{
                 display: 'flex',
@@ -961,7 +962,7 @@ const StationPage: React.FC = () => {
             </div>
           )}
 
-          {!canDownloadColab && (() => {
+          {isPlanReady && !canDownloadColab && (() => {
             const deadline = new Date("2026-12-31T23:59:59-06:00").getTime();
             const msLeft = Math.max(0, deadline - Date.now());
             const daysLeft = Math.floor(msLeft / (1000 * 60 * 60 * 24));
