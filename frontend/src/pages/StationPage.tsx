@@ -479,7 +479,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, variant, onDownload, isDow
             ) : (
               <>
                 <Download size={14} />
-                {isColabOnly ? 'Descargar (Colab)' : 'Descargar notebook'}
+                {isColabOnly ? 'Descargar (Colab)' : 'Descargar workflow'}
               </>
             )}
           </button>
@@ -749,7 +749,7 @@ const StationPage: React.FC = () => {
       await downloadNotebook(modelId, platform);
     } catch (e) {
       void 0;
-      alert('No se pudo descargar el notebook. Intenta de nuevo.');
+      alert('No se pudo descargar el workflow. Intenta de nuevo.');
     } finally {
       setDownloadingId(null);
       setDownloadingColabId(null);
@@ -821,7 +821,7 @@ const StationPage: React.FC = () => {
           >
             {isPlanReady && canDownloadColab
               ? 'Los 8 modelos del catálogo, listos para correr. Sin créditos. Sin límites semanales.'
-              : 'Ocho modelos. Un solo lugar. Cero créditos. Descarga tus notebooks y corre tus runtimes en Kaggle o Google Colab — sin límites por generación.'}
+              : 'Ocho modelos. Un solo lugar. Cero créditos. Descarga tus workflows y corre tus runtimes en Kaggle o Google Colab — sin límites por generación.'}
           </p>
 
           <div
@@ -1201,7 +1201,7 @@ const StationPage: React.FC = () => {
                 color: 'var(--pf-text-primary)',
               }}
             >
-              Mis notebooks
+              Mis workflows
               <span
                 style={{
                   marginLeft: '10px',

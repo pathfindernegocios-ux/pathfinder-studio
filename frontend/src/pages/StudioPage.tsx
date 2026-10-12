@@ -672,8 +672,8 @@ const StudioPage: React.FC = () => {
                           {isError
                             ? 'Ve a Kaggle y revisa que la celda siga corriendo. Si se detuvo, presiona Run All y espera. También puedes actualizar esta página si no responde.'
                             : isOffline
-                            ? 'El notebook dejó de responder hace más de 90 segundos. Revisa que la celda siga corriendo en Kaggle o Colab.'
-                            : 'Sin latido del notebook hace 30 a 90 segundos. Puede ser un pico de red o el notebook reiniciándose. Espera unos segundos.'}
+                            ? 'El workflow dejó de responder hace más de 90 segundos. Revisa que la celda siga corriendo en Kaggle o Colab.'
+                            : 'Sin latido del workflow hace 30 a 90 segundos. Puede ser un pico de red o el workflow reiniciándose. Espera unos segundos.'}
                         </div>
                       </div>
                     </div>
