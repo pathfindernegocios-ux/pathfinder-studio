@@ -1750,7 +1750,7 @@ export const HowItWorksContent: React.FC = () => {
             },
             {
               q: "¿Es legal usar Kaggle o Colab para generar contenido?",
-              a: "Sí. Kaggle y Google Colab permiten uso personal de sus recursos. Kaggle y Colab ponen el cómputo — la GPU, el runtime. Pathfinder pone todo lo demás: los workflows, los modelos preconfigurados, la nube (Cloudflare R2), la interfaz de generación, el monitoreo de estado en vivo y la gestión de tu cuenta. Tú operas tu estación, pero con la infraestructura completa de Pathfinder encima.",
+              a: "Kaggle y Google Colab son infraestructura gratuita diseñada para uso personal. Kaggle y Colab ponen el cómputo — la GPU, el runtime. Pathfinder pone la capa de productividad: workflows, modelos preconfigurados, nube (Cloudflare R2), interfaz de generación, monitoreo de estado en vivo y gestión de tu cuenta. Para uso comercial intensivo, recomendamos el plan Creator, que suma Colab como segunda plataforma y distribuye la carga entre dos proveedores. Los términos de uso de cada plataforma son responsabilidad de cada usuario.",
             },
             {
               q: "¿Qué pasa si la ejecución se pausa o falla?",
@@ -1822,6 +1822,38 @@ export const HowItWorksContent: React.FC = () => {
             </details>
           ))}
         </div>
+      </section>
+
+      {/* ==================== DISCLAIMER LEGAL ==================== */}
+      <section
+        style={{
+          marginTop: "40px",
+          padding: "0 4px",
+        }}
+      >
+        <p
+          style={{
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.75rem",
+            color: "var(--pf-text-muted, #A1A1AA)",
+            lineHeight: 1.6,
+            textAlign: "center",
+            margin: 0,
+            maxWidth: "720px",
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          <strong style={{ color: "var(--pf-text-secondary, #525252)" }}>
+            Aviso legal.
+          </strong>{" "}
+          Pathfinder Studio no está afiliado a Kaggle ni a Google Colab. El uso
+          de esas plataformas está sujeto a sus propios Términos de Servicio.
+          Pathfinder provee la capa de orquestación, workflows, modelos
+          preconfigurados y almacenamiento. No controlamos ni somos responsables
+          de la disponibilidad, seguridad o cambios de política de Kaggle o
+          Colab.
+        </p>
       </section>
 
       {/* ==================== CTA FINAL ==================== */}
