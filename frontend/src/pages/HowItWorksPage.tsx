@@ -74,7 +74,8 @@ const MEDIA_URLS = {
   step3_colab: "",
   step4_create:
     "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step3-ready.mp4",
-  step5_save_shutdown: "",
+  step5_save_shutdown:
+    "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/step5_save_shutdown.mp4",
 };
 
 // ---------------------------------------------------------------------------
