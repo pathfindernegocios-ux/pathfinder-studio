@@ -4,9 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Image as ImageIcon,
-  VideoCamera,
-  MusicNotes,
   GoogleLogo,
   Lightning,
   Stack,
@@ -19,7 +16,7 @@ import { useAuth } from "../hooks/useAuth";
 import { fadeInUp, staggerContainer } from "../design/motion";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HERO SLIDER — imagen con texto, auto-rotación cada 4s
+// HERO SLIDER
 // ═══════════════════════════════════════════════════════════════════════════
 const HERO_SLIDES = [
   {
@@ -87,12 +84,7 @@ const HeroSlider: React.FC = () => {
             background: "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.75) 100%)",
             pointerEvents: "none",
           }} />
-          <div style={{
-            position: "absolute",
-            left: 28,
-            right: 28,
-            bottom: 28,
-          }}>
+          <div style={{ position: "absolute", left: 28, right: 28, bottom: 28 }}>
             <h3 style={{
               fontFamily: "var(--pf-font-display-alt)",
               fontSize: "clamp(1.125rem, 1.8vw, 1.5rem)",
@@ -140,66 +132,378 @@ const HeroSlider: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CARRUSEL FOTOGRÁFICO — marquee full-width
+// CAPABILITY SHOWCASE — bloques alternados con imagen grande
 // ═══════════════════════════════════════════════════════════════════════════
-const CAROUSEL_PHOTOS = [
-  "1470071459604-3b5ec3a7fe05",
-  "1493514789931-586cb221d7a7",
-  "1506744038136-46273834b3fb",
-  "1519681393784-d120267933ba",
-  "1493246507139-91e8fad9978e",
-  "1441974231531-c6227db76b6e",
-  "1506905925346-21bda4d32df4",
-  "1518791841217-8f162f1e1131",
+interface Capability {
+  id: string;
+  label: string;
+  title: string;
+  body: string;
+  image: string;
+  aspectRatio: string;
+  reversed: boolean;
+}
+
+const CAPABILITIES: Capability[] = [
+  {
+    id: "image",
+    label: "IMAGEN",
+    title: "Crea imágenes con referencias",
+    body: "Sube hasta 3 imágenes de referencia y describe qué quieres cambiar. El sujeto se mantiene consistente entre generaciones, sin perder detalle.",
+    image: "https://images.unsplash.com/photo-1618556450994-a6a128ef0d9d?w=1400&q=80",
+    aspectRatio: "4 / 3",
+    reversed: false,
+  },
+  {
+    id: "video",
+    label: "VIDEO",
+    title: "Crea videos con audio",
+    body: "Encadena hasta 5 escenas visualmente. El End Frame de una escena es el Start Frame de la siguiente. Audio sincronizado en cada toma.",
+    image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1400&q=80",
+    aspectRatio: "16 / 9",
+    reversed: true,
+  },
+  {
+    id: "audio",
+    label: "AUDIO",
+    title: "Clona voces y crea diálogos",
+    body: "Con 10 segundos de audio limpio produces todo tu contenido en tu propia voz. Control de emoción, 13 idiomas, diálogos entre personajes.",
+    image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1400&q=80",
+    aspectRatio: "1 / 1",
+    reversed: false,
+  },
 ];
 
-const CarouselSection: React.FC = () => (
-  <section style={{
-    background: "#0A0A0B",
-    padding: "80px 0",
-    overflow: "hidden",
-    borderTop: "1px solid rgba(255,255,255,0.05)",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
-  }}>
-    <div style={{
-      display: "flex",
-      gap: 20,
-      animation: "pf-marquee 60s linear infinite",
-      willChange: "transform",
-    }}>
-      {[...CAROUSEL_PHOTOS, ...CAROUSEL_PHOTOS].map((id, i) => (
-        <div
-          key={i}
-          style={{
-            flexShrink: 0,
-            width: 320,
-            height: 220,
-            borderRadius: 8,
-            overflow: "hidden",
-            background: "#141416",
-          }}
-        >
-          <img
-            src={`https://images.unsplash.com/photo-${id}?w=640&q=80&auto=format&fit=crop`}
-            alt=""
-            loading="lazy"
+const CapabilityShowcase: React.FC = () => (
+  <section style={{ background: "#0A0A0B", padding: "120px 80px" }}>
+    <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+      <motion.h2
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="pf-h2"
+        style={{ marginBottom: 16 }}
+      >
+        Todo lo que necesitas
+        <br />
+        para crear.
+      </motion.h2>
+
+      <motion.p
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+        className="pf-lead"
+        style={{ marginBottom: 100, maxWidth: 560 }}
+      >
+        Tres capacidades, un solo lugar. Del prompt a la pieza final sin salir del Studio.
+      </motion.p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 120 }}>
+        {CAPABILITIES.map((cap) => (
+          <motion.div
+            key={cap.id}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={staggerContainer}
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-              opacity: 0.85,
+              display: "grid",
+              gridTemplateColumns: "1.2fr 1fr",
+              gap: 80,
+              alignItems: "center",
+              direction: cap.reversed ? "rtl" : "ltr",
             }}
-          />
-        </div>
-      ))}
+            className="pf-capability-row"
+          >
+            {/* Imagen grande */}
+            <motion.div
+              variants={fadeInUp}
+              style={{
+                direction: "ltr",
+                borderRadius: 12,
+                overflow: "hidden",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "#141416",
+                aspectRatio: cap.aspectRatio,
+                position: "relative",
+              }}
+            >
+              <img
+                src={cap.image}
+                alt={cap.title}
+                loading="lazy"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+              {/* Overlay sutil */}
+              <div style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.35) 100%)",
+                pointerEvents: "none",
+              }} />
+            </motion.div>
+
+            {/* Texto */}
+            <motion.div variants={fadeInUp} style={{ direction: "ltr" }}>
+              <div style={{
+                fontFamily: "var(--pf-font-mono)",
+                fontSize: "0.6875rem",
+                fontWeight: 500,
+                letterSpacing: "0.18em",
+                color: "#8B5CF6",
+                marginBottom: 20,
+              }}>
+                {cap.label}
+              </div>
+
+              <h3 style={{
+                fontFamily: "var(--pf-font-display-alt)",
+                fontSize: "clamp(1.5rem, 2.5vw, 2rem)",
+                fontWeight: 600,
+                letterSpacing: "-0.025em",
+                lineHeight: 1.15,
+                color: "#F5F5F7",
+                margin: 0,
+                marginBottom: 20,
+              }}>
+                {cap.title}
+              </h3>
+
+              <p style={{
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "1rem",
+                lineHeight: 1.65,
+                color: "rgba(255,255,255,0.55)",
+                margin: 0,
+                marginBottom: 32,
+                maxWidth: 480,
+              }}>
+                {cap.body}
+              </p>
+
+              <Link
+                to="/academy"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontFamily: "var(--pf-font-ui)",
+                  fontSize: "0.9375rem",
+                  fontWeight: 600,
+                  color: "#F5F5F7",
+                  textDecoration: "none",
+                  transition: "gap 200ms",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.gap = "14px")}
+                onMouseLeave={(e) => (e.currentTarget.style.gap = "8px")}
+              >
+                Ver modelos
+                <ArrowRight width={16} height={16} strokeWidth={2} />
+              </Link>
+            </motion.div>
+          </motion.div>
+        ))}
+      </div>
     </div>
-    <style>{`
-      @keyframes pf-marquee {
-        from { transform: translate3d(0, 0, 0); }
-        to   { transform: translate3d(calc(-50% - 10px), 0, 0); }
-      }
-    `}</style>
+  </section>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRICING TEASER — 2 mini cards
+// ═══════════════════════════════════════════════════════════════════════════
+const PricingTeaser: React.FC<{ session: boolean }> = ({ session }) => (
+  <section style={{ background: "#0A0A0B", padding: "140px 80px" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={staggerContainer}
+      >
+        <motion.h2 variants={fadeInUp} className="pf-h2" style={{ marginBottom: 20 }}>
+          Empieza gratis.
+          <br />
+          Escala cuando quieras.
+        </motion.h2>
+
+        <motion.p variants={fadeInUp} className="pf-lead" style={{ marginBottom: 60, maxWidth: 560 }}>
+          Plan Free con 3 modelos, sin tarjeta. Creator para el Estudio completo.
+        </motion.p>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 20,
+        }} className="pf-pricing-teaser">
+          {/* Free */}
+          <motion.div
+            variants={fadeInUp}
+            style={{
+              padding: "36px 32px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 12,
+              background: "#0F0F11",
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+            }}
+          >
+            <div>
+              <div style={{
+                fontFamily: "var(--pf-font-mono)",
+                fontSize: "0.6875rem",
+                letterSpacing: "0.18em",
+                color: "rgba(255,255,255,0.4)",
+                marginBottom: 12,
+              }}>
+                FREE
+              </div>
+              <div style={{
+                fontFamily: "var(--pf-font-display-alt)",
+                fontSize: "2.5rem",
+                fontWeight: 600,
+                letterSpacing: "-0.03em",
+                lineHeight: 1,
+                color: "#F5F5F7",
+                marginBottom: 16,
+              }}>
+                $0
+              </div>
+              <p style={{
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.9375rem",
+                lineHeight: 1.55,
+                color: "rgba(255,255,255,0.5)",
+                margin: 0,
+              }}>
+                3 modelos de entrada. Studio completo. Sin fecha de vencimiento.
+              </p>
+            </div>
+            <Link
+              to={session ? "/studio" : "/auth"}
+              style={{
+                marginTop: "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "12px 20px",
+                border: "1px solid rgba(255,255,255,0.14)",
+                borderRadius: 9999,
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                color: "#F5F5F7",
+                textDecoration: "none",
+                transition: "border-color 150ms, background 150ms",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.28)";
+                e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              {session ? "Ir al Studio" : "Empezar gratis"}
+            </Link>
+          </motion.div>
+
+          {/* Creator */}
+          <motion.div
+            variants={fadeInUp}
+            style={{
+              padding: "36px 32px",
+              border: "1px solid rgba(139,92,246,0.30)",
+              borderRadius: 12,
+              background: "linear-gradient(180deg, rgba(139,92,246,0.06), rgba(139,92,246,0.02))",
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+              position: "relative",
+            }}
+          >
+            <div>
+              <div style={{
+                fontFamily: "var(--pf-font-mono)",
+                fontSize: "0.6875rem",
+                letterSpacing: "0.18em",
+                color: "#A78BFA",
+                marginBottom: 12,
+              }}>
+                CREATOR
+              </div>
+              <div style={{
+                fontFamily: "var(--pf-font-display-alt)",
+                fontSize: "2.5rem",
+                fontWeight: 600,
+                letterSpacing: "-0.03em",
+                lineHeight: 1,
+                color: "#F5F5F7",
+                marginBottom: 16,
+              }}>
+                $249
+                <span style={{
+                  fontFamily: "var(--pf-font-ui)",
+                  fontSize: "0.875rem",
+                  fontWeight: 400,
+                  color: "rgba(255,255,255,0.45)",
+                  marginLeft: 8,
+                }}>/mes</span>
+              </div>
+              <p style={{
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.9375rem",
+                lineHeight: 1.55,
+                color: "rgba(255,255,255,0.6)",
+                margin: 0,
+              }}>
+                10 modelos. Kaggle + Colab en paralelo. Sin créditos por generación.
+              </p>
+            </div>
+            <Link
+              to="/pricing"
+              style={{
+                marginTop: "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "12px 20px",
+                background: "#8B5CF6",
+                borderRadius: 9999,
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                color: "#FFFFFF",
+                textDecoration: "none",
+                transition: "background 150ms, transform 150ms",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#7C66DD";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#8B5CF6";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              Ver planes
+              <ArrowRight width={16} height={16} strokeWidth={2} />
+            </Link>
+          </motion.div>
+        </div>
+      </motion.div>
+    </div>
   </section>
 );
 
@@ -211,38 +515,22 @@ const HomePage: React.FC = () => {
 
   return (
     <MarketingLayout>
-      {/* ═══════════════ HERO — split 60/40 ═══════════════ */}
+      {/* ═══════════════ HERO — split 60/40 + Deep Field ═══════════════ */}
       <section style={{
         position: "relative",
         background: "#000000",
         padding: "140px 80px 120px",
         overflow: "hidden",
       }}>
-        {/* Distorsión espacial — canvas con star trails */}
         <SpaceWarp density={1400} intensity={1} />
 
-        {/* Overlay para legibilidad del texto (oscurece el lado izquierdo) */}
+        {/* Overlay de legibilidad — oscurece el lado izquierdo */}
         <div
           aria-hidden
           style={{
             position: "absolute",
             inset: 0,
             background: "linear-gradient(90deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 38%, rgba(0,0,0,0.10) 68%, rgba(0,0,0,0) 100%)",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Radial violeta detrás del texto (izquierda) para elevar contraste */}
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            top: "25%",
-            left: "-10%",
-            width: "700px",
-            height: "700px",
-            background: "radial-gradient(circle, rgba(139,92,246,0.22) 0%, rgba(139,92,246,0.06) 40%, transparent 70%)",
-            filter: "blur(70px)",
             pointerEvents: "none",
           }}
         />
@@ -377,57 +665,134 @@ const HomePage: React.FC = () => {
         </motion.div>
       </section>
 
-      {/* ═══════════════ CARRUSEL FOTOGRÁFICO ═══════════════ */}
-      <CarouselSection />
-
-      {/* ═══════════════ QUÉ ES PATHFINDER ═══════════════ */}
+      {/* ═══════════════ QUÉ ES PATHFINDER — split editorial ═══════════════ */}
       <section style={{ background: "#0A0A0B", padding: "140px 80px" }}>
-        <div style={{ maxWidth: 780, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-100px" }}
             variants={staggerContainer}
           >
-            <motion.h2 variants={fadeInUp} className="pf-h2" style={{ marginBottom: 32 }}>
+            {/* Título grande a la izquierda */}
+            <motion.h2
+              variants={fadeInUp}
+              style={{
+                fontFamily: "var(--pf-font-display-alt)",
+                fontSize: "clamp(2.25rem, 4vw, 3.5rem)",
+                fontWeight: 600,
+                letterSpacing: "-0.035em",
+                lineHeight: 1.05,
+                color: "#F5F5F7",
+                margin: 0,
+                marginBottom: 64,
+                maxWidth: 720,
+              }}
+            >
               Pathfinder es tu estudio
               <br />
               de creación con IA.
             </motion.h2>
 
-            <motion.p variants={fadeInUp} className="pf-lead" style={{ marginBottom: 24 }}>
-              Diez modelos curados para imagen, video y audio. Diseñados,
-              probados y mantenidos por nosotros para que te concentres
-              solo en crear.
-            </motion.p>
+            {/* Quote indentada a la derecha — Satoshi italic */}
+            <motion.div
+              variants={fadeInUp}
+              style={{
+                marginLeft: "auto",
+                marginRight: 0,
+                maxWidth: 640,
+                paddingLeft: 40,
+                borderLeft: "2px solid rgba(139,92,246,0.4)",
+                marginBottom: 32,
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: "'Satoshi', var(--pf-font-display-alt), system-ui, sans-serif",
+                  fontSize: "clamp(1.5rem, 2.5vw, 2rem)",
+                  fontWeight: 500,
+                  fontStyle: "italic",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.3,
+                  color: "#F5F5F7",
+                  margin: 0,
+                }}
+              >
+                Diez modelos curados para imagen, video y audio.
+              </p>
+            </motion.div>
 
-            <motion.p variants={fadeInUp} className="pf-lead" style={{ marginBottom: 24 }}>
-              Los enciendes cuando los necesitas, los apagas cuando terminas.
-              Sin tarjetas gráficas, sin configurar entornos, sin sorpresas
-              al final del mes.
-            </motion.p>
+            {/* Párrafos indentados */}
+            <motion.div
+              variants={fadeInUp}
+              style={{
+                marginLeft: "auto",
+                marginRight: 0,
+                maxWidth: 640,
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
+                marginBottom: 80,
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: "var(--pf-font-ui)",
+                  fontSize: "1.0625rem",
+                  lineHeight: 1.7,
+                  color: "rgba(255,255,255,0.55)",
+                  margin: 0,
+                }}
+              >
+                Diseñados, probados y mantenidos por nosotros para
+                que te concentres solo en crear.
+              </p>
 
-            <motion.p variants={fadeInUp} className="pf-lead" style={{ marginBottom: 64 }}>
-              Diseñamos cada workflow. Probamos cada modelo. Mantenemos
-              toda la infraestructura — para que tú solo tengas que abrir
-              el Studio y crear.
-            </motion.p>
+              <p
+                style={{
+                  fontFamily: "var(--pf-font-ui)",
+                  fontSize: "1.0625rem",
+                  lineHeight: 1.7,
+                  color: "rgba(255,255,255,0.55)",
+                  margin: 0,
+                }}
+              >
+                Los enciendes cuando los necesitas, los apagas cuando terminas.
+                Sin tarjetas gráficas, sin configurar entornos, sin sorpresas
+                al final del mes.
+              </p>
 
+              <p
+                style={{
+                  fontFamily: "var(--pf-font-ui)",
+                  fontSize: "1.0625rem",
+                  lineHeight: 1.7,
+                  color: "rgba(255,255,255,0.55)",
+                  margin: 0,
+                }}
+              >
+                Diseñamos cada workflow. Probamos cada modelo. Mantenemos
+                toda la infraestructura — para que tú solo tengas que abrir
+                el Studio y crear.
+              </p>
+            </motion.div>
+
+            {/* Fila de datos mono */}
             <motion.div
               variants={fadeInUp}
               style={{
                 display: "flex",
                 flexWrap: "wrap",
-                gap: "12px 40px",
-                paddingTop: 32,
+                gap: "32px 56px",
+                paddingTop: 40,
                 borderTop: "1px solid rgba(255,255,255,0.08)",
               }}
             >
               {[
-                "Cero costo de hardware",
-                "10 modelos curados",
-                "Sin créditos por generación",
-                "Multi-runtime",
+                "10 MODELOS CURADOS",
+                "CERO COSTO DE HARDWARE",
+                "SIN CRÉDITOS POR GENERACIÓN",
+                "MULTI-RUNTIME",
               ].map((item) => (
                 <span
                   key={item}
@@ -435,8 +800,8 @@ const HomePage: React.FC = () => {
                     fontFamily: "var(--pf-font-mono)",
                     fontSize: "0.75rem",
                     fontWeight: 500,
-                    letterSpacing: "0.08em",
-                    color: "rgba(255,255,255,0.5)",
+                    letterSpacing: "0.12em",
+                    color: "rgba(255,255,255,0.45)",
                   }}
                 >
                   {item}
@@ -447,74 +812,12 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* ═══════════════ LO QUE PUEDES HACER ═══════════════ */}
-      <section style={{ background: "#0A0A0B", padding: "140px 80px" }}>
-        <div style={{ maxWidth: 780, margin: "0 auto" }}>
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={staggerContainer}
-          >
-            <motion.h2 variants={fadeInUp} className="pf-h2" style={{ marginBottom: 64 }}>
-              Todo lo que necesitas
-              <br />
-              para crear.
-            </motion.h2>
-
-            {[
-              {
-                Icon: ImageIcon,
-                title: "Imagen",
-                body: "Krea 2 Turbo, Flux 2 Klein 4B, Qwen Image 2.1. Estilos predefinidos, edición, remoción de fondos, multi-referencia.",
-              },
-              {
-                Icon: VideoCamera,
-                title: "Video",
-                body: "LTX 2.3, LTX 2.5 MSR, Wan 2.1 Dual. Multi-escena, audio sincronizado, animación de imágenes con coherencia visual.",
-              },
-              {
-                Icon: MusicNotes,
-                title: "Audio",
-                body: "OmniVoice, Index TTS 2.5. Clonación de voz, diálogos entre personajes, 13 idiomas, control de emoción.",
-              },
-            ].map((f, i, arr) => (
-              <motion.div
-                key={f.title}
-                variants={fadeInUp}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "56px 1fr",
-                  gap: 40,
-                  padding: "48px 0",
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
-                  borderBottom: i === arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                  alignItems: "flex-start",
-                }}
-              >
-                <div style={{
-                  width: 44,
-                  height: 44,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#8B5CF6",
-                }}>
-                  <f.Icon size={32} weight="regular" />
-                </div>
-                <div>
-                  <h3 className="pf-h3" style={{ marginBottom: 12 }}>{f.title}</h3>
-                  <p className="pf-body" style={{ maxWidth: 620 }}>{f.body}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+      {/* ═══════════════ CAPABILITY SHOWCASE ═══════════════ */}
+      <CapabilityShowcase />
 
       {/* ═══════════════ ASÍ FUNCIONA ═══════════════ */}
       <section style={{ background: "#0A0A0B", padding: "140px 80px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto" }}>
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -593,58 +896,13 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* ═══════════════ PRICING TEASER ═══════════════ */}
-      <section style={{ background: "#0A0A0B", padding: "120px 80px" }}>
-        <div style={{ maxWidth: 780, margin: "0 auto" }}>
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            variants={staggerContainer}
-          >
-            <motion.h2 variants={fadeInUp} className="pf-h2" style={{ marginBottom: 20 }}>
-              Empieza gratis.
-              <br />
-              Escala cuando quieras.
-            </motion.h2>
-
-            <motion.p variants={fadeInUp} className="pf-lead" style={{ marginBottom: 40, maxWidth: 560 }}>
-              Plan Free con 3 modelos, sin tarjeta. Creator para el Estudio completo.
-            </motion.p>
-
-            <motion.div variants={fadeInUp}>
-              <Link
-                to="/pricing"
-                style={{
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "13px 24px",
-                  background: "transparent",
-                  color: "#F5F5F7",
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  borderRadius: 9999,
-                  fontFamily: "var(--pf-font-ui)",
-                  fontSize: "0.9375rem",
-                  fontWeight: 600,
-                  transition: "border-color 150ms",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.28)")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)")}
-              >
-                Ver todos los planes
-                <ArrowRight width={16} height={16} strokeWidth={2} />
-              </Link>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
+      <PricingTeaser session={!!session} />
 
       {/* ═══════════════ FINAL CTA ═══════════════ */}
       <section style={{
         position: "relative",
-        background: "#0A0A0B",
-        padding: "160px 80px",
+        background: "#000000",
+        padding: "180px 80px",
         overflow: "hidden",
       }}>
         <div
@@ -656,7 +914,7 @@ const HomePage: React.FC = () => {
             transform: "translate(-50%, -50%)",
             width: 900,
             height: 500,
-            background: "radial-gradient(ellipse, rgba(139,92,246,0.14) 0%, transparent 65%)",
+            background: "radial-gradient(ellipse, rgba(139,92,246,0.18) 0%, transparent 65%)",
             filter: "blur(80px)",
             pointerEvents: "none",
           }}

@@ -758,6 +758,7 @@ const StationPage: React.FC = () => {
 
   return (
     <div
+      className="pf-legacy"
       style={{
         height: '100%',
         overflowY: 'auto',
