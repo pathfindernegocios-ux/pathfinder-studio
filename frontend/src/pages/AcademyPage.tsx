@@ -1,7 +1,10 @@
 // src/pages/AcademyPage.tsx
 // Guía de modelos — Conoce tus modelos
 // Bloque 1: Base + Modelos de Imagen (Krea, Qwen, Flux)
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import { motion } from "motion/react";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import NumberFlow from "@number-flow/react";
 import {
   Image as ImageIcon,
   Clapperboard,
@@ -9,13 +12,17 @@ import {
   Lightbulb,
   AlertTriangle,
   BookOpen,
-  ChevronDown,
   Wand2,
   Layers,
   Briefcase,
   Cpu,
 } from "lucide-react";
 import MarketingLayout from "../components/marketing/MarketingLayout";
+import { Badge } from "../design/components/Badge";
+import { Tabs, TabContent } from "../design/components/Tabs";
+import { Drawer } from "../design/components/Drawer";
+import { fadeInUp, staggerContainer } from "../design/motion";
+import { radius as R } from "../design/tokens";
 
 // ============================================================================
 // TIPOS
@@ -34,6 +41,7 @@ interface Model {
   capability: Capability;
   tagline: string;
   description: string;
+  thumbnailUrl?: string;
   specs: { label: string; value: string; detail?: string }[];
   useCases: { title: string; desc: string; icon: string }[];
   promptGuide: {
@@ -71,6 +79,7 @@ const MODELS: Model[] = [
     id: "krea-2-turbo",
     name: "Krea 2 Turbo",
     capability: "image",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/krea-2.png",
     tagline: "Generación de imágenes rápidas con estilos predefinidos. El punto de entrada al Estudio.",
     description:
       "Krea 2 Turbo es un modelo de 12B parámetros con flow-matching, destilado a 8 pasos para inferencia rápida. Es el modelo más rápido del catálogo y el más adecuado para iterar ideas visuales antes de comprometerte con modelos más lentos.",
@@ -172,6 +181,7 @@ const MODELS: Model[] = [
     id: "qwen-image-2.1",
     name: "Qwen Image 2.1",
     capability: "image",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/qwen-image-2.1.png",
     tagline: "Imagen sin censura con inpainting, remoción de fondos y multi-referencia.",
     description:
       "Qwen Image 2.1 es un modelo de 7B parámetros que unifica generación y edición en una sola arquitectura. Su característica más distintiva es la generación nativa de RGBA (canal alfa real) — no necesita un paso separado de remoción de fondos.",
@@ -286,6 +296,7 @@ const MODELS: Model[] = [
     id: "flux-2-klein-4b",
     name: "Flux 2 Klein 4B",
     capability: "image",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/flux-2.png",
     tagline: "Máxima calidad con referencias visuales, remoción de objetos y composición quirúrgica.",
     description:
       "Flux 2 Klein 4B es el modelo de imagen más versátil del catálogo. Unifica generación y edición en una arquitectura compacta de 4B parámetros con licencia Apache 2.0 — la más permisiva del catálogo. Soporta hasta 4 referencias y edición con lenguaje natural.",
@@ -401,6 +412,7 @@ const MODELS: Model[] = [
     id: "ltx-2.3",
     name: "LTX 2.3",
     capability: "video",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/ltx-2.3.png",
     tagline:
       "Video con audio sincronizado y storyboard multi-escena. Del prompt a la escena completa.",
     description:
@@ -515,6 +527,7 @@ const MODELS: Model[] = [
     id: "ltx-2.3-msr",
     name: "LTX 2.3 MSR",
     capability: "video",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/ltx-2.3-msr.png",
     tagline:
       "Video multi-referencia con el modelo 22B más pesado. Hasta 4 subjects + background.",
     description:
@@ -613,6 +626,7 @@ const MODELS: Model[] = [
     id: "ltx-2.5-msr",
     name: "LTX 2.5 MSR",
     capability: "video",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/ltx-2.5-msr.png",
     tagline:
       "La generación 2.5 de multi-referencia. Más rápido que 2.3, misma calidad visual.",
     description:
@@ -718,6 +732,7 @@ const MODELS: Model[] = [
     id: "wan-dual-i2v",
     name: "Wan 2.1 Image-to-Video",
     capability: "video",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/wan-dual.png",
     tagline:
       "Anima una imagen estática con movimiento coherente. LoRAs aceleradoras ya cargadas.",
     description:
@@ -827,6 +842,7 @@ const MODELS: Model[] = [
     id: "wan-dual-t2v",
     name: "Wan 2.1 Text-to-Video",
     capability: "video",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/wan-dual.png",
     tagline:
       "Video desde texto en un solo modelo. Rápido y liviano, ideal para exploración visual.",
     description:
@@ -926,6 +942,7 @@ const MODELS: Model[] = [
     id: "tts-dual-omnivoice",
     name: "OmniVoice",
     capability: "audio",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/tts-dual.png",
     tagline:
       "Voz sintética con 4 modos: diseño, clonación, diálogos y auto voice. 13 idiomas.",
     description:
@@ -1045,6 +1062,7 @@ const MODELS: Model[] = [
     id: "tts-dual-index",
     name: "Index TTS 2.5",
     capability: "audio",
+    thumbnailUrl: "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/model-thumbnails/tts-dual.png",
     tagline:
       "Clonación de voz con control de emoción. Dos referencias: una de voz, otra de emoción.",
     description:
@@ -1162,229 +1180,578 @@ const MODELS: Model[] = [
   },
 ];
 
-// ============================================================================
-// COMPONENTES
-// ============================================================================
 
-// Bloque de contenido genérico
-const ContentBlock: React.FC<{
-  Icon: React.ElementType;
-  title: string;
-  items: string[];
-  color: string;
-}> = ({ Icon, title, items, color }) => (
-  <div>
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        marginBottom: "14px",
-        fontFamily: "var(--pf-font-display, system-ui)",
-        fontSize: "1.0625rem",
-        fontWeight: 600,
-        letterSpacing: "-0.01em",
-        color: "var(--pf-text-primary, #0A0A0A)",
-      }}
-    >
-      <Icon size={18} style={{ color }} />
-      <span>{title}</span>
-    </div>
-    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px" }}>
-      {items.map((it, i) => (
-        <li
-          key={i}
-          style={{
-            display: "flex",
-            gap: "12px",
-            alignItems: "flex-start",
-            fontFamily: "var(--pf-font-ui, system-ui)",
-            fontSize: "0.9375rem",
-            lineHeight: 1.6,
-            color: "var(--pf-text-secondary, #525252)",
-          }}
-        >
-          <span style={{ flexShrink: 0, marginTop: "8px", width: "4px", height: "4px", borderRadius: "50%", background: color }} />
-          <span>{it}</span>
-        </li>
-      ))}
-    </ul>
-  </div>
-);
-
-// Bloque de ejemplo de prompt
-const PromptExample: React.FC<{ example: PromptExample; color: string }> = ({ example, color }) => (
-  <div
-    style={{
-      padding: "18px 20px",
-      background: "var(--pf-bg-secondary, #FAFAFA)",
-      border: "1px solid var(--pf-border-subtle, #F4F4F5)",
-      borderRadius: "12px",
-    }}
-  >
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-      <span style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color }}>
-        {example.label}
-      </span>
-      <span style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", color: "var(--pf-text-muted, #A1A1AA)" }}>
-        · {example.context}
-      </span>
-    </div>
-    <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", lineHeight: 1.6, color: "var(--pf-text-primary, #0A0A0A)", fontStyle: "italic" }}>
-      "{example.prompt}"
-    </div>
-  </div>
-);
-
-// ============================================================================
-// MODEL CARD — Estructura premium de 8 secciones
-// ============================================================================
-const ModelCard: React.FC<{ model: Model }> = ({ model }) => {
+// ═══════════════════════════════════════════════════════════════════════════
+// MODEL TILE — Card de la grid
+// ═══════════════════════════════════════════════════════════════════════════
+const ModelTile: React.FC<{ model: Model; onClick: () => void }> = ({ model, onClick }) => {
   const meta = CAPABILITY_META[model.capability];
   const { Icon } = meta;
-  const [showSpecs, setShowSpecs] = useState(false);
-  const [showFCM, setShowFCM] = useState(false);
 
   return (
-    <section id={model.id} style={{ scrollMarginTop: "100px", paddingTop: "64px", paddingBottom: "64px", borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)" }}>
-
-      {/* 1. ENCABEZADO */}
-      <div style={{ marginBottom: "28px" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "5px 12px", background: `${meta.color}14`, border: `1px solid ${meta.color}40`, borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", fontWeight: 700, color: meta.colorDeep, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" }}>
-          <Icon size={12} strokeWidth={2.5} />
-          {meta.label}
+    <motion.button
+      variants={fadeInUp}
+      whileHover={{ y: -2 }}
+      onClick={onClick}
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        textAlign: "left",
+        background: "var(--pf-bg-secondary)",
+        border: "1px solid var(--pf-border-subtle)",
+        borderRadius: R.lg,
+        overflow: "hidden",
+        cursor: "pointer",
+        padding: 0,
+        width: "100%",
+        transition: "border-color 150ms ease-out, box-shadow 150ms ease-out",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = `${meta.color}40`;
+        e.currentTarget.style.boxShadow = `0 8px 24px -8px ${meta.color}30`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--pf-border-subtle)";
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      {model.thumbnailUrl ? (
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "16 / 10",
+            background: "var(--pf-bg-inset)",
+            overflow: "hidden",
+          }}
+        >
+          <img
+            src={model.thumbnailUrl}
+            alt={model.name}
+            loading="lazy"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              transition: "transform 400ms ease-out",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.03)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.55) 100%)",
+              pointerEvents: "none",
+            }}
+          />
+          <div style={{ position: "absolute", top: 12, left: 12 }}>
+            <Badge tone="brand" color={meta.color} colorDeep={meta.colorDeep} icon={<Icon size={11} strokeWidth={2.5} />}>
+              {meta.label}
+            </Badge>
+          </div>
         </div>
-        <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 2.5vw, 1.875rem)", fontWeight: 700, letterSpacing: "-0.03em", color: "var(--pf-text-primary, #0A0A0A)", margin: 0, marginBottom: "10px" }}>
-          {model.name}
-        </h2>
-        <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "var(--pf-text-secondary, #525252)", lineHeight: 1.6, margin: 0, marginBottom: "16px", maxWidth: "720px" }}>
-          {model.tagline}
-        </p>
-        <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.9375rem", color: "var(--pf-text-secondary, #525252)", lineHeight: 1.7, margin: 0, maxWidth: "720px" }}>
-          {model.description}
-        </p>
-      </div>
-
-      {/* 2. FICHA TÉCNICA */}
-      <button onClick={() => setShowSpecs(!showSpecs)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.75rem", fontWeight: 600, color: "var(--pf-text-secondary, #525252)", cursor: "pointer", marginBottom: "24px" }}>
-        <Cpu size={14} />
-        Especificaciones técnicas
-        <ChevronDown size={14} style={{ transform: showSpecs ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
-      </button>
-
-      {showSpecs && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "24px", padding: "20px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "12px" }}>
-          {model.specs.map((s) => (
-            <div key={s.label}>
-              <div style={{ fontSize: "0.6875rem", fontWeight: 600, color: "var(--pf-text-muted, #A1A1AA)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px", fontFamily: "var(--pf-font-ui, system-ui)" }}>{s.label}</div>
-              <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--pf-text-primary, #0A0A0A)", fontFamily: "var(--pf-font-ui, system-ui)" }}>{s.value}</div>
-              {s.detail && <div style={{ fontSize: "0.75rem", color: "var(--pf-text-muted, #A1A1AA)", fontFamily: "var(--pf-font-ui, system-ui)", marginTop: "2px" }}>{s.detail}</div>}
-            </div>
-          ))}
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "16 / 10",
+            background: `${meta.color}10`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: meta.color,
+          }}
+        >
+          <Icon size={40} strokeWidth={1.5} />
         </div>
       )}
 
-      {/* 3. CASOS DE USO PROFESIONALES */}
-      <div style={{ marginBottom: "32px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", fontFamily: "var(--pf-font-display, system-ui)", fontSize: "1.0625rem", fontWeight: 600, color: "var(--pf-text-primary, #0A0A0A)" }}>
-          <Briefcase size={18} style={{ color: meta.color }} />
-          <span>Casos de uso profesionales</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
-          {model.useCases.map((uc) => (
-            <div key={uc.title} style={{ padding: "16px 18px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "12px" }}>
-              <div style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "0.875rem", fontWeight: 700, color: "var(--pf-text-primary, #0A0A0A)", marginBottom: "6px" }}>{uc.title}</div>
-              <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.8125rem", lineHeight: 1.55, color: "var(--pf-text-secondary, #525252)" }}>{uc.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 4. GUÍA DE PROMPT */}
-      <div style={{ marginBottom: "32px", padding: "24px 28px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "14px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", fontFamily: "var(--pf-font-display, system-ui)", fontSize: "1.0625rem", fontWeight: 600, color: "var(--pf-text-primary, #0A0A0A)" }}>
-          <BookOpen size={18} style={{ color: meta.color }} />
-          <span>Guía de prompt</span>
-        </div>
-        <div style={{ marginBottom: "14px" }}>
-          <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: meta.colorDeep, marginBottom: "6px" }}>Estructura recomendada</div>
-          <div style={{ fontFamily: "monospace", fontSize: "0.875rem", color: "var(--pf-text-primary, #0A0A0A)", padding: "10px 14px", background: "var(--pf-bg-elevated, #FFFFFF)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "8px" }}>{model.promptGuide.structure}</div>
-        </div>
-        <div style={{ marginBottom: "18px" }}>
-          <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#EF4444", marginBottom: "6px" }}>Negative prompt</div>
-          <div style={{ fontFamily: "monospace", fontSize: "0.8125rem", color: "var(--pf-text-secondary, #525252)", padding: "10px 14px", background: "var(--pf-bg-elevated, #FFFFFF)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "8px" }}>{model.promptGuide.negativePrompt}</div>
-        </div>
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-          {model.promptGuide.tips.map((tip, i) => (
-            <li key={i} style={{ display: "flex", gap: "10px", alignItems: "flex-start", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", lineHeight: 1.55, color: "var(--pf-text-secondary, #525252)" }}>
-              <Lightbulb size={14} style={{ color: "#F59E0B", flexShrink: 0, marginTop: "3px" }} />
-              <span>{tip}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* 5. EJEMPLOS DE PROMPT */}
-      <div style={{ marginBottom: "32px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", fontFamily: "var(--pf-font-display, system-ui)", fontSize: "1.0625rem", fontWeight: 600, color: "var(--pf-text-primary, #0A0A0A)" }}>
-          <Wand2 size={18} style={{ color: meta.color }} />
-          <span>Ejemplos profesionales</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "12px" }}>
-          {model.examples.map((ex, i) => (
-            <PromptExample key={i} example={ex} color={meta.colorDeep} />
-          ))}
-        </div>
-      </div>
-
-      {/* 6. LIMITACIONES */}
-      <ContentBlock Icon={AlertTriangle} title="Limitaciones" items={model.limitations} color="#B45309" />
-
-      {/* 7. CONTRATO FCM (colapsable) */}
-      <button onClick={() => setShowFCM(!showFCM)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.75rem", fontWeight: 600, color: "var(--pf-text-secondary, #525252)", cursor: "pointer", marginTop: "24px" }}>
-        <Layers size={14} />
-        Contrato con el Studio
-        <ChevronDown size={14} style={{ transform: showFCM ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
-      </button>
-      {showFCM && (
-        <div style={{ marginTop: "16px", padding: "20px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "12px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-          <div>
-            <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: meta.colorDeep, marginBottom: "8px" }}>Modos disponibles</div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-              {model.fcmContract.modes.map((m) => (
-                <li key={m} style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.8125rem", color: "var(--pf-text-secondary, #525252)" }}>· {m}</li>
-              ))}
-            </ul>
+      <div style={{ padding: "20px", display: "flex", flexDirection: "column", flex: 1, gap: 12 }}>
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--pf-font-display)",
+              fontSize: "1.125rem",
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              color: "var(--pf-text-primary)",
+              marginBottom: 6,
+            }}
+          >
+            {model.name}
           </div>
-          <div>
-            <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: meta.colorDeep, marginBottom: "8px" }}>Parámetros</div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-              {model.fcmContract.params.map((p) => (
-                <li key={p} style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.8125rem", color: "var(--pf-text-secondary, #525252)" }}>· {p}</li>
-              ))}
-            </ul>
+          <div
+            style={{
+              fontFamily: "var(--pf-font-ui)",
+              fontSize: "0.8125rem",
+              lineHeight: 1.5,
+              color: "var(--pf-text-secondary)",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {model.tagline}
           </div>
-          {model.fcmContract.files.length > 0 && (
-            <div>
-              <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: meta.colorDeep, marginBottom: "8px" }}>Archivos</div>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-                {model.fcmContract.files.map((f) => (
-                  <li key={f} style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.8125rem", color: "var(--pf-text-secondary, #525252)" }}>· {f}</li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
-      )}
-    </section>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            fontFamily: "var(--pf-font-mono)",
+            fontSize: "0.6875rem",
+            fontWeight: 600,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            color: "var(--pf-text-muted)",
+            marginTop: "auto",
+          }}
+        >
+          {model.specs.slice(0, 3).map((s, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <span style={{ opacity: 0.4 }}>·</span>}
+              <span>{s.value}</span>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </motion.button>
   );
 };
 
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
+// MODEL DRAWER — Detalle en slide-over
+// ═══════════════════════════════════════════════════════════════════════════
+const ModelDrawer: React.FC<{ model: Model | null; onClose: () => void }> = ({ model, onClose }) => {
+  const meta = model ? CAPABILITY_META[model.capability] : null;
+
+  return (
+    <Drawer
+      open={!!model}
+      onOpenChange={(open) => !open && onClose()}
+      title={model?.name}
+      subtitle={model?.tagline}
+      width="620px"
+    >
+      {model && meta && (
+        <Tabs
+          defaultValue="specs"
+          items={[
+            { value: "specs", label: "Specs", icon: <Cpu size={14} /> },
+            { value: "casos", label: "Casos de uso", icon: <Briefcase size={14} /> },
+            { value: "prompt", label: "Prompt", icon: <BookOpen size={14} /> },
+            { value: "ejemplos", label: "Ejemplos", icon: <Wand2 size={14} /> },
+            { value: "fcm", label: "Studio", icon: <Layers size={14} /> },
+          ]}
+        >
+          <TabContent value="specs">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {model.specs.map((s) => (
+                <div
+                  key={s.label}
+                  style={{
+                    padding: "14px 16px",
+                    background: "var(--pf-bg-secondary)",
+                    border: "1px solid var(--pf-border-subtle)",
+                    borderRadius: R.base,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-mono)",
+                      fontSize: "0.625rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "var(--pf-text-muted)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-ui)",
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      color: "var(--pf-text-primary)",
+                      marginBottom: s.detail ? 4 : 0,
+                    }}
+                  >
+                    {s.value}
+                  </div>
+                  {s.detail && (
+                    <div
+                      style={{
+                        fontFamily: "var(--pf-font-ui)",
+                        fontSize: "0.75rem",
+                        color: "var(--pf-text-muted)",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {s.detail}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p
+              style={{
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.9375rem",
+                lineHeight: 1.65,
+                color: "var(--pf-text-secondary)",
+                marginTop: 24,
+                marginBottom: 0,
+              }}
+            >
+              {model.description}
+            </p>
+          </TabContent>
+
+          <TabContent value="casos">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {model.useCases.map((uc) => (
+                <div
+                  key={uc.title}
+                  style={{
+                    padding: "16px 18px",
+                    background: "var(--pf-bg-secondary)",
+                    border: "1px solid var(--pf-border-subtle)",
+                    borderRadius: R.base,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-display)",
+                      fontSize: "0.9375rem",
+                      fontWeight: 700,
+                      color: "var(--pf-text-primary)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {uc.title}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-ui)",
+                      fontSize: "0.875rem",
+                      lineHeight: 1.55,
+                      color: "var(--pf-text-secondary)",
+                    }}
+                  >
+                    {uc.desc}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabContent>
+
+          <TabContent value="prompt">
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: meta.colorDeep,
+                    marginBottom: 8,
+                  }}
+                >
+                  Estructura recomendada
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.8125rem",
+                    color: "var(--pf-text-primary)",
+                    padding: "12px 16px",
+                    background: "var(--pf-bg-inset)",
+                    border: "1px solid var(--pf-border-subtle)",
+                    borderRadius: R.sm,
+                    lineHeight: 1.5,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {model.promptGuide.structure}
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#EF4444",
+                    marginBottom: 8,
+                  }}
+                >
+                  Negative prompt
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.75rem",
+                    color: "var(--pf-text-secondary)",
+                    padding: "12px 16px",
+                    background: "var(--pf-bg-inset)",
+                    border: "1px solid var(--pf-border-subtle)",
+                    borderRadius: R.sm,
+                    lineHeight: 1.5,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {model.promptGuide.negativePrompt}
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: meta.colorDeep,
+                    marginBottom: 10,
+                  }}
+                >
+                  Buenas prácticas
+                </div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {model.promptGuide.tips.map((tip, i) => (
+                    <li
+                      key={i}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        alignItems: "flex-start",
+                        fontFamily: "var(--pf-font-ui)",
+                        fontSize: "0.875rem",
+                        lineHeight: 1.55,
+                        color: "var(--pf-text-secondary)",
+                      }}
+                    >
+                      <Lightbulb size={14} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 3 }} />
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </TabContent>
+
+          <TabContent value="ejemplos">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {model.examples.map((ex, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "16px 18px",
+                    background: "var(--pf-bg-secondary)",
+                    border: "1px solid var(--pf-border-subtle)",
+                    borderRadius: R.base,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                    <span
+                      style={{
+                        fontFamily: "var(--pf-font-mono)",
+                        fontSize: "0.625rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: meta.colorDeep,
+                      }}
+                    >
+                      {ex.label}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "var(--pf-font-ui)",
+                        fontSize: "0.75rem",
+                        color: "var(--pf-text-muted)",
+                      }}
+                    >
+                      · {ex.context}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-mono)",
+                      fontSize: "0.8125rem",
+                      lineHeight: 1.6,
+                      color: "var(--pf-text-primary)",
+                    }}
+                  >
+                    {ex.prompt}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TabContent>
+
+          <TabContent value="fcm">
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: meta.colorDeep,
+                    marginBottom: 8,
+                  }}
+                >
+                  Modos disponibles
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {model.fcmContract.modes.map((m) => (
+                    <Badge key={m} tone="neutral">{m}</Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: meta.colorDeep,
+                    marginBottom: 8,
+                  }}
+                >
+                  Parámetros
+                </div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                  {model.fcmContract.params.map((p) => (
+                    <li
+                      key={p}
+                      style={{
+                        fontFamily: "var(--pf-font-mono)",
+                        fontSize: "0.75rem",
+                        color: "var(--pf-text-secondary)",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {model.fcmContract.files.length > 0 && (
+                <div>
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-mono)",
+                      fontSize: "0.625rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: meta.colorDeep,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Archivos
+                  </div>
+                  <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                    {model.fcmContract.files.map((f) => (
+                      <li
+                        key={f}
+                        style={{
+                          fontFamily: "var(--pf-font-mono)",
+                          fontSize: "0.75rem",
+                          color: "var(--pf-text-secondary)",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.625rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#B45309",
+                    marginBottom: 10,
+                  }}
+                >
+                  Limitaciones
+                </div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {model.limitations.map((l, i) => (
+                    <li
+                      key={i}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        alignItems: "flex-start",
+                        fontFamily: "var(--pf-font-ui)",
+                        fontSize: "0.875rem",
+                        lineHeight: 1.55,
+                        color: "var(--pf-text-secondary)",
+                      }}
+                    >
+                      <AlertTriangle size={14} style={{ color: "#B45309", flexShrink: 0, marginTop: 3 }} />
+                      <span>{l}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </TabContent>
+        </Tabs>
+      )}
+    </Drawer>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ACADEMY CONTENT
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 export const AcademyContent: React.FC = () => {
   const [filter, setFilter] = useState<Capability | "all">("all");
+  const [selected, setSelected] = useState<Model | null>(null);
+  const [gridRef] = useAutoAnimate({ duration: 250, easing: "ease-out" });
+
+  const counts = useMemo(
+    () => ({
+      all: MODELS.length,
+      image: MODELS.filter((m) => m.capability === "image").length,
+      video: MODELS.filter((m) => m.capability === "video").length,
+      audio: MODELS.filter((m) => m.capability === "audio").length,
+    }),
+    []
+  );
+
   const filtered = filter === "all" ? MODELS : MODELS.filter((m) => m.capability === filter);
 
   const filters: { id: Capability | "all"; label: string }[] = [
@@ -1395,47 +1762,138 @@ export const AcademyContent: React.FC = () => {
   ];
 
   return (
-    <div style={{ maxWidth: "980px", margin: "0 auto", padding: "60px 24px 120px" }}>
-      {/* HERO */}
-      <div style={{ marginBottom: "40px" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "6px 14px", background: "rgba(99,102,241,0.10)", border: "1px solid rgba(139, 92, 246, 0.3)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.75rem", fontWeight: 600, color: "#A5B4FC", marginBottom: "20px" }}>
-          <BookOpen size={14} />
-          Guía de modelos
-        </div>
-        <h1 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1, color: "var(--pf-text-primary, #0A0A0A)", margin: 0, marginBottom: "20px" }}>
-          Conoce tus modelos
-        </h1>
-        <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1.125rem", lineHeight: 1.6, color: "var(--pf-text-secondary, #525252)", maxWidth: "680px", margin: 0 }}>
-          Cada modelo tiene un superpoder distinto. Aquí aprendes qué hace, para qué sirve, cómo pedirlo y qué esperar. Conocer tus herramientas es la diferencia entre generar 20 veces hasta acertar y acertar en el primer intento.
-        </p>
-      </div>
+    <div style={{ maxWidth: "1240px", margin: "0 auto", padding: "80px 32px 120px" }}>
+      {/* HERO TÉCNICO */}
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={staggerContainer}
+        style={{ marginBottom: 56 }}
+      >
+        <motion.div
+          variants={fadeInUp}
+          style={{
+            fontFamily: "var(--pf-font-mono)",
+            fontSize: "0.6875rem",
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "var(--pf-text-muted)",
+            marginBottom: 24,
+            display: "flex",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>CATÁLOGO</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>
+            <NumberFlow value={counts.all} format={{ useGrouping: false }} /> MODELOS
+          </span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>{counts.image} IMG · {counts.video} VID · {counts.audio} AUD</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>v2.1</span>
+        </motion.div>
+
+        <motion.h1
+          variants={fadeInUp}
+          style={{
+            fontFamily: "var(--pf-font-display)",
+            fontSize: "clamp(2.5rem, 5vw, 4rem)",
+            fontWeight: 800,
+            letterSpacing: "-0.045em",
+            lineHeight: 1.02,
+            color: "var(--pf-text-primary)",
+            margin: 0,
+            marginBottom: 20,
+            maxWidth: 800,
+          }}
+        >
+          Conoce tus modelos.
+        </motion.h1>
+
+        <motion.p
+          variants={fadeInUp}
+          style={{
+            fontFamily: "var(--pf-font-ui)",
+            fontSize: "1.125rem",
+            lineHeight: 1.6,
+            color: "var(--pf-text-secondary)",
+            maxWidth: 640,
+            margin: 0,
+          }}
+        >
+          Cada modelo tiene un superpoder distinto. Aprende qué hace, para qué sirve, cómo pedirlo y qué esperar antes de ir al Studio.
+        </motion.p>
+      </motion.div>
 
       {/* FILTROS */}
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", paddingBottom: "24px", marginBottom: "8px" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          marginBottom: 32,
+          paddingBottom: 24,
+          borderBottom: "1px solid var(--pf-border-subtle)",
+        }}
+      >
         {filters.map((f) => {
           const isActive = filter === f.id;
-          const count = f.id === "all" ? MODELS.length : MODELS.filter((m) => m.capability === f.id).length;
+          const count = counts[f.id];
           return (
-            <button key={f.id} onClick={() => setFilter(f.id)} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px", background: isActive ? "var(--pf-text-primary, #0A0A0A)" : "var(--pf-bg-secondary, #FAFAFA)", color: isActive ? "var(--pf-text-inverse, #FFFFFF)" : "var(--pf-text-secondary, #525252)", border: isActive ? "1px solid var(--pf-text-primary, #0A0A0A)" : "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 16px",
+                background: isActive ? "var(--pf-text-primary)" : "transparent",
+                color: isActive ? "var(--pf-text-inverse)" : "var(--pf-text-secondary)",
+                border: isActive ? "1px solid var(--pf-text-primary)" : "1px solid var(--pf-border-subtle)",
+                borderRadius: R.full,
+                fontFamily: "var(--pf-font-mono)",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                transition: "all 150ms ease-out",
+              }}
+            >
               {f.label}
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, opacity: 0.6 }}>{count}</span>
+              <span style={{ opacity: 0.6 }}>{count}</span>
             </button>
           );
         })}
       </div>
 
-      {/* LISTA DE MODELOS */}
-      {filtered.map((model) => (
-        <ModelCard key={model.id} model={model} />
-      ))}
+      {/* GRID */}
+      <div
+        ref={gridRef}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+          gap: 20,
+        }}
+      >
+        {filtered.map((model) => (
+          <ModelTile key={model.id} model={model} onClick={() => setSelected(model)} />
+        ))}
+      </div>
 
+      {/* DRAWER */}
+      <ModelDrawer model={selected} onClose={() => setSelected(null)} />
     </div>
   );
 };
 
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 // ACADEMY PAGE — wrapper público
-// ============================================================================
+// ═══════════════════════════════════════════════════════════════════════════
 const AcademyPage: React.FC = () => (
   <MarketingLayout>
     <AcademyContent />
