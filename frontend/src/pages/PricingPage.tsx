@@ -794,7 +794,7 @@ const MultiRuntimeBlock: React.FC = () => {
 // ============================================================
 const ComparisonTable: React.FC = () => {
   const rows: Array<{ label: string; free: string | boolean; creator: string | boolean; founder: string | boolean }> = [
-    { label: "GPU dedicada bajo demanda", free: true, creator: true, founder: true },
+    { label: "GPU de Kaggle y Colab bajo demanda", free: true, creator: true, founder: true },
     { label: "Horas de estación / mes", free: "120", creator: "120", founder: "120 × 6" },
     { label: "Multi-runtime con Colab", free: false, creator: true, founder: true },
     { label: "Imagen: Krea 2 Turbo", free: true, creator: true, founder: true },
@@ -802,7 +802,7 @@ const ComparisonTable: React.FC = () => {
     { label: "Video: Wan 2.1 (i2v + t2v)", free: true, creator: true, founder: true },
     { label: "Video: LTX 2.3 · LTX 2.5 MSR", free: false, creator: true, founder: true },
     { label: "Audio: OmniVoice + Index TTS", free: false, creator: true, founder: true },
-    { label: "Mis Creaciones · retención", free: "7 días", creator: "Ilimitada", founder: "Ilimitada" },
+    { label: "Mis Creaciones · retención", free: "7 días", creator: "7 días", founder: "7 días" },
     { label: "Acceso anticipado a nuevos modelos", free: false, creator: false, founder: true },
     { label: "Soporte", free: "Estándar", creator: "Prioritario", founder: "Directo" },
   ];
@@ -930,11 +930,11 @@ const ComparisonTable: React.FC = () => {
 // ============================================================
 const ValueStackBlock: React.FC = () => {
   const items = [
-    { label: "GPU dedicada · 120 h/mes", value: "$1,200" },
+    { label: "GPU Kaggle + Colab · 120 h/mes", value: "$1,200" },
     { label: "Colab extra · 5 a 8 h/día", value: "$400" },
     { label: "Catálogo de 8 modelos IA", value: "$800" },
     { label: "Multi-runtime simultáneo", value: "$300" },
-    { label: "Mis Creaciones ilimitadas", value: "$200" },
+    { label: "Mis Creaciones · 7 días", value: "$200" },
   ];
 
   return (
@@ -1235,6 +1235,380 @@ const NewModelsBlock: React.FC = () => (
 );
 
 // ============================================================
+// FAIR USE POLICY BLOCK
+// ============================================================
+const FairUsePolicy: React.FC = () => {
+  const platforms = [
+    {
+      name: "Kaggle",
+      color: "#20BEFF",
+      items: [
+        "30 horas de GPU por semana",
+        "Reset los sábados a medianoche UTC",
+        "Si agotas la cuota, esperas al reset",
+      ],
+    },
+    {
+      name: "Google Colab",
+      color: "#F9AB00",
+      items: [
+        "Sesiones de hasta 12 horas",
+        "Disponibilidad variable según demanda",
+        "Sin cuota fija publicada por Google",
+      ],
+    },
+  ];
+
+  return (
+    <section
+      style={{
+        padding: "80px 24px",
+        background: "#050505",
+        borderTop: "1px solid rgba(139, 92, 246, 0.1)",
+      }}
+    >
+      <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 14px",
+              background: "rgba(16, 185, 129, 0.1)",
+              border: "1px solid rgba(16, 185, 129, 0.3)",
+              borderRadius: "9999px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.6875rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "#6EE7B7",
+              marginBottom: "20px",
+            }}
+          >
+            <ShieldCheck size={12} strokeWidth={2.5} />
+            Uso justo
+          </div>
+          <h2
+            style={{
+              fontFamily: "var(--pf-font-display, system-ui)",
+              fontSize: "clamp(1.5rem, 3vw, 2rem)",
+              fontWeight: 800,
+              letterSpacing: "-0.03em",
+              margin: 0,
+              marginBottom: "16px",
+              color: "#FFFFFF",
+            }}
+          >
+            Límites claros, sin sorpresas.
+          </h2>
+          <p
+            style={{
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "1rem",
+              color: "rgba(255,255,255,0.65)",
+              lineHeight: 1.6,
+              margin: 0,
+              maxWidth: "640px",
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          >
+            Pathfinder corre sobre la infraestructura gratuita de Kaggle y
+            Google Colab. Cada plataforma tiene sus propias reglas de uso. Aquí
+            las explicamos con transparencia para que sepas exactamente qué
+            esperar.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: "20px",
+            marginBottom: "32px",
+          }}
+        >
+          {platforms.map((p) => (
+            <div
+              key={p.name}
+              style={{
+                padding: "28px 24px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "16px",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginBottom: "20px",
+                }}
+              >
+                <span
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    background: p.color,
+                    boxShadow: `0 0 10px ${p.color}99`,
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: "var(--pf-font-display, system-ui)",
+                    fontSize: "1.0625rem",
+                    fontWeight: 700,
+                    letterSpacing: "-0.02em",
+                    color: "#FFFFFF",
+                  }}
+                >
+                  {p.name}
+                </span>
+              </div>
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                {p.items.map((item, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "flex-start",
+                      fontFamily: "var(--pf-font-ui, system-ui)",
+                      fontSize: "0.875rem",
+                      color: "rgba(255,255,255,0.7)",
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        marginTop: "7px",
+                        width: "5px",
+                        height: "5px",
+                        borderRadius: "50%",
+                        background: p.color,
+                        opacity: 0.8,
+                      }}
+                    />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <p
+          style={{
+            fontFamily: "var(--pf-font-ui, system-ui)",
+            fontSize: "0.8125rem",
+            color: "rgba(255,255,255,0.5)",
+            textAlign: "center",
+            lineHeight: 1.6,
+            maxWidth: "720px",
+            margin: "0 auto",
+          }}
+        >
+          Los límites son de Kaggle y Google Colab, no de Pathfinder. Pathfinder
+          no controla ni es responsable de cambios en sus políticas de uso. Con
+          Multi-Runtime (Creator y Founder) puedes usar ambas plataformas en
+          paralelo para maximizar tu capacidad total.
+        </p>
+      </div>
+    </section>
+  );
+};
+
+// ============================================================
+// ROADMAP BLOCK
+// ============================================================
+const RoadmapBlock: React.FC = () => {
+  const items = [
+    {
+      Icon: Layers,
+      title: "Infraestructura dedicada",
+      body: "Estamos migrando a GPUs propias para eliminar los límites de plataformas de terceros. Sesiones más largas, sin cuotas externas.",
+    },
+    {
+      Icon: Clock,
+      title: "Pago por uso",
+      body: "Planes por créditos para quienes generan de forma intensiva, con precios alineados al costo real de la GPU.",
+    },
+    {
+      Icon: Boxes,
+      title: "Storage extendido",
+      body: "Retención de creaciones más larga y proyectos persistentes en la nube de Pathfinder.",
+    },
+  ];
+
+  return (
+    <section
+      style={{
+        padding: "80px 24px",
+        background: "#050505",
+        borderTop: "1px solid rgba(139, 92, 246, 0.1)",
+      }}
+    >
+      <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 14px",
+              background: "rgba(139, 92, 246, 0.1)",
+              border: "1px solid rgba(139, 92, 246, 0.3)",
+              borderRadius: "9999px",
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "0.6875rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "#C4B5FD",
+              marginBottom: "20px",
+            }}
+          >
+            Próximamente
+          </div>
+          <h2
+            style={{
+              fontFamily: "var(--pf-font-display, system-ui)",
+              fontSize: "clamp(1.5rem, 3vw, 2rem)",
+              fontWeight: 800,
+              letterSpacing: "-0.03em",
+              margin: 0,
+              marginBottom: "16px",
+              color: "#FFFFFF",
+            }}
+          >
+            Lo que viene en Pathfinder
+          </h2>
+          <p
+            style={{
+              fontFamily: "var(--pf-font-ui, system-ui)",
+              fontSize: "1rem",
+              color: "rgba(255,255,255,0.65)",
+              lineHeight: 1.6,
+              margin: 0,
+              maxWidth: "640px",
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          >
+            Hoy Pathfinder corre sobre infraestructura gratuita. La siguiente
+            etapa elimina las limitaciones de plataformas de terceros y lleva el
+            producto a un estándar industrial.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: "20px",
+          }}
+        >
+          {items.map(({ Icon, title, body }, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "28px 24px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "16px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "12px",
+                  background: "rgba(139, 92, 246, 0.12)",
+                  border: "1px solid rgba(139, 92, 246, 0.3)",
+                  color: "#C4B5FD",
+                  marginBottom: "18px",
+                }}
+              >
+                <Icon size={20} strokeWidth={2} />
+              </div>
+              <h3
+                style={{
+                  fontFamily: "var(--pf-font-display, system-ui)",
+                  fontSize: "1.0625rem",
+                  fontWeight: 700,
+                  letterSpacing: "-0.02em",
+                  margin: 0,
+                  marginBottom: "8px",
+                  color: "#FFFFFF",
+                }}
+              >
+                {title}
+              </h3>
+              <p
+                style={{
+                  fontFamily: "var(--pf-font-ui, system-ui)",
+                  fontSize: "0.875rem",
+                  lineHeight: 1.6,
+                  color: "rgba(255,255,255,0.6)",
+                  margin: 0,
+                }}
+              >
+                {body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ============================================================
+// LEGAL DISCLAIMER
+// ============================================================
+const LegalDisclaimer: React.FC = () => (
+  <section style={{ padding: "40px 24px", background: "#000000" }}>
+    <div style={{ maxWidth: "760px", margin: "0 auto" }}>
+      <p
+        style={{
+          fontFamily: "var(--pf-font-ui, system-ui)",
+          fontSize: "0.75rem",
+          color: "rgba(255,255,255,0.4)",
+          lineHeight: 1.6,
+          textAlign: "center",
+          margin: 0,
+        }}
+      >
+        <strong style={{ color: "rgba(255,255,255,0.55)" }}>Aviso legal.</strong>{" "}
+        Pathfinder Studio no está afiliado a Kaggle ni a Google Colab. El uso de
+        esas plataformas está sujeto a sus propios Términos de Servicio.
+        Pathfinder provee la capa de orquestación, workflows, modelos
+        preconfigurados y almacenamiento. No controlamos ni somos responsables
+        de la disponibilidad, seguridad o cambios de política de Kaggle o
+        Colab.
+      </p>
+    </div>
+  </section>
+);
+
+// ============================================================
 // PRICING PAGE
 // ============================================================
 const PricingPage: React.FC = () => {
@@ -1312,8 +1686,9 @@ const PricingPage: React.FC = () => {
               margin: 0,
             }}
           >
-            Una estación con GPU dedicada, workflows listos y catálogo completo
-            de modelos IA. Sin créditos. Sin tokens. Sin sorpresas.
+            Una estación con GPU gratuita de Kaggle y Colab, workflows listos
+            y catálogo completo de modelos IA. Sin créditos por generación.
+            Límites transparentes.
           </p>
         </div>
       </section>
@@ -1461,9 +1836,9 @@ const PricingPage: React.FC = () => {
               {
                 title: "Estación",
                 items: [
-                  "GPU dedicada bajo demanda",
+                  "GPU de Kaggle bajo demanda",
                   "120 h/mes · 30 por semana",
-                  "Sin créditos por imagen o video",
+                  "Sin créditos por generación",
                   "Workers duales (Wan, TTS)",
                 ],
               },
@@ -1647,6 +2022,8 @@ const PricingPage: React.FC = () => {
 
       <MultiRuntimeBlock />
 
+      <FairUsePolicy />
+
       <ComparisonTable />
 
       <ValueStackBlock />
@@ -1654,6 +2031,8 @@ const PricingPage: React.FC = () => {
       <NewModelsBlock />
 
       <SignatureBlock />
+
+      <RoadmapBlock />
 
       {/* FAQ */}
       <section
@@ -1696,6 +2075,14 @@ const PricingPage: React.FC = () => {
               {
                 q: "¿Qué son las 120 horas al mes?",
                 a: "Cada plan incluye hasta 120 horas al mes de estación activa, con un límite de 30 horas por semana. Las horas se descuentan solo cuando tu estación está encendida: si no generas nada durante una hora, se apaga sola para no consumir tu cuota. El tiempo de carga de cada modelo también se descuenta, porque la estación permanece encendida durante el proceso. Las horas no utilizadas no se acumulan para el siguiente mes.",
+              },
+              {
+                q: "¿Qué límites tienen Kaggle y Google Colab?",
+                a: "Kaggle te da 30 horas de GPU por semana, con reset los sábados a medianoche UTC. Si agotas la cuota, esperas al reset. Google Colab no publica una cuota fija: te da sesiones de hasta 12 horas según disponibilidad, con desconexiones variables. Con Multi-Runtime (Creator y Founder) puedes usar ambas plataformas en paralelo para maximizar tu capacidad total. Los límites son de las plataformas, no de Pathfinder.",
+              },
+              {
+                q: "¿Es legal usar Kaggle y Colab para generar contenido?",
+                a: "Kaggle y Google Colab son infraestructura gratuita para uso personal. Pathfinder te da la capa de productividad: workflows, modelos preconfigurados, nube y monitoreo. Para uso comercial intensivo, recomendamos el plan Creator, que suma Colab como segunda plataforma. Pathfinder no controla ni es responsable de los términos de uso de Kaggle o Colab.",
               },
               {
                 q: "¿Qué pasa cuando cambio de modelo?",
@@ -1781,6 +2168,8 @@ const PricingPage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      <LegalDisclaimer />
 
       {/* Final CTA */}
       <section
