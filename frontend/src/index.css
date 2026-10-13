@@ -769,3 +769,16 @@ html {
 .pf-cta-glow:hover {
   box-shadow: 0 0 32px -6px rgba(110, 86, 207, 0.7);
 }
+
+
+/* MarketingLayout — responsive */
+@media (max-width: 768px) {
+  .pf-nav-desktop a:not(.pf-cta-glow) {
+    display: none;
+  }
+  .pf-footer-grid {
+    grid-template-columns: 1fr !important;
+    padding: 32px 24px 24px !important;
+    gap: 28px !important;
+  }
+}

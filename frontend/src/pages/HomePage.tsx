@@ -1,432 +1,614 @@
 // src/pages/HomePage.tsx
+// Landing — FUTURISMO · ISOLATED SYSTEM · VOID
 import React from "react";
 import { Link } from "react-router-dom";
+import { motion } from "motion/react";
+import NumberFlow from "@number-flow/react";
+import {
+  Cube,
+  Lightning,
+  Stack,
+  Broadcast,
+  ArrowRight,
+  Terminal,
+  Shield,
+  Cpu,
+} from "@phosphor-icons/react";
 import MarketingLayout from "../components/marketing/MarketingLayout";
-import HeroMediaWall from "../components/marketing/HeroMediaWall";
 import { useAuth } from "../hooks/useAuth";
+import { fadeInUp, staggerContainer } from "../design/motion";
 
-// --- Icons (inline, stroke style) ---
-const IconImage = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="3" />
-    <circle cx="9" cy="9" r="2" />
-    <path d="M21 15l-5-5L5 21" />
-  </svg>
-);
-const IconVideo = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="6" width="14" height="12" rx="3" />
-    <path d="M22 8l-6 4 6 4V8z" />
-  </svg>
-);
-const IconSparkles = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
-  </svg>
-);
-const IconZap = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" />
-  </svg>
-);
-
-const Section: React.FC<{ children: React.ReactNode; bg?: string }> = ({ children, bg }) => (
-  <section style={{ padding: "80px 24px", background: bg }}>
-    <div style={{ maxWidth: "1100px", margin: "0 auto" }}>{children}</div>
-  </section>
+// ═══════════════════════════════════════════════════════════════════════════
+// MODULE — sistema aislado
+// ═══════════════════════════════════════════════════════════════════════════
+const Module: React.FC<{
+  children: React.ReactNode;
+  crosshair?: boolean;
+  label?: string;
+  chrome?: boolean;
+  bioluminescent?: boolean;
+  style?: React.CSSProperties;
+}> = ({ children, crosshair, label, chrome, bioluminescent, style }) => (
+  <div
+    className={[
+      "pf-module",
+      crosshair ? "pf-module--crosshair" : "",
+      chrome ? "pf-chrome-border" : "",
+      bioluminescent ? "pf-bioluminescent" : "",
+    ].filter(Boolean).join(" ")}
+    style={{ position: "relative", overflow: "hidden", ...style }}
+  >
+    {label && <span className="pf-module-label">{label}</span>}
+    {children}
+  </div>
 );
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MODULE LABEL — cabecera de módulo
+// ═══════════════════════════════════════════════════════════════════════════
+const ModuleHeader: React.FC<{ code: string; title: string }> = ({ code, title }) => (
+  <div style={{
+    display: "flex",
+    alignItems: "baseline",
+    gap: 12,
+    padding: "14px 16px",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    fontFamily: "var(--pf-font-mono)",
+    fontSize: "0.6875rem",
+    fontWeight: 500,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.4)",
+  }}>
+    <span style={{ color: "#8B5CF6" }}>{code}</span>
+    <span style={{ opacity: 0.4 }}>·</span>
+    <span>{title}</span>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HERO STUDIO MOCK — HUD real, no screenshot
+// ═══════════════════════════════════════════════════════════════════════════
+const StudioMock: React.FC = () => (
+  <div style={{
+    position: "relative",
+    background: "#08080A",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 8,
+    overflow: "hidden",
+    fontFamily: "var(--pf-font-mono)",
+    fontSize: "0.6875rem",
+  }}>
+    {/* Topbar */}
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "10px 14px",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+      background: "rgba(255,255,255,0.01)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", boxShadow: "0 0 8px rgba(16,185,129,0.8)" }} />
+        <span style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.14em" }}>STATION.READY</span>
+      </div>
+      <span style={{ color: "rgba(255,255,255,0.3)", letterSpacing: "0.14em" }}>LAT 00:02:41 · SEED 2841053</span>
+    </div>
+
+    {/* Body: split — selector + canvas */}
+    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", minHeight: 320 }}>
+      {/* Panel de modelos */}
+      <div style={{ borderRight: "1px solid rgba(255,255,255,0.06)", padding: "14px 12px" }}>
+        <div style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.14em", marginBottom: 10 }}>MDL.SELECT</div>
+        {[
+          { id: "krea-2", label: "KREA.2", active: true },
+          { id: "qwen-21", label: "QWEN.2.1" },
+          { id: "flux-2", label: "FLUX.2" },
+          { id: "ltx-23", label: "LTX.2.3" },
+          { id: "tts-dual", label: "TTS.DUAL" },
+        ].map((m) => (
+          <div key={m.id} style={{
+            padding: "8px 10px",
+            marginBottom: 4,
+            borderRadius: 4,
+            background: m.active ? "rgba(139,92,246,0.10)" : "transparent",
+            border: m.active ? "1px solid rgba(139,92,246,0.35)" : "1px solid transparent",
+            color: m.active ? "#F5F5F7" : "rgba(255,255,255,0.45)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}>
+            {m.active && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#8B5CF6", boxShadow: "0 0 6px rgba(139,92,246,0.9)" }} />}
+            {m.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Canvas mock */}
+      <div style={{ padding: 14, position: "relative" }} className="pf-grid-inside">
+        {/* Área de output */}
+        <div style={{
+          aspectRatio: "16/10",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 6,
+          background: "linear-gradient(135deg, rgba(139,92,246,0.05), rgba(34,211,238,0.03))",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+          position: "relative",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            fontFamily: "var(--pf-font-mono)",
+            fontSize: "0.625rem",
+            letterSpacing: "0.14em",
+            color: "rgba(255,255,255,0.25)",
+          }}>
+            ▓ OUTPUT.001 · 1024×1024 · DONE 0.8s
+          </div>
+          {/* Crosshair corners */}
+          <div style={{ position: "absolute", top: 8, left: 8, width: 6, height: 6, borderColor: "rgba(139,92,246,0.5)", borderStyle: "solid", borderWidth: "1px 0 0 1px" }} />
+          <div style={{ position: "absolute", bottom: 8, right: 8, width: 6, height: 6, borderColor: "rgba(139,92,246,0.5)", borderStyle: "solid", borderWidth: "0 1px 1px 0" }} />
+        </div>
+
+        {/* Prompt bar */}
+        <div style={{
+          padding: "8px 12px",
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 4,
+          color: "rgba(255,255,255,0.5)",
+        }}>
+          &gt; retrato editorial, luz cálida lateral, cinematográfico, 85mm_
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOMEPAGE
+// ═══════════════════════════════════════════════════════════════════════════
 const HomePage: React.FC = () => {
   const { session } = useAuth();
 
   return (
     <MarketingLayout>
-      {/* ============ HERO ============ */}
-      <HeroMediaWall>
-        <div>
+      {/* ═══════════════ HERO ═══════════════ */}
+      <section style={{
+        position: "relative",
+        background: "#000000",
+        padding: "80px 32px 0",
+        overflow: "hidden",
+      }}>
+        {/* Starfield en el vacío */}
+        <div className="pf-starfield" style={{
+          position: "absolute",
+          inset: 0,
+          opacity: 0.5,
+          pointerEvents: "none",
+        }} />
 
-          <h1
-            style={{
-              fontFamily: "var(--pf-font-display, system-ui)",
-              fontSize: "clamp(2.5rem, 5vw, 4rem)",
-              fontWeight: 800,
-              letterSpacing: "-0.04em",
-              lineHeight: 1.05,
-              margin: 0,
-              marginBottom: "24px",
-              color: "#FFFFFF",
-              textShadow: "0 2px 24px rgba(0,0,0,0.5)",
-            }}
+        <div style={{ maxWidth: 1240, margin: "0 auto", position: "relative" }}>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
           >
-            Tu estación creativa de IA
-            <br />
-            para imagen, video y audio
-          </h1>
-
-          <p
-            style={{
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "clamp(1.0625rem, 1.5vw, 1.25rem)",
-              lineHeight: 1.55,
-              color: "rgba(255,255,255,0.85)",
-              maxWidth: "620px",
-              margin: "0 auto 40px",
-            }}
-          >
-            Imagen, video y audio en un mismo lugar. Elige tu modelo, enciende
-            tu estación y crea sin créditos por generación — con workflows ya
-            preparados, listos para usar.
-          </p>
-
-          <div
-            style={{
+            {/* Meta line */}
+            <motion.div variants={fadeInUp} style={{
+              fontFamily: "var(--pf-font-mono)",
+              fontSize: "0.6875rem",
+              fontWeight: 500,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.4)",
+              marginBottom: 32,
               display: "flex",
-              gap: "12px",
-              justifyContent: "center",
+              gap: 16,
               flexWrap: "wrap",
-              marginBottom: "12px",
-            }}
-          >
-            <Link
-              to={session ? "/studio" : "/auth"}
-              style={{
-                textDecoration: "none",
-                padding: "14px 32px",
-                background: "#FFFFFF",
-                color: "#0A0A0A",
-                borderRadius: "9999px",
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.9375rem",
-                fontWeight: 700,
-                transition: "transform 0.15s",
-                display: "inline-block",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-              }}
-            >
-              {session ? "Ir al Studio" : "Empezar gratis"}
-            </Link>
-            <Link
-              to="/what-is-pathfinder"
-              style={{
-                textDecoration: "none",
-                padding: "14px 32px",
-                background: "rgba(255,255,255,0.1)",
-                color: "#FFFFFF",
-                border: "1px solid rgba(255,255,255,0.4)",
-                borderRadius: "9999px",
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.9375rem",
-                fontWeight: 600,
-                display: "inline-block",
-                backdropFilter: "blur(8px)",
-              }}
-            >
-              Qué es Pathfinder
-            </Link>
-          </div>
+            }}>
+              <span>SYS.PATHFINDER</span>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span>v2.1</span>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span><NumberFlow value={10} format={{ useGrouping: false }} /> MODELOS ACTIVOS</span>
+              <span style={{ opacity: 0.4 }}>·</span>
+              <span style={{ color: "#10B981" }}>● ONLINE</span>
+            </motion.div>
 
-          <div
-            style={{
+            {/* Números hero con chrome */}
+            <motion.div variants={fadeInUp} style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 24,
+              marginBottom: 56,
+              maxWidth: 900,
+            }}>
+              {[
+                { n: 10, label: "MODELOS" },
+                { n: 3, label: "IMG" },
+                { n: 5, label: "VID" },
+                { n: 2, label: "AUD" },
+              ].map((s) => (
+                <div key={s.label}>
+                  <div className="pf-chrome-text" style={{
+                    fontFamily: "var(--pf-font-display)",
+                    fontSize: "clamp(4rem, 10vw, 7rem)",
+                    fontWeight: 500,
+                    lineHeight: 0.9,
+                    letterSpacing: "-0.04em",
+                    fontVariantNumeric: "tabular-nums",
+                  }}>
+                    <NumberFlow value={s.n} format={{ useGrouping: false }} />
+                  </div>
+                  <div style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.6875rem",
+                    fontWeight: 500,
+                    letterSpacing: "0.14em",
+                    color: "rgba(255,255,255,0.4)",
+                    marginTop: 8,
+                  }}>
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+
+            {/* Título */}
+            <motion.h1 variants={fadeInUp} style={{
+              fontFamily: "var(--pf-font-display)",
+              fontSize: "clamp(2.5rem, 5.5vw, 4.5rem)",
+              fontWeight: 600,
+              letterSpacing: "-0.03em",
+              lineHeight: 1.0,
+              color: "#F5F5F7",
+              margin: 0,
+              marginBottom: 24,
+              maxWidth: 820,
+            }}>
+              Estación creativa<br />
+              para imagen, video y audio.
+            </motion.h1>
+
+            <motion.p variants={fadeInUp} style={{
+              fontFamily: "var(--pf-font-ui)",
+              fontSize: "1.0625rem",
+              lineHeight: 1.6,
+              color: "rgba(255,255,255,0.55)",
+              maxWidth: 620,
+              margin: 0,
+              marginBottom: 40,
+            }}>
+              Diez modelos curados. Workflows listos. Cero créditos por generación.
+              Enciende tu estación, elige tu modelo y crea.
+            </motion.p>
+
+            {/* CTAs */}
+            <motion.div variants={fadeInUp} style={{
               display: "flex",
-              justifyContent: "center",
-              marginBottom: "16px",
-            }}
-          >
-            <Link
-              to="/pricing"
-              style={{
-                textDecoration: "none",
+              gap: 12,
+              flexWrap: "wrap",
+              marginBottom: 56,
+            }}>
+              <Link to={session ? "/studio" : "/auth"} className="pf-cta-glow" style={{
                 display: "inline-flex",
                 alignItems: "center",
-                padding: "8px 16px",
+                gap: 8,
+                padding: "14px 24px",
+                background: "#8B5CF6",
+                color: "#FFFFFF",
+                borderRadius: 6,
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}>
+                {session ? "Ir al Studio" : "Empezar gratis"}
+                <ArrowRight size={16} weight="bold" />
+              </Link>
+              <Link to="/pricing" style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "14px 24px",
                 background: "transparent",
-                border: "1px solid rgba(255,255,255,0.2)",
-                borderRadius: "9999px",
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.8125rem",
-                fontWeight: 500,
-                color: "rgba(255,255,255,0.9)",
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            >
-              Ver planes
-            </Link>
+                color: "#F5F5F7",
+                border: "1px solid rgba(255,255,255,0.14)",
+                borderRadius: 6,
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}>
+                Ver planes
+              </Link>
+            </motion.div>
+
+            {/* Studio mock — módulo aislado */}
+            <motion.div variants={fadeInUp} style={{ marginBottom: 0 }}>
+              <Module label="STUDIO.PREVIEW" crosshair style={{ background: "#0E0E11" }}>
+                <ModuleHeader code="SYS.STUDIO" title="Pathfinder Studio · Live" />
+                <div style={{ padding: 16 }}>
+                  <StudioMock />
+                </div>
+              </Module>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════ FEATURES ═══════════════ */}
+      <section style={{ background: "#000000", padding: "120px 32px" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+          <div style={{ marginBottom: 48 }}>
+            <div style={{
+              fontFamily: "var(--pf-font-mono)",
+              fontSize: "0.6875rem",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.4)",
+              marginBottom: 16,
+            }}>
+              CAPABILITIES
+            </div>
+            <h2 style={{
+              fontFamily: "var(--pf-font-display)",
+              fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
+              fontWeight: 600,
+              letterSpacing: "-0.03em",
+              color: "#F5F5F7",
+              margin: 0,
+              maxWidth: 720,
+            }}>
+              Un sistema aislado. Todo contenido.
+            </h2>
           </div>
 
-          <p
-            style={{
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "0.8125rem",
-              color: "rgba(255,255,255,0.7)",
-              margin: 0,
-            }}
-          >
-            Sin tarjeta · Sin créditos por generación · Registro en 20 segundos con Google
-          </p>
-        </div>
-      </HeroMediaWall>
-
-      {/* ============ FEATURES ============ */}
-      <Section bg="#000000">
-        <div style={{ textAlign: "center", marginBottom: "56px" }}>
-          <h2
-            style={{
-              fontFamily: "var(--pf-font-display, system-ui)",
-              fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
-              margin: 0,
-              marginBottom: "12px",
-              color: "#FFFFFF",
-            }}
-          >
-            Todo lo que necesitas para crear
-          </h2>
-          <p
-            style={{
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "1rem",
-              color: "rgba(255,255,255,0.65)",
-              maxWidth: "520px",
-              margin: "0 auto",
-            }}
-          >
-            Modelos curados, workflows listos y una estación que responde solo a ti.
-          </p>
-        </div>
-
-        <div
-          style={{
+          <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "20px",
-          }}
-        >
-          {[
-            {
-              icon: <IconImage />,
-              title: "Estudio completo",
-              body: "Seis modelos curados para imagen, video y audio. Krea 2 Turbo, Flux 2 Klein 4B, LTX 2.3, LTX 2.5 MSR, Wan 2.1 Dual y TTS Dual.",
-            },
-            {
-              icon: <IconVideo />,
-              title: "Workers duales",
-              body: "Cambia entre tareas sin reiniciar la estación. Wan i2v + t2v en un mismo workflow. OmniVoice + Index TTS en otro.",
-            },
-            {
-              icon: <IconSparkles />,
-              title: "Sin créditos por generación",
-              body: "Dentro de tu cuota mensual, generas lo que quieras. Sin tokens, sin unidades, sin sorpresas al final del mes.",
-            },
-            {
-              icon: <IconZap />,
-              title: "Tu propia estación",
-              body: "Enciendes tu cómputo cuando lo necesitas y lo apagas cuando terminas. Dedicado solo para ti durante tu sesión.",
-            },
-          ].map((f, i) => (
-            <div
-              key={i}
-              style={{
-                background: "rgba(139, 92, 246, 0.04)",
-                border: "1px solid rgba(139, 92, 246, 0.15)",
-                borderRadius: "16px",
-                padding: "28px",
-                transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 12px 32px rgba(139, 92, 246, 0.15)";
-                e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.35)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
-                e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.15)";
-              }}
-            >
-              <div
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  borderRadius: "12px",
-                  background: "rgba(34, 211, 238, 0.08)",
-                  border: "1px solid rgba(34, 211, 238, 0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#67E8F9",
-                  marginBottom: "16px",
-                  boxShadow: "0 0 20px -8px rgba(34, 211, 238, 0.5)",
-                }}
-              >
-                {f.icon}
-              </div>
-              <h3
-                style={{
-                  fontFamily: "var(--pf-font-display, system-ui)",
-                  fontSize: "1.0625rem",
-                  fontWeight: 600,
-                  letterSpacing: "-0.02em",
-                  margin: 0,
-                  marginBottom: "8px",
-                  color: "#FFFFFF",
-                }}
-              >
-                {f.title}
-              </h3>
-              <p
-                style={{
-                  fontFamily: "var(--pf-font-ui, system-ui)",
-                  fontSize: "0.875rem",
-                  lineHeight: 1.55,
-                  color: "rgba(255,255,255,0.6)",
-                  margin: 0,
-                }}
-              >
-                {f.body}
-              </p>
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: 16,
+          }}>
+            {[
+              { Icon: Cube, code: "SYS.01", title: "Estudio completo", body: "Diez modelos curados para imagen, video y audio. Un solo entorno para toda tu producción.", accent: "#8B5CF6", chrome: true },
+              { Icon: Lightning, code: "SYS.02", title: "Workers duales", body: "Cambia entre tareas sin reiniciar. Wan i2v + t2v en un workflow. OmniVoice + Index TTS en otro.", accent: "#22D3EE" },
+              { Icon: Stack, code: "SYS.03", title: "Sin créditos", body: "Dentro de tu cuota, generas lo que quieras. Sin tokens, sin unidades, sin sorpresas.", accent: "#EC4899" },
+              { Icon: Broadcast, code: "SYS.04", title: "Tu propia estación", body: "Enciendes tu cómputo cuando lo necesitas. Dedicado solo para ti durante tu sesión.", accent: "#10B981" },
+            ].map((f) => (
+              <Module key={f.code} chrome={f.chrome} bioluminescent crosshair label={f.code} style={{ padding: 0 }}>
+                <div style={{ padding: "28px 24px" }}>
+                  <div style={{
+                    width: 40, height: 40,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    border: `1px solid ${f.accent}40`,
+                    borderRadius: 6,
+                    background: `${f.accent}10`,
+                    color: f.accent,
+                    marginBottom: 20,
+                  }}>
+                    <f.Icon size={20} weight="regular" />
+                  </div>
+                  <h3 style={{
+                    fontFamily: "var(--pf-font-display)",
+                    fontSize: "1.0625rem",
+                    fontWeight: 600,
+                    letterSpacing: "-0.02em",
+                    color: "#F5F5F7",
+                    margin: 0,
+                    marginBottom: 8,
+                  }}>
+                    {f.title}
+                  </h3>
+                  <p style={{
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.875rem",
+                    lineHeight: 1.6,
+                    color: "rgba(255,255,255,0.5)",
+                    margin: 0,
+                  }}>
+                    {f.body}
+                  </p>
+                </div>
+              </Module>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════ CÓMO FUNCIONA ═══════════════ */}
+      <section style={{ background: "#000000", padding: "120px 32px" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+          <div style={{ marginBottom: 48 }}>
+            <div style={{
+              fontFamily: "var(--pf-font-mono)",
+              fontSize: "0.6875rem",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.4)",
+              marginBottom: 16,
+            }}>
+              SEQUENCE
             </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ============ HOW IT WORKS ============ */}
-      <Section bg="#000000">
-        <div style={{ textAlign: "center", marginBottom: "56px" }}>
-          <h2
-            style={{
-              fontFamily: "var(--pf-font-display, system-ui)",
+            <h2 style={{
+              fontFamily: "var(--pf-font-display)",
               fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: "-0.03em",
+              color: "#F5F5F7",
               margin: 0,
-              marginBottom: "12px",
-              color: "#FFFFFF",
-            }}
-          >
-            Así de simple
-          </h2>
-          <p
-            style={{
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "1rem",
-              color: "rgba(255,255,255,0.65)",
-              maxWidth: "520px",
-              margin: "0 auto",
-            }}
-          >
-            De la idea al resultado en cuatro pasos. La primera vez incluye preparar tu estación; después es directo.
-          </p>
-        </div>
+              maxWidth: 720,
+            }}>
+              Del registro al output en cuatro pasos.
+            </h2>
+          </div>
 
-        <div
-          style={{
+          <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "24px",
-          }}
-        >
-          {[
-            { n: "01", title: "Crea tu cuenta", body: "Regístrate con Google en 20 segundos. Sin formularios largos." },
-            { n: "02", title: "Elige tu modelo", body: "Imagen, video o audio. Seis modelos curados, cada uno con su workflow listo." },
-            { n: "03", title: "Enciende tu estación", body: "Descarga el workflow, actívalo en tu cómputo y conecta. La primera vez tarda unos minutos; después, cada sesión arranca más rápido." },
-            { n: "04", title: "Crea y descarga", body: "Genera todo lo que quieras dentro de tu cuota. Descarga tus resultados desde Mis Creaciones." },
-          ].map((s, i) => (
-            <div key={i} style={{ textAlign: "left" }}>
-              <div
-                style={{
-                  fontFamily: "var(--pf-font-display, system-ui)",
-                  fontSize: "2rem",
-                  fontWeight: 800,
-                  color: "#67E8F9",
-                  letterSpacing: "-0.04em",
-                  marginBottom: "12px",
-                  textShadow: "0 0 24px rgba(34, 211, 238, 0.45)",
-                }}
-              >
-                {s.n}
-              </div>
-              <h3
-                style={{
-                  fontFamily: "var(--pf-font-display, system-ui)",
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                  letterSpacing: "-0.02em",
-                  margin: 0,
-                  marginBottom: "6px",
-                  color: "#FFFFFF",
-                }}
-              >
-                {s.title}
-              </h3>
-              <p
-                style={{
-                  fontFamily: "var(--pf-font-ui, system-ui)",
-                  fontSize: "0.875rem",
-                  lineHeight: 1.55,
-                  color: "rgba(255,255,255,0.6)",
-                  margin: 0,
-                }}
-              >
-                {s.body}
-              </p>
-            </div>
-          ))}
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 16,
+          }}>
+            {[
+              { n: "01", title: "Registra tu cuenta", body: "Con Google, en 20 segundos. Sin formularios." },
+              { n: "02", title: "Elige tu modelo", body: "Diez modelos curados. Cada uno con su workflow listo." },
+              { n: "03", title: "Enciende tu estación", body: "Descarga, activa, conecta. La primera vez tarda unos minutos; después arranca más rápido." },
+              { n: "04", title: "Crea y descarga", body: "Genera dentro de tu cuota y baja tus resultados desde Mis Creaciones." },
+            ].map((s) => (
+              <Module key={s.n} crosshair label={`SEQ.${s.n}`} style={{ padding: 0 }}>
+                <div style={{ padding: "24px 22px" }}>
+                  <div style={{
+                    fontFamily: "var(--pf-font-display)",
+                    fontSize: "3rem",
+                    fontWeight: 600,
+                    letterSpacing: "-0.04em",
+                    lineHeight: 1,
+                    color: "#8B5CF6",
+                    marginBottom: 16,
+                    fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {s.n}
+                  </div>
+                  <h3 style={{
+                    fontFamily: "var(--pf-font-display)",
+                    fontSize: "1rem",
+                    fontWeight: 600,
+                    letterSpacing: "-0.02em",
+                    color: "#F5F5F7",
+                    margin: 0,
+                    marginBottom: 8,
+                  }}>
+                    {s.title}
+                  </h3>
+                  <p style={{
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.875rem",
+                    lineHeight: 1.6,
+                    color: "rgba(255,255,255,0.5)",
+                    margin: 0,
+                  }}>
+                    {s.body}
+                  </p>
+                </div>
+              </Module>
+            ))}
+          </div>
         </div>
-      </Section>
+      </section>
 
-      {/* ============ FINAL CTA ============ */}
-      <section
-        style={{
-          padding: "100px 24px",
-          background: "#0A0A0A",
-          color: "#FFFFFF",
-          textAlign: "center",
-        }}
-      >
-        <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-          <h2
-            style={{
-              fontFamily: "var(--pf-font-display, system-ui)",
-              fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
-              margin: 0,
-              marginBottom: "16px",
-              color: "#FFFFFF",
-            }}
-          >
-            Empieza gratis hoy
-          </h2>
-          <p
-            style={{
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "1rem",
-              color: "rgba(255,255,255,0.7)",
-              marginBottom: "32px",
-              lineHeight: 1.5,
-            }}
-          >
-            Plan Free con 3 modelos, sin tarjeta y sin fecha de vencimiento. Cuando quieras el Estudio completo, Creator o Founder están a un clic.
-          </p>
-          <Link
-            to="/auth"
-            style={{
-              textDecoration: "none",
-              display: "inline-block",
-              padding: "16px 40px",
-              background: "#FFFFFF",
-              color: "#0A0A0A",
-              borderRadius: "9999px",
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "1rem",
-              fontWeight: 700,
-            }}
-          >
-            Empezar gratis
-          </Link>
+      {/* ═══════════════ TRUST ROW ═══════════════ */}
+      <section style={{ background: "#000000", padding: "0 32px 120px" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+          <Module label="TRUST.MATRIX" crosshair style={{ padding: 0 }}>
+            <ModuleHeader code="SYS.INFRA" title="Por qué Pathfinder" />
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            }}>
+              {[
+                { Icon: Shield, code: "01", title: "Workflows probados", body: "Cada pipeline corre pruebas antes de publicarse." },
+                { Icon: Cpu, code: "02", title: "Infra robusta", body: "Heartbeat, túnel dual y apagado de seguridad." },
+                { Icon: Stack, code: "03", title: "Modelos que crecen", body: "Actualizaciones continuas sobre los mismos workflows." },
+                { Icon: Terminal, code: "04", title: "Soporte directo", body: "Acompañamiento en cada paso del proceso." },
+              ].map((t, i) => (
+                <div key={t.code} style={{
+                  padding: "28px 22px",
+                  borderRight: i < 3 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <t.Icon size={18} color="#8B5CF6" weight="regular" />
+                    <span style={{
+                      fontFamily: "var(--pf-font-mono)",
+                      fontSize: "0.625rem",
+                      letterSpacing: "0.14em",
+                      color: "rgba(255,255,255,0.35)",
+                    }}>
+                      INFRA.{t.code}
+                    </span>
+                  </div>
+                  <div style={{
+                    fontFamily: "var(--pf-font-display)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    color: "#F5F5F7",
+                    marginBottom: 6,
+                  }}>
+                    {t.title}
+                  </div>
+                  <div style={{
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.8125rem",
+                    lineHeight: 1.55,
+                    color: "rgba(255,255,255,0.5)",
+                  }}>
+                    {t.body}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Module>
+        </div>
+      </section>
+
+      {/* ═══════════════ CTA FINAL ═══════════════ */}
+      <section style={{ background: "#000000", padding: "0 32px 120px" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+          <Module label="SYS.END" crosshair chrome style={{ padding: 0 }}>
+            <div style={{ padding: "64px 48px", textAlign: "center" }}>
+              <div style={{
+                fontFamily: "var(--pf-font-mono)",
+                fontSize: "0.6875rem",
+                letterSpacing: "0.14em",
+                color: "rgba(255,255,255,0.4)",
+                marginBottom: 24,
+              }}>
+                ● STANDBY · WAITING FOR OPERATOR
+              </div>
+              <h2 style={{
+                fontFamily: "var(--pf-font-display)",
+                fontSize: "clamp(2rem, 4vw, 3rem)",
+                fontWeight: 600,
+                letterSpacing: "-0.03em",
+                lineHeight: 1.05,
+                color: "#F5F5F7",
+                margin: 0,
+                marginBottom: 20,
+              }}>
+                Inicia tu secuencia.
+              </h2>
+              <p style={{
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "1rem",
+                color: "rgba(255,255,255,0.55)",
+                margin: 0,
+                marginBottom: 32,
+                maxWidth: 480,
+                marginLeft: "auto",
+                marginRight: "auto",
+                lineHeight: 1.6,
+              }}>
+                Plan Free con 3 modelos. Sin tarjeta. Sin fecha de vencimiento.
+              </p>
+              <Link to="/auth" className="pf-cta-glow" style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "14px 28px",
+                background: "#8B5CF6",
+                color: "#FFFFFF",
+                borderRadius: 6,
+                fontFamily: "var(--pf-font-ui)",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}>
+                Empezar gratis
+                <ArrowRight size={16} weight="bold" />
+              </Link>
+            </div>
+          </Module>
         </div>
       </section>
     </MarketingLayout>
