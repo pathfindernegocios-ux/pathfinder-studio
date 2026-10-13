@@ -17,6 +17,7 @@ import {
   Briefcase,
   Sparkle,
   Cpu,
+  Download,
 } from "lucide-react";
 import MarketingLayout from "../components/marketing/MarketingLayout";
 
@@ -31,6 +32,12 @@ interface PromptExample {
   prompt: string;
 }
 
+interface LoRA {
+  name: string;
+  purpose: string;
+  url: string;
+}
+
 interface Model {
   id: string;
   name: string;
@@ -39,6 +46,7 @@ interface Model {
   description: string;
   specs: { label: string; value: string; detail?: string }[];
   useCases: { title: string; desc: string; icon: string }[];
+  loras?: LoRA[];
   promptGuide: {
     structure: string;
     negativePrompt: string;
@@ -398,6 +406,586 @@ const MODELS: Model[] = [
       files: ["refFiles (hasta 4)", "maskFile"],
     },
   },
+
+  // ── LTX 2.3 ──
+  {
+    id: "ltx-2.3",
+    name: "LTX 2.3",
+    capability: "video",
+    tagline:
+      "Video con audio sincronizado y storyboard multi-escena. Del prompt a la escena completa.",
+    description:
+      "LTX 2.3 es un modelo de 22B parámetros con arquitectura DiT destilada. Su característica principal es la generación de video con audio nativo sincronizado y la capacidad de encadenar hasta 5 escenas en una sola toma final. Es el modelo de mayor calidad cinematográfica del catálogo.",
+    specs: [
+      { label: "Arquitectura", value: "22B DiT", detail: "Distilled transformer" },
+      { label: "Cuantización", value: "GGUF Q4_K_M", detail: "4-bit" },
+      { label: "Steps", value: "8", detail: "Destilado para velocidad" },
+      { label: "Duración", value: "2s – 30s por escena", detail: "Flexible por escena" },
+      { label: "Multi-escena", value: "Hasta 5 escenas encadenadas", detail: "End Frame → Start Frame" },
+      { label: "Audio nativo", value: "Voz + ambiente + efectos", detail: "Sincronizado con el video" },
+      { label: "Resolución", value: "Hasta 1080×1920 (9:16)", detail: "Portrait nativo" },
+      { label: "Plataforma", value: "Kaggle (GPU T4 x2)", detail: "Requiere doble GPU" },
+      { label: "Carga inicial", value: "5 – 10 min", detail: "El modelo más lento del catálogo" },
+    ],
+    useCases: [
+      {
+        title: "UGC reels multi-shot",
+        desc: "Reels verticales 9:16 con múltiples cortes y personaje consistente entre escenas.",
+        icon: "Smartphone",
+      },
+      {
+        title: "Short-form cinematográfico",
+        desc: "Clips de alta calidad para YouTube Shorts, TikTok o Instagram con estructura de escenas.",
+        icon: "Film",
+      },
+      {
+        title: "Music video clips",
+        desc: "Clips musicales con sincronización de audio y beat detection.",
+        icon: "Music",
+      },
+      {
+        title: "Talking heads / entrevistas",
+        desc: "Personajes hablando con audio sincronizado y coherencia visual.",
+        icon: "Mic",
+      },
+      {
+        title: "Storyboards animados",
+        desc: "Presentaciones de guion con transiciones entre escenas encadenadas.",
+        icon: "Layout",
+      },
+      {
+        title: "Commercials / brand films",
+        desc: "Videos publicitarios con audio profesional y estética cinematográfica.",
+        icon: "Megaphone",
+      },
+    ],
+    loras: [
+      {
+        name: "LTX 2.3 Product Ad Style",
+        purpose:
+          "Estilo publicitario premium para productos de lujo. Composición editorial y branding consistente.",
+        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
+      },
+      {
+        name: "LTX 2.3 IC-LoRAs (control, ingredients)",
+        purpose:
+          "Conjunto de LoRAs de Image Conditioning: control de pose, ingredientes específicos, in/outpainting.",
+        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
+      },
+      {
+        name: "LTX 2.3 HDR + Upscale",
+        purpose: "LoRAs para rango dinámico extendido y upscaling sin perder detalle.",
+        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
+      },
+    ],
+    promptGuide: {
+      structure:
+        "[VISUAL] descripción visual de la escena [SPEECH] diálogo del personaje [SOUND] ambiente y efectos",
+      negativePrompt:
+        "blurry, low quality, distorted, deformed, static, frozen, watermark, text, extra limbs",
+      tips: [
+        "Usa la estructura [VISUAL][SPEECH][SOUND] para escenas con diálogo — es la que mejor funciona.",
+        "Para multi-escena, encadena visualmente: el End Frame de una escena es el Start Frame de la siguiente.",
+        "Especifica el movimiento de cámara: 'la cámara se acerca lentamente', 'plano panorámico lateral'.",
+        "Con audio externo, indica 'match video duration to audio length' para sincronización automática.",
+        "Usa el modo Storyboard del FCM para trabajar con múltiples escenas en un solo render.",
+        "Las duraciones cortas (5-10s) suelen dar mejor calidad por frame que las largas.",
+      ],
+    },
+    examples: [
+      {
+        label: "Escena con diálogo",
+        context: "Short cinematográfico para YouTube",
+        prompt:
+          "[VISUAL] Mujer joven caminando por un mercado nocturno en Tokio, luces de neón, plano medio, cámara siguiendo su paso [SPEECH] 'Nunca pensé que volvería a este lugar.' [SOUND] Murmullo de gente y música lejana, ambiente urbano",
+      },
+      {
+        label: "Paisaje cinematográfico",
+        context: "B-roll para documental o brand film",
+        prompt:
+          "Atardecer sobre montañas nevadas, cámara panorámica lenta de izquierda a derecha, nubes en movimiento, tonos naranja y violeta, cinematográfico, sin diálogo",
+      },
+      {
+        label: "Producto en movimiento",
+        context: "Comercial de producto premium",
+        prompt:
+          "Frasco de perfume girando lentamente sobre superficie reflectante negra, luz de estudio dramática, partículas doradas flotando en el aire, cámara fija, composición centrada",
+      },
+      {
+        label: "Multi-escena encadenada",
+        context: "Storyboard animado para presentación de proyecto",
+        prompt:
+          "[ESCENA 1] Amanecer sobre ciudad dormida, plano general [ESCENA 2] Persona despertando, close-up ojos abriéndose [ESCENA 3] Persona saliendo a la calle, plano medio [SOUND] Música ascendente que une las tres escenas",
+      },
+    ],
+    limitations: [
+      "El modelo más lento del catálogo: 5-10 minutos de carga inicial.",
+      "Requiere GPU T4 x2 de Kaggle — no funciona en GPU simple.",
+      "Generar 30 segundos con audio puede tardar varios minutos.",
+      "Reinicia la estación al cambiar desde/hacia otro modelo.",
+      "Duraciones superiores a 10s por escena pueden degradar la coherencia visual.",
+    ],
+    fcmContract: {
+      modes: ["Single", "Storyboard"],
+      params: [
+        "duration",
+        "resolution",
+        "aspectRatio",
+        "guideScale",
+        "seed",
+        "matchAudioDur",
+        "loraItems (con multiplicador por LoRA)",
+      ],
+      files: ["imageStartFile", "imageEndFile", "audioFile"],
+    },
+  },
+
+  // ── LTX 2.3 MSR ──
+  {
+    id: "ltx-2.3-msr",
+    name: "LTX 2.3 MSR",
+    capability: "video",
+    tagline:
+      "Video multi-referencia con el modelo 22B más pesado. Hasta 4 subjects + background.",
+    description:
+      "LTX 2.3 MSR (Multi-Subject Reference) es la variante especializada de LTX 2.3 para mantener múltiples sujetos de referencia. Toma hasta 4 imágenes de referencia (personas, objetos, productos) más un fondo, y genera video manteniendo sus identidades exactas. Es el modelo más pesado del catálogo.",
+    specs: [
+      { label: "Arquitectura", value: "22B Multi-Subject Reference", detail: "Basado en LTX 2.3" },
+      { label: "Sujetos", value: "Hasta 4 referencias + background", detail: "5 imágenes simultáneas" },
+      { label: "Resolución", value: "Hasta 1080×1920 (9:16)", detail: "Portrait y landscape" },
+      { label: "Steps", value: "8", detail: "Igual que LTX 2.3 base" },
+      { label: "Plataforma", value: "Kaggle (GPU T4 x2)", detail: "Solo Kaggle, no Colab" },
+      { label: "Carga inicial", value: "8 – 12 min", detail: "El modelo más lento del catálogo" },
+      { label: "Audio", value: "Sin audio nativo", detail: "Post-producción externa" },
+      { label: "Consistencia", value: "Alta entre referencias y video final", detail: "Fidelidad visual" },
+    ],
+    useCases: [
+      {
+        title: "Escenas grupales",
+        desc: "Múltiples personajes con identidades específicas en una misma escena.",
+        icon: "Users",
+      },
+      {
+        title: "Product placement multi-marca",
+        desc: "Varios productos de referencias distintas en un solo video comercial.",
+        icon: "ShoppingBag",
+      },
+      {
+        title: "Videos publicitarios con branding",
+        desc: "Cada elemento de la marca mantenido exacto desde las referencias.",
+        icon: "Megaphone",
+      },
+      {
+        title: "Animación de equipos / familias",
+        desc: "Grupos de personas manteniendo la identidad de cada uno.",
+        icon: "Users",
+      },
+    ],
+    loras: [
+      {
+        name: "LTX 2.3 IC-LoRAs (control, ingredients)",
+        purpose:
+          "Compatible con MSR: control de pose y composición sobre las referencias cargadas.",
+        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
+      },
+    ],
+    promptGuide: {
+      structure:
+        "[sujeto 1: posición] + [sujeto 2: posición] + [sujeto 3-4] + [escena] + [movimiento de cámara]",
+      negativePrompt:
+        "blurry, low quality, deformed, mismatched faces, identity swap, static, watermark, text",
+      tips: [
+        "Prepara referencias limpias y bien recortadas — el resultado depende de su calidad.",
+        "Describe la posición de cada sujeto: 'sujeto 1 a la izquierda, sujeto 2 al centro'.",
+        "Para fondo, usa referencias de escena, no de personajes.",
+        "Evita prompts que pidan cosas no cubiertas por las referencias — degrada el resultado.",
+        "Con 4 referencias, distribuye la composición de forma clara (cuadrantes).",
+      ],
+    },
+    examples: [
+      {
+        label: "Escena grupal de amigos",
+        context: "Video publicitario o corto narrativo",
+        prompt:
+          "Tres amigos (referencias 1, 2, 3) caminando por una calle de la ciudad al atardecer, manteniendo las identidades de cada referencia, cámara lateral siguiendo el movimiento, luz cálida de tarde",
+      },
+      {
+        label: "Product placement",
+        context: "Comercial de e-commerce con varios productos",
+        prompt:
+          "Los productos (referencias 1, 2, 3) dispuestos sobre mesa de madera clara, cámara orbitando lentamente alrededor, luz de estudio suave, sombras consistentes, fondo minimalista",
+      },
+      {
+        label: "Familia en casa",
+        context: "Video emocional / lifestyle",
+        prompt:
+          "Familia de 4 (referencias 1-4) cenando en un comedor cálido, cámara panorámica lenta, luz de velas, movimiento sutil de todos los sujetos, ambiente íntimo",
+      },
+    ],
+    limitations: [
+      "Solo disponible en Kaggle — no funciona en Colab.",
+      "El modelo más pesado del catálogo — requiere GPU T4 x2 obligatorio.",
+      "Carga inicial de 8-12 minutos, la más larga del catálogo.",
+      "Sin audio nativo — el audio se agrega en post-producción.",
+      "Menos flexible en improvisación: depende de la calidad de las referencias.",
+    ],
+    fcmContract: {
+      modes: ["Single"],
+      params: [
+        "duration",
+        "resolution",
+        "aspectRatio",
+        "guideScale",
+        "seed",
+        "loraItems",
+      ],
+      files: [
+        "imageStartFile (4 referencias + background)",
+        "imageEndFile",
+      ],
+    },
+  },
+
+  // ── LTX 2.5 MSR ──
+  {
+    id: "ltx-2.5-msr",
+    name: "LTX 2.5 MSR",
+    capability: "video",
+    tagline:
+      "La generación 2.5 de multi-referencia. Más rápido que 2.3, misma calidad visual.",
+    description:
+      "LTX 2.5 MSR es la evolución de LTX 2.3 MSR. Suma audio references para Two-Speaker (diálogos entre dos voces con referencias separadas) y admite hasta 5 referencias visuales. Mejora la coherencia temporal y la estabilidad del movimiento respecto a la versión anterior.",
+    specs: [
+      { label: "Arquitectura", value: "LTX 2.5 Multi-Subject Reference", detail: "Evolución de 2.3 MSR" },
+      { label: "Referencias", value: "Hasta 5 imágenes", detail: "Una más que 2.3 MSR" },
+      { label: "Audio references", value: "Sí (Two-Speaker)", detail: "Diálogos entre 2 voces" },
+      { label: "Modos", value: "KI (Key Identity) · I (Identity)", detail: "2 modos de referencia" },
+      { label: "Resolución", value: "Hasta 1080×1920 (9:16)", detail: "Portrait y landscape" },
+      { label: "Steps", value: "8", detail: "Igual que 2.3" },
+      { label: "Pipeline", value: "Configurable", detail: "Ajustable según caso de uso" },
+      { label: "Plataforma", value: "Kaggle (GPU T4 x2)", detail: "Requiere doble GPU" },
+    ],
+    useCases: [
+      {
+        title: "Diálogos multi-personaje",
+        desc: "Dos speakers con voces e identidades distintas en una sola escena sincronizada.",
+        icon: "Mic",
+      },
+      {
+        title: "Escenas complejas con 5 elementos",
+        desc: "Hasta 5 referencias visuales simultáneas en una composición.",
+        icon: "Layers",
+      },
+      {
+        title: "Multi-referencia ágil",
+        desc: "Los mismos casos que 2.3 MSR pero con iteración más rápida gracias a las mejoras 2.5.",
+        icon: "Zap",
+      },
+      {
+        title: "Anuncios con producto + personajes",
+        desc: "Combinar branding de producto con personajes específicos en un mismo video.",
+        icon: "Megaphone",
+      },
+    ],
+    loras: [
+      {
+        name: "LTX23_Product_Commercial_LoRA.safetensors",
+        purpose:
+          "LoRA por defecto: estilo publicitario premium. Composición editorial y branding consistente.",
+        url: "https://huggingface.co/Lightricks/LTX-Video-2.5",
+      },
+    ],
+    promptGuide: {
+      structure:
+        "[sujeto 1 + voz si aplica] + [sujeto 2-5] + [escena] + [movimiento] + [audio ref si aplica]",
+      negativePrompt:
+        "blurry, low quality, deformed, mismatched identities, audio desync, static, watermark",
+      tips: [
+        "En modo Two-Speaker, asigna una referencia de audio a cada speaker explícitamente.",
+        "Mismas buenas prácticas que LTX 2.3 MSR — la calidad de referencias es lo más importante.",
+        "Aprovecha la velocidad extra para hacer más iteraciones antes del render final.",
+        "Prueba combinaciones de referencias antes de comprometerte con una escena completa.",
+        "El modo KI mantiene el sujeto de la referencia; el modo I lo trata como elemento a agregar.",
+      ],
+    },
+    examples: [
+      {
+        label: "Diálogo Two-Speaker",
+        context: "Escena narrativa con dos personajes hablando",
+        prompt:
+          "[Referencia A: mujer joven] [Referencia B: hombre adulto] [Audio Ref A: voz femenina] [Audio Ref B: voz masculina] Dos personas en una cafetería discutiendo tranquilamente, plano medio alternando entre ambos, luz natural de tarde",
+      },
+      {
+        label: "Multi-producto premium",
+        context: "Comercial de alta gama con varios elementos",
+        prompt:
+          "Tres productos (referencias 1, 2, 3) sobre mármol blanco, cámara orbitando lentamente, luz de estudio premium, sombras suaves, branding visible de cada referencia",
+      },
+      {
+        label: "Familia dinámica",
+        context: "Video lifestyle para redes",
+        prompt:
+          "Familia de 5 (referencias 1-5) caminando por un parque al atardecer, movimiento natural, cámara siguiendo en dolly, luz dorada de hora mágica",
+      },
+    ],
+    limitations: [
+      "Requiere reiniciar la estación al cambiar desde/hacia otro modelo.",
+      "Consume VRAM considerable — Kaggle T4 x2 obligatorio.",
+      "Depende de la calidad de las referencias (visuales y de audio).",
+      "El modo Two-Speaker necesita dos audios limpios, sin ruido de fondo.",
+      "No tiene audio nativo generativo (a diferencia de LTX 2.3 base) — el audio viene de referencias.",
+    ],
+    fcmContract: {
+      modes: ["KI", "I"],
+      params: [
+        "mode (KI / I)",
+        "removeBg",
+        "duration",
+        "resolution",
+        "aspectRatio",
+        "pipeline",
+        "audioCfg",
+        "steps",
+        "seed",
+        "loraItems (con multiplicador)",
+      ],
+      files: [
+        "ref1",
+        "ref2",
+        "ref3",
+        "ref4",
+        "ref5",
+      ],
+    },
+  },
+
+  // ── WAN 2.1 i2v ──
+  {
+    id: "wan-dual-i2v",
+    name: "Wan 2.1 Image-to-Video",
+    capability: "video",
+    tagline:
+      "Anima una imagen estática con movimiento coherente. LoRAs aceleradoras ya cargadas.",
+    description:
+      "Wan 2.1 i2v es un modelo de 14B parámetros especializado en animar imágenes estáticas. Toma una imagen de entrada (generada en Krea/Flux/Qwen o subida) y le agrega movimiento coherente respetando la composición original. Incluye LoRAs aceleradoras preconfiguradas para tiempos de generación más cortos.",
+    specs: [
+      { label: "Arquitectura", value: "Wan 2.1 14B", detail: "Image-to-video especializado" },
+      { label: "Modo", value: "i2v (Image-to-Video)", detail: "Requiere imagen de entrada" },
+      { label: "Duración", value: "5s (81 frames)", detail: "Típico" },
+      { label: "Resolución", value: "480p", detail: "Optimizado para velocidad" },
+      { label: "Steps", value: "4", detail: "Con LoRAs aceleradoras" },
+      { label: "Sampler", value: "UniPC", detail: "Recomendado por defecto" },
+      { label: "Guide scale", value: "1.0", detail: "Ajustable" },
+      { label: "LoRAs", value: "Aceleradoras preconfiguradas", detail: "Tiempos más cortos" },
+    ],
+    useCases: [
+      {
+        title: "Animación de fotografías",
+        desc: "Dar movimiento a fotos propias o generadas con otros modelos.",
+        icon: "Image",
+      },
+      {
+        title: "Motion de productos",
+        desc: "Productos estáticos que cobran vida para e-commerce o publicidad.",
+        icon: "ShoppingBag",
+      },
+      {
+        title: "Clips de 5s para redes",
+        desc: "Contenido corto desde una sola imagen sin necesidad de prompts largos.",
+        icon: "Smartphone",
+      },
+      {
+        title: "Iteración visual rápida",
+        desc: "Ver movimiento de un concepto antes de comprometerse con un render largo.",
+        icon: "Zap",
+      },
+      {
+        title: "Motion posters",
+        desc: "Pósters animados para presentaciones o redes sociales.",
+        icon: "Layout",
+      },
+      {
+        title: "B-roll desde stills",
+        desc: "Convertir imágenes fijas en B-roll para proyectos audiovisuales.",
+        icon: "Film",
+      },
+    ],
+    loras: [
+      {
+        name: "Wan 2.1 Lightning LoRA",
+        purpose:
+          "Aceleración 4-step. Reduce el tiempo de generación sin sacrificar calidad significativa.",
+        url: "https://huggingface.co/lightx2v/Wan2.1-Lightning",
+      },
+      {
+        name: "Wan 2.1 Camera Motion LoRA",
+        purpose: "Control específico de movimientos de cámara (dolly, pan, tilt, zoom).",
+        url: "https://huggingface.co/models?search=wan+2.1+camera",
+      },
+    ],
+    promptGuide: {
+      structure:
+        "[movimiento deseado] + [tipo de cámara] + [ritmo/tempo] — el contenido viene de la imagen",
+      negativePrompt:
+        "blurry, static, frozen, distorted, deformed, jittery, watermark, text, extra limbs",
+      tips: [
+        "Describe el movimiento deseado, no el contenido: 'la cámara se acerca lentamente'.",
+        "Puedes dejar el prompt casi vacío si la imagen ya es clara.",
+        "Evita pedir cambios de composición: el modelo respeta la imagen original.",
+        "Para bucles perfectos, indica 'seamless loop' y usa imágenes simétricas.",
+        "Con LoRA de cámara, especifica el tipo de movimiento exacto (dolly in, pan right).",
+      ],
+    },
+    examples: [
+      {
+        label: "Retrato animado",
+        context: "Dar vida a un retrato generado con Krea",
+        prompt:
+          "El personaje respira sutilmente, parpadea lentamente, cabello moviéndose con brisa suave, cámara fija, movimiento orgánico",
+      },
+      {
+        label: "Paisaje en movimiento",
+        context: "Animar una foto de paisaje",
+        prompt:
+          "Nubes en movimiento lento sobre las montañas, agua ondulando en el lago, cámara panorámica lenta de izquierda a derecha, movimiento atmosférico",
+      },
+      {
+        label: "Producto en bucle",
+        context: "Bucle de producto para e-commerce",
+        prompt:
+          "El producto gira suavemente sobre su eje, luz cambiando ligeramente, fondo estático, bucle perfecto sin corte visible",
+      },
+    ],
+    limitations: [
+      "Requiere una imagen de entrada — no genera desde cero.",
+      "El movimiento posible depende mucho de lo que la imagen permita.",
+      "No genera audio.",
+      "Duraciones típicas de 5 segundos.",
+      "Resolución limitada a 480p (optimizado para velocidad, no detalle extremo).",
+    ],
+    fcmContract: {
+      modes: ["i2v"],
+      params: [
+        "duration (5s)",
+        "resolution (480p)",
+        "aspectRatio",
+        "steps (4)",
+        "guideScale (1.0)",
+        "shift (5.0)",
+        "sampler (UniPC)",
+        "seed",
+        "forcePreset",
+        "loraItems (con multiplicador)",
+      ],
+      files: ["imageStartFile", "imageEndFile"],
+    },
+  },
+
+  // ── WAN 2.1 t2v ──
+  {
+    id: "wan-dual-t2v",
+    name: "Wan 2.1 Text-to-Video",
+    capability: "video",
+    tagline:
+      "Video desde texto en un solo modelo. Rápido y liviano, ideal para exploración visual.",
+    description:
+      "Wan 2.1 t2v es la variante liviana de Wan 2.1 (1.3B parámetros) para generar video directamente desde texto sin imagen de entrada. Es significativamente más rápido que Wan i2v y está incluido en el plan Free. Ideal para exploración rápida de conceptos antes de comprometerse con renders de mayor calidad.",
+    specs: [
+      { label: "Arquitectura", value: "Wan 2.1 1.3B", detail: "Modelo liviano" },
+      { label: "Modo", value: "t2v (Text-to-Video)", detail: "Sin imagen de entrada" },
+      { label: "Duración", value: "5s (81 frames)", detail: "Típico" },
+      { label: "Resolución", value: "480p", detail: "Optimizado para velocidad" },
+      { label: "Steps", value: "4", detail: "Con LoRAs" },
+      { label: "VRAM", value: "~8.19 GB", detail: "Corre en GPUs de consumidor" },
+      { label: "Plataforma", value: "Kaggle", detail: "Disponible en plan Free" },
+      { label: "Velocidad", value: "~4 min para 5s", detail: "En T4 simple" },
+    ],
+    useCases: [
+      {
+        title: "Exploración visual rápida",
+        desc: "Probar ideas antes de invertir en un render de mayor calidad con LTX.",
+        icon: "Zap",
+      },
+      {
+        title: "Moodboards animados",
+        desc: "Prototipos de conceptos visuales para presentar a clientes.",
+        icon: "Layout",
+      },
+      {
+        title: "Contenido para redes",
+        desc: "Clips generativos sin partir de una imagen específica.",
+        icon: "Smartphone",
+      },
+      {
+        title: "Bucles cortos para prototipos",
+        desc: "Contenido de 5s que se puede usar en loops para presentaciones.",
+        icon: "Film",
+      },
+    ],
+    loras: [
+      {
+        name: "Wan 2.1 Lightning LoRA (t2v)",
+        purpose: "Aceleración 4-step específica para el pipeline t2v.",
+        url: "https://huggingface.co/lightx2v/Wan2.1-Lightning",
+      },
+    ],
+    promptGuide: {
+      structure:
+        "[sujeto] + [acción] + [entorno] + [movimiento de cámara] + [atmósfera]",
+      negativePrompt:
+        "blurry, static, frozen, low quality, distorted, watermark, text, multiple subjects",
+      tips: [
+        "Sé claro con el movimiento: 'cámara dolly in lento sobre un campo de flores'.",
+        "Descriptores de atmósfera funcionan bien: 'cinematográfico, hora dorada, suave'.",
+        "Evita prompts con múltiples acciones simultáneas — confunden al modelo.",
+        "Mantén el prompt bajo 30 palabras para resultados más limpios.",
+        "Un solo sujeto principal por video da mejores resultados.",
+      ],
+    },
+    examples: [
+      {
+        label: "Atmósfera",
+        context: "B-roll generativo para documental",
+        prompt:
+          "Bosque cubierto de niebla al amanecer, rayos de sol atravesando los árboles, cámara avanzando lentamente, ambiente etéreo",
+      },
+      {
+        label: "Cotidiano",
+        context: "Contenido lifestyle para redes",
+        prompt:
+          "Café caliente humeando sobre mesa de madera, luz de mañana entrando por la ventana, cámara fija, movimiento sutil de vapor",
+      },
+      {
+        label: "Abstracto",
+        context: "Motion graphics / intro visual",
+        prompt:
+          "Partículas doradas flotando sobre fondo negro, movimiento suave ascendente, sensación etérea, cámara lenta, alta saturación",
+      },
+    ],
+    limitations: [
+      "Calidad menor que LTX 2.3 o Wan i2v — es el modelo de exploración.",
+      "Duraciones cortas (típicamente 5 segundos).",
+      "No genera audio.",
+      "Sin LoRAs avanzadas más allá de las aceleradoras.",
+      "Recomendado solo para prototipos; para producción final, usar LTX.",
+    ],
+    fcmContract: {
+      modes: ["t2v"],
+      params: [
+        "duration (5s)",
+        "resolution (480p)",
+        "aspectRatio",
+        "steps (4)",
+        "guideScale (1.0)",
+        "shift (5.0)",
+        "sampler (UniPC)",
+        "seed",
+        "forcePreset",
+        "loraItems (con multiplicador)",
+      ],
+      files: [],
+    },
+  },
 ];
 
 // ============================================================================
@@ -448,6 +1036,42 @@ const ContentBlock: React.FC<{
       ))}
     </ul>
   </div>
+);
+
+// Card de LoRA
+const LoRACard: React.FC<{ lora: LoRA; color: string }> = ({ lora, color }) => (
+  <a
+    href={lora.url}
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      display: "block",
+      padding: "16px 18px",
+      background: "var(--pf-bg-secondary, #FAFAFA)",
+      border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+      borderRadius: "12px",
+      textDecoration: "none",
+      transition: "border-color 0.15s, transform 0.15s",
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.borderColor = `${color}60`;
+      e.currentTarget.style.transform = "translateY(-2px)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.borderColor = "var(--pf-border-subtle, #F4F4F5)";
+      e.currentTarget.style.transform = "translateY(0)";
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+      <Download size={14} style={{ color }} />
+      <span style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", fontWeight: 700, color: "var(--pf-text-primary, #0A0A0A)" }}>
+        {lora.name}
+      </span>
+    </div>
+    <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.8125rem", lineHeight: 1.5, color: "var(--pf-text-secondary, #525252)" }}>
+      {lora.purpose}
+    </div>
+  </a>
 );
 
 // Bloque de ejemplo de prompt
@@ -537,6 +1161,21 @@ const ModelCard: React.FC<{ model: Model }> = ({ model }) => {
           ))}
         </div>
       </div>
+
+      {/* 3.b LoRAs (solo si el contrato las soporta) */}
+      {model.loras && model.loras.length > 0 && (
+        <div style={{ marginBottom: "32px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", fontFamily: "var(--pf-font-display, system-ui)", fontSize: "1.0625rem", fontWeight: 600, color: "var(--pf-text-primary, #0A0A0A)" }}>
+            <Layers size={18} style={{ color: meta.color }} />
+            <span>LoRAs disponibles</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+            {model.loras.map((lora) => (
+              <LoRACard key={lora.name} lora={lora} color={meta.color} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 4. GUÍA DE PROMPT */}
       <div style={{ marginBottom: "32px", padding: "24px 28px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "14px" }}>
