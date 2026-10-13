@@ -2,7 +2,6 @@
 // Guía de modelos — Conoce tus modelos
 // Bloque 1: Base + Modelos de Imagen (Krea, Qwen, Flux)
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import {
   Image as ImageIcon,
   Clapperboard,
@@ -11,13 +10,10 @@ import {
   AlertTriangle,
   BookOpen,
   ChevronDown,
-  ArrowRight,
   Wand2,
   Layers,
   Briefcase,
-  Sparkle,
   Cpu,
-  Download,
 } from "lucide-react";
 import MarketingLayout from "../components/marketing/MarketingLayout";
 
@@ -32,12 +28,6 @@ interface PromptExample {
   prompt: string;
 }
 
-interface LoRA {
-  name: string;
-  purpose: string;
-  url: string;
-}
-
 interface Model {
   id: string;
   name: string;
@@ -46,7 +36,6 @@ interface Model {
   description: string;
   specs: { label: string; value: string; detail?: string }[];
   useCases: { title: string; desc: string; icon: string }[];
-  loras?: LoRA[];
   promptGuide: {
     structure: string;
     negativePrompt: string;
@@ -459,25 +448,6 @@ const MODELS: Model[] = [
         icon: "Megaphone",
       },
     ],
-    loras: [
-      {
-        name: "LTX 2.3 Product Ad Style",
-        purpose:
-          "Estilo publicitario premium para productos de lujo. Composición editorial y branding consistente.",
-        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
-      },
-      {
-        name: "LTX 2.3 IC-LoRAs (control, ingredients)",
-        purpose:
-          "Conjunto de LoRAs de Image Conditioning: control de pose, ingredientes específicos, in/outpainting.",
-        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
-      },
-      {
-        name: "LTX 2.3 HDR + Upscale",
-        purpose: "LoRAs para rango dinámico extendido y upscaling sin perder detalle.",
-        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
-      },
-    ],
     promptGuide: {
       structure:
         "[VISUAL] descripción visual de la escena [SPEECH] diálogo del personaje [SOUND] ambiente y efectos",
@@ -581,14 +551,6 @@ const MODELS: Model[] = [
         icon: "Users",
       },
     ],
-    loras: [
-      {
-        name: "LTX 2.3 IC-LoRAs (control, ingredients)",
-        purpose:
-          "Compatible con MSR: control de pose y composición sobre las referencias cargadas.",
-        url: "https://huggingface.co/Lightricks/LTX-Video-2.3",
-      },
-    ],
     promptGuide: {
       structure:
         "[sujeto 1: posición] + [sujeto 2: posición] + [sujeto 3-4] + [escena] + [movimiento de cámara]",
@@ -685,14 +647,6 @@ const MODELS: Model[] = [
         title: "Anuncios con producto + personajes",
         desc: "Combinar branding de producto con personajes específicos en un mismo video.",
         icon: "Megaphone",
-      },
-    ],
-    loras: [
-      {
-        name: "LTX23_Product_Commercial_LoRA.safetensors",
-        purpose:
-          "LoRA por defecto: estilo publicitario premium. Composición editorial y branding consistente.",
-        url: "https://huggingface.co/Lightricks/LTX-Video-2.5",
       },
     ],
     promptGuide: {
@@ -810,19 +764,6 @@ const MODELS: Model[] = [
         icon: "Film",
       },
     ],
-    loras: [
-      {
-        name: "Wan 2.1 Lightning LoRA",
-        purpose:
-          "Aceleración 4-step. Reduce el tiempo de generación sin sacrificar calidad significativa.",
-        url: "https://huggingface.co/lightx2v/Wan2.1-Lightning",
-      },
-      {
-        name: "Wan 2.1 Camera Motion LoRA",
-        purpose: "Control específico de movimientos de cámara (dolly, pan, tilt, zoom).",
-        url: "https://huggingface.co/models?search=wan+2.1+camera",
-      },
-    ],
     promptGuide: {
       structure:
         "[movimiento deseado] + [tipo de cámara] + [ritmo/tempo] — el contenido viene de la imagen",
@@ -920,13 +861,6 @@ const MODELS: Model[] = [
         title: "Bucles cortos para prototipos",
         desc: "Contenido de 5s que se puede usar en loops para presentaciones.",
         icon: "Film",
-      },
-    ],
-    loras: [
-      {
-        name: "Wan 2.1 Lightning LoRA (t2v)",
-        purpose: "Aceleración 4-step específica para el pipeline t2v.",
-        url: "https://huggingface.co/lightx2v/Wan2.1-Lightning",
       },
     ],
     promptGuide: {
@@ -1278,42 +1212,6 @@ const ContentBlock: React.FC<{
   </div>
 );
 
-// Card de LoRA
-const LoRACard: React.FC<{ lora: LoRA; color: string }> = ({ lora, color }) => (
-  <a
-    href={lora.url}
-    target="_blank"
-    rel="noopener noreferrer"
-    style={{
-      display: "block",
-      padding: "16px 18px",
-      background: "var(--pf-bg-secondary, #FAFAFA)",
-      border: "1px solid var(--pf-border-subtle, #F4F4F5)",
-      borderRadius: "12px",
-      textDecoration: "none",
-      transition: "border-color 0.15s, transform 0.15s",
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.borderColor = `${color}60`;
-      e.currentTarget.style.transform = "translateY(-2px)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.borderColor = "var(--pf-border-subtle, #F4F4F5)";
-      e.currentTarget.style.transform = "translateY(0)";
-    }}
-  >
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-      <Download size={14} style={{ color }} />
-      <span style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.875rem", fontWeight: 700, color: "var(--pf-text-primary, #0A0A0A)" }}>
-        {lora.name}
-      </span>
-    </div>
-    <div style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "0.8125rem", lineHeight: 1.5, color: "var(--pf-text-secondary, #525252)" }}>
-      {lora.purpose}
-    </div>
-  </a>
-);
-
 // Bloque de ejemplo de prompt
 const PromptExample: React.FC<{ example: PromptExample; color: string }> = ({ example, color }) => (
   <div
@@ -1401,21 +1299,6 @@ const ModelCard: React.FC<{ model: Model }> = ({ model }) => {
           ))}
         </div>
       </div>
-
-      {/* 3.b LoRAs (solo si el contrato las soporta) */}
-      {model.loras && model.loras.length > 0 && (
-        <div style={{ marginBottom: "32px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", fontFamily: "var(--pf-font-display, system-ui)", fontSize: "1.0625rem", fontWeight: 600, color: "var(--pf-text-primary, #0A0A0A)" }}>
-            <Layers size={18} style={{ color: meta.color }} />
-            <span>LoRAs disponibles</span>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
-            {model.loras.map((lora) => (
-              <LoRACard key={lora.name} lora={lora} color={meta.color} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 4. GUÍA DE PROMPT */}
       <div style={{ marginBottom: "32px", padding: "24px 28px", background: "var(--pf-bg-secondary, #FAFAFA)", border: "1px solid var(--pf-border-subtle, #F4F4F5)", borderRadius: "14px" }}>
@@ -1546,22 +1429,6 @@ export const AcademyContent: React.FC = () => {
         <ModelCard key={model.id} model={model} />
       ))}
 
-      {/* CTA FINAL */}
-      <section style={{ marginTop: "64px", padding: "48px 32px", background: "#0A0A0A", color: "#FFFFFF", borderRadius: "20px", textAlign: "center" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "56px", height: "56px", borderRadius: "14px", background: "rgba(139, 92, 246, 0.15)", border: "1px solid rgba(139, 92, 246, 0.3)", color: "#A5B4FC", marginBottom: "20px" }}>
-          <Sparkle size={26} />
-        </div>
-        <h2 style={{ fontFamily: "var(--pf-font-display, system-ui)", fontSize: "clamp(1.5rem, 3vw, 2rem)", fontWeight: 700, letterSpacing: "-0.03em", margin: 0, marginBottom: "16px", color: "#FFFFFF" }}>
-          ¿Listo para ponerlo a prueba?
-        </h2>
-        <p style={{ fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", color: "rgba(255,255,255,0.7)", marginBottom: "28px", maxWidth: "520px", margin: "0 auto 28px", lineHeight: 1.5 }}>
-          Abre el Studio y elige el modelo que más te sirva para tu proyecto.
-        </p>
-        <Link to="/studio" style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none", padding: "14px 32px", background: "#FFFFFF", color: "#0A0A0A", borderRadius: "9999px", fontFamily: "var(--pf-font-ui, system-ui)", fontSize: "1rem", fontWeight: 700 }}>
-          Ir al Studio
-          <ArrowRight size={18} />
-        </Link>
-      </section>
     </div>
   );
 };
