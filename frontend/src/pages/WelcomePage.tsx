@@ -630,7 +630,7 @@ const WelcomePage: React.FC = () => {
               <span>
                 Acepto los{" "}
                 <a
-                  href="/terms"
+                  href="/legal/terms"
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{

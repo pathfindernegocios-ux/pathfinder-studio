@@ -6,8 +6,8 @@ const TermsPage: React.FC = () => {
   return (
     <LegalLayout
       title="Términos y Condiciones de Servicio"
-      version="v1.1"
-      lastUpdate="22 de septiembre de 2026"
+      version="v1.2"
+      lastUpdate="13 de octubre de 2026"
     >
       <p>
         El presente documento establece los Términos y Condiciones (en
@@ -39,9 +39,16 @@ const TermsPage: React.FC = () => {
         terceros integrados en la infraestructura de Pathfinder.
       </p>
       <p>
-        El Servicio se ofrece en modalidad <strong>beta</strong> durante su
-        etapa inicial. Pathfinder podrá modificar, suspender o descontinuar
-        funcionalidades del Servicio sin previo aviso.
+        Pathfinder integra modelos de inteligencia artificial de terceros que
+        se ejecutan sobre infraestructura externa de cómputo (actualmente
+        Kaggle y Google Colab). El Usuario reconoce que dicha infraestructura
+        es operada por terceros y está sujeta a sus propios términos de
+        servicio. Pathfinder no controla ni es responsable de la disponibilidad
+        o cambios de política de esas plataformas.
+      </p>
+      <p>
+        Pathfinder podrá modificar, suspender o descontinuar funcionalidades
+        del Servicio, comunicándolo a través de la Plataforma.
       </p>
 
       <h2 id="edad">3. Requisitos de edad</h2>
@@ -151,62 +158,81 @@ const TermsPage: React.FC = () => {
 
       <h2 id="planes">8. Planes, precios y pagos</h2>
 
-      <h3>8.1 Plan gratuito</h3>
+      <h3>8.1 Plan Free</h3>
       <p>
-        Durante la etapa beta, Pathfinder ofrece un plan gratuito con acceso
-        al modelo Krea 2 Turbo y funcionalidades básicas del Studio, sujeto a
-        límites técnicos razonables (número de generaciones por hora, por día
-        y creaciones activas simultáneas).
+        Pathfinder ofrece un plan gratuito con acceso a un subconjunto del
+        catálogo de modelos (actualmente Krea 2 Turbo, Wan 2.1 Image-to-Video
+        y Wan 2.1 Text-to-Video), el Studio de creación y Mis Creaciones con
+        retención de 7 días. El plan Free está sujeto a los límites técnicos
+        de las plataformas de cómputo (Kaggle y Google Colab) y a la
+        disponibilidad de recursos.
       </p>
 
-      <h3>8.2 Pathfinder Pro Beta</h3>
+      <h3>8.2 Plan Creator</h3>
       <p>
-        Pathfinder Pro Beta otorga acceso a los modelos premium de Pathfinder
-        por un período de <strong>seis (6) meses</strong> contados a partir
-        de la fecha efectiva del pago. El precio es de <strong>$399 MXN (IVA
-        incluido)</strong>, pagado en una sola exhibición.
+        El plan Creator es una suscripción mensual con un precio de lanzamiento
+        de <strong>$249 MXN (IVA incluido)</strong> por mes. Incluye acceso al
+        catálogo completo de modelos, multi-runtime con Kaggle y Google Colab
+        en paralelo, y todos los modelos que Pathfinder agregue durante la
+        vigencia de la suscripción sin costo adicional.
       </p>
       <p>
-        El Usuario reconoce que Pathfinder Pro Beta es un producto de pago
-        único y no constituye una suscripción ni genera cargos recurrentes
-        automáticos.
+        El precio de lanzamiento estará vigente hasta el 31 de diciembre de
+        2026. A partir del 1 de enero de 2027, el precio regular será de
+        <strong>$399 MXN (IVA incluido)</strong> por mes. Los usuarios que se
+        suscriban durante el período de lanzamiento conservarán el precio
+        preferencial durante su primer período de suscripción.
+      </p>
+      <p>
+        La suscripción Creator se renueva automáticamente al final de cada
+        período mensual, salvo que el Usuario cancele desde Configuración o
+        desde el portal de cliente de Stripe. La cancelación detiene las
+        renovaciones futuras, pero no genera reembolso del período en curso.
       </p>
 
-      <h3>8.3 Evolución del catálogo durante Beta</h3>
+      <h3>8.3 Plan Founder</h3>
       <p>
-        Durante el período de vigencia de Pathfinder Pro Beta, Pathfinder podrá
-        incorporar nuevas capacidades y modelos al catálogo Pro. Los modelos
-        que Pathfinder designe como parte de Pro durante este período estarán
-        disponibles para los usuarios con un acceso Pro Beta activo sin costo
+        El plan Founder es un pago único de <strong>$999 MXN (IVA incluido)</strong>{" "}
+        que otorga acceso completo a las funcionalidades del plan Creator
+        durante <strong>seis (6) meses</strong> contados a partir de la fecha
+        efectiva del pago. No constituye una suscripción ni genera cargos
+        recurrentes automáticos.
+      </p>
+      <p>
+        El plan Founder incluye además acceso anticipado a nuevos modelos,
+        plantillas y funcionalidades antes de su liberación general, y soporte
+        directo. Al término del período de 6 meses, el acceso se revierte
+        automáticamente al plan Free. El Usuario podrá renovar mediante un
+        nuevo pago al precio vigente en ese momento.
+      </p>
+
+      <h3>8.4 Evolución del catálogo</h3>
+      <p>
+        Durante la vigencia de una suscripción Creator o un acceso Founder,
+        Pathfinder podrá incorporar nuevas capacidades y modelos al catálogo.
+        Los modelos que Pathfinder designe como parte de los planes de pago
+        estarán disponibles para los usuarios con acceso activo sin costo
         adicional. La composición del catálogo podrá evolucionar durante la
         vigencia del acceso.
       </p>
       <p>
-        El Usuario reconoce que el catálogo Pro es dinámico y que los modelos
+        El Usuario reconoce que el catálogo es dinámico y que los modelos
         individuales que lo componen pueden variar. Lo que se garantiza es el
-        acceso al catálogo Pro vigente, no a modelos específicos individuales.
-      </p>
-
-      <h3>8.4 Renovación</h3>
-      <p>
-        Al término del período de 6 meses, el acceso a los modelos Pro se
-        revierte automáticamente al plan Free. El Usuario podrá renovar su
-        acceso a través de la Plataforma mediante un nuevo pago, cuyo precio
-        será el vigente al momento de la renovación.
+        acceso al catálogo vigente, no a modelos específicos individuales.
       </p>
 
       <h3>8.5 Reembolsos</h3>
       <p>
         El Usuario podrá solicitar el reembolso completo de su pago dentro de
         los primeros <strong>14 (catorce) días naturales</strong> posteriores
-        a la compra, sin necesidad de justificación. El reembolso se procesará
-        al mismo método de pago utilizado en un plazo máximo de 10 días
-        hábiles.
+        a la compra, tanto para Creator como para Founder, sin necesidad de
+        justificación. El reembolso se procesará al mismo método de pago
+        utilizado en un plazo máximo de 10 días hábiles.
       </p>
       <p>
         Al procesarse un reembolso completo, el acceso a los modelos premium
         será revocado de inmediato. Las creaciones generadas durante el
-        período de acceso Pro permanecerán disponibles hasta su expiración
+        período de acceso activo permanecerán disponibles hasta su expiración
         natural (7 días desde su creación).
       </p>
 
@@ -287,7 +313,7 @@ const TermsPage: React.FC = () => {
 
       <h2 id="impuestos">14. Impuestos y facturación</h2>
       <p>
-        El precio de $399 MXN incluye el Impuesto al Valor Agregado (IVA)
+        Los precios publicados incluyen el Impuesto al Valor Agregado (IVA)
         aplicable en los Estados Unidos Mexicanos. La emisión de Comprobantes
         Fiscales Digitales por Internet (CFDI) se realizará a solicitud del
         Usuario a través de los canales de contacto de Pathfinder, dentro de
@@ -328,7 +354,7 @@ const TermsPage: React.FC = () => {
           textAlign: "center",
         }}
       >
-        Última actualización: 22 de septiembre de 2026 · Versión 1.1
+        Última actualización: 13 de octubre de 2026 · Versión 1.2
       </p>
     </LegalLayout>
   );
