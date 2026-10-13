@@ -820,8 +820,8 @@ const StationPage: React.FC = () => {
             }}
           >
             {isPlanReady && canDownloadColab
-              ? 'Los 8 modelos del catálogo, listos para correr. Sin créditos. Sin límites semanales.'
-              : 'Ocho modelos. Un solo lugar. Cero créditos. Descarga tus workflows y corre tus runtimes en Kaggle o Google Colab — sin límites por generación.'}
+              ? 'Los 10 modelos del catálogo, listos para correr. Sin créditos por generación.'
+              : 'Diez modelos. Un solo lugar. Cero créditos. Descarga tus workflows y corre tus runtimes en Kaggle o Google Colab.'}
           </p>
 
           <div
@@ -1071,7 +1071,8 @@ const StationPage: React.FC = () => {
                         maxWidth: "560px",
                       }}
                     >
-                      Sin créditos por generación. Sin límites semanales.{" "}
+                      Sin créditos por generación. Sujeto a los límites de
+                      Kaggle (30 hrs/sem) y Colab (sesiones variables).{" "}
                       <strong style={{ color: "var(--pf-text-primary)" }}>
                         $249/mes hasta el 31 dic
                       </strong>{" "}
