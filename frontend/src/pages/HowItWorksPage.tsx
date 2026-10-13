@@ -71,7 +71,8 @@ const MEDIA_URLS = {
     "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step1-download.mp4",
   step3_kaggle:
     "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step2-activate.mp4",
-  step3_colab: "",
+  step3_colab:
+    "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/step3_colab.mp4",
   step4_create:
     "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step3-ready.mp4",
   step5_save_shutdown:
