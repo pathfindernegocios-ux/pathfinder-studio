@@ -1,7 +1,7 @@
 // src/pages/AcademyPage.tsx
 // Catálogo premium — espacio + inteligencia + marketing puro
 import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Lock,
@@ -390,6 +390,7 @@ const ModelTile: React.FC<{
   span?: number;
   isUnlocked: boolean;
 }> = ({ model, span = 1, isUnlocked }) => {
+  const navigate = useNavigate();
   const [hover, setHover] = useState(false);
   const meta = CAPABILITY_META[model.capability];
   const locked = !model.isFree && !isUnlocked;
@@ -399,6 +400,7 @@ const ModelTile: React.FC<{
       variants={fadeInUp}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onClick={() => navigate(`/academy/${model.id}`)}
       style={{
         gridColumn: `span ${span}`,
         position: "relative",
@@ -596,7 +598,9 @@ const ModelTile: React.FC<{
                 <ArrowRight size={12} weight="regular" />
               </Link>
             ) : (
-              <div
+              <Link
+                to={`/academy/${model.id}`}
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -609,11 +613,12 @@ const ModelTile: React.FC<{
                   fontFamily: "var(--pf-font-ui)",
                   fontSize: "0.75rem",
                   fontWeight: 600,
+                  textDecoration: "none",
                 }}
               >
                 Ver ficha
                 <ArrowRight size={12} weight="regular" />
-              </div>
+              </Link>
             )}
           </motion.div>
         )}

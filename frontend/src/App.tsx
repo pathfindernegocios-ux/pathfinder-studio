@@ -51,6 +51,7 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import WhatIsPathfinderPage from "./pages/WhatIsPathfinderPage";
 import WelcomePage from "./pages/WelcomePage";
 import AcademyPage from "./pages/AcademyPage";
+import ModelDetailPage from "./pages/ModelDetailPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 
 // ---------------------------------------------------------------------------
@@ -354,6 +355,7 @@ function App() {
           <Route path="/legal/privacy" element={<PrivacyPage />} />
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/academy" element={<AcademyPage />} />
+          <Route path="/academy/:id" element={<ModelDetailPage />} />
 
           {/* ============================================================
               ONBOARDING & ESTADOS DE CUENTA
