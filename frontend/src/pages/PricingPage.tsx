@@ -1658,6 +1658,7 @@ const PricingPage: React.FC = () => {
 
   return (
     <MarketingLayout>
+      <div className="pf-legacy">
       <CountdownBar />
 
       {/* Hero */}
@@ -2267,6 +2268,7 @@ const PricingPage: React.FC = () => {
           </div>
         </div>
       </section>
+      </div>
     </MarketingLayout>
   );
 };

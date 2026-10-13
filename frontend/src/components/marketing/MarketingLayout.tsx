@@ -69,26 +69,30 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
       }}
     >
       {/* ═══════ HEADER — floating, blur on scroll ═══════ */}
-      <header
+      {/* ═══════ HEADER — floating pill ═══════ */}
+      <div
         style={{
           position: "sticky",
-          top: 0,
+          top: 16,
           zIndex: 100,
-          background: "rgba(0, 0, 0, 0.72)",
-          backdropFilter: "blur(16px) saturate(140%)",
-          WebkitBackdropFilter: "blur(16px) saturate(140%)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          padding: "0 24px",
         }}
       >
-        <div
+        <header
           style={{
-            maxWidth: 1240,
+            maxWidth: 960,
             margin: "0 auto",
-            padding: "14px 32px",
+            background: "rgba(10, 10, 11, 0.65)",
+            backdropFilter: "blur(20px) saturate(140%)",
+            WebkitBackdropFilter: "blur(20px) saturate(140%)",
+            border: "1px solid rgba(139, 92, 246, 0.18)",
+            borderRadius: 9999,
+            padding: "10px 14px 10px 18px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 16,
+            boxShadow: "0 8px 32px -8px rgba(139, 92, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
           }}
         >
           <Link
@@ -100,13 +104,13 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
               gap: 10,
             }}
           >
-            <PathfinderLogo size={32} />
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <PathfinderLogo size={28} />
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span
                 style={{
-                  fontFamily: "var(--pf-font-display)",
-                  fontSize: "1.0625rem",
-                  fontWeight: 600,
+                  fontFamily: "'Satoshi', var(--pf-font-display-alt), system-ui, sans-serif",
+                  fontSize: "0.9375rem",
+                  fontWeight: 700,
                   letterSpacing: "-0.02em",
                   color: "#F5F5F7",
                   lineHeight: 1,
@@ -117,12 +121,13 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
               <span
                 style={{
                   fontFamily: "var(--pf-font-mono)",
-                  fontSize: "0.5625rem",
+                  fontSize: "0.5rem",
                   fontWeight: 500,
                   color: "rgba(255,255,255,0.32)",
-                  letterSpacing: "0.18em",
+                  letterSpacing: "0.24em",
                   textTransform: "uppercase",
                   lineHeight: 1,
+                  marginTop: 4,
                 }}
               >
                 STUDIO
@@ -146,18 +151,18 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                 to={item.to}
                 style={{
                   textDecoration: "none",
-                  color: "rgba(255,255,255,0.55)",
+                  color: "rgba(255,255,255,0.65)",
                   fontWeight: 500,
-                  padding: "8px 12px",
-                  borderRadius: 6,
+                  padding: "8px 14px",
+                  borderRadius: 9999,
                   transition: "color 150ms, background 150ms",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = "#F5F5F7";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "rgba(255,255,255,0.55)";
+                  e.currentTarget.style.color = "rgba(255,255,255,0.65)";
                   e.currentTarget.style.background = "transparent";
                 }}
               >
@@ -166,29 +171,39 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
             ))}
 
             {session ? (
-              <div ref={menuRef} style={{ position: "relative", marginLeft: 8 }}>
+              <div ref={menuRef} style={{ position: "relative", marginLeft: 6 }}>
                 <button
                   onClick={() => setMenuOpen((o) => !o)}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    padding: "5px 10px 5px 5px",
+                    padding: "4px 10px 4px 4px",
                     background: menuOpen
-                      ? "rgba(255,255,255,0.08)"
+                      ? "rgba(139, 92, 246, 0.15)"
                       : "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.10)",
-                    borderRadius: 6,
+                    border: "1px solid rgba(139, 92, 246, 0.28)",
+                    borderRadius: 9999,
                     cursor: "pointer",
-                    transition: "background 150ms",
+                    transition: "background 150ms, border-color 150ms",
                     fontFamily: "var(--pf-font-ui)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(139, 92, 246, 0.15)";
+                    e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.45)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!menuOpen) {
+                      e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                      e.currentTarget.style.borderColor = "rgba(139, 92, 246, 0.28)";
+                    }
                   }}
                 >
                   <div
                     style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 4,
+                      width: 26,
+                      height: 26,
+                      borderRadius: 9999,
                       overflow: "hidden",
                       background: "linear-gradient(135deg, #8B5CF6 0%, #22D3EE 100%)",
                       color: "#FFFFFF",
@@ -202,29 +217,20 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                     }}
                   >
                     {avatarUrl ? (
-                      <img src={avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
                     ) : (
                       avatarInitial
                     )}
                   </div>
-                  <span
-                    style={{
-                      fontSize: "0.8125rem",
-                      fontWeight: 500,
-                      color: "#F5F5F7",
-                      maxWidth: 110,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {displayName}
-                  </span>
                   <CaretDown
-                    size={12}
+                    size={11}
                     weight="bold"
                     style={{
-                      color: "rgba(255,255,255,0.4)",
+                      color: "rgba(255,255,255,0.5)",
                       transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)",
                       transition: "transform 150ms",
                       flexShrink: 0,
@@ -236,17 +242,47 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                   <div
                     style={{
                       position: "absolute",
-                      top: "calc(100% + 8px)",
+                      top: "calc(100% + 12px)",
                       right: 0,
-                      minWidth: 220,
-                      background: "#141418",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 8,
-                      boxShadow: "0 24px 64px -12px rgba(0,0,0,0.8)",
-                      padding: 6,
+                      minWidth: 240,
+                      background: "rgba(15, 15, 18, 0.95)",
+                      backdropFilter: "blur(20px) saturate(140%)",
+                      WebkitBackdropFilter: "blur(20px) saturate(140%)",
+                      border: "1px solid rgba(139, 92, 246, 0.20)",
+                      borderRadius: 14,
+                      boxShadow: "0 24px 64px -12px rgba(0,0,0,0.85), 0 0 0 1px rgba(139,92,246,0.08)",
+                      padding: 8,
                       zIndex: 200,
                     }}
                   >
+                    <div
+                      style={{
+                        padding: "10px 12px 12px",
+                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily: "var(--pf-font-ui)",
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "#F5F5F7",
+                        }}
+                      >
+                        {displayName}
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: "var(--pf-font-mono)",
+                          fontSize: "0.6875rem",
+                          color: "rgba(255,255,255,0.4)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {profile?.email}
+                      </div>
+                    </div>
                     <Link
                       to="/studio"
                       onClick={() => setMenuOpen(false)}
@@ -259,12 +295,13 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                         fontFamily: "var(--pf-font-ui)",
                         fontSize: "0.8125rem",
                         color: "rgba(255,255,255,0.75)",
-                        borderRadius: 4,
+                        borderRadius: 8,
+                        transition: "background 150ms",
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <UserCircle size={16} />
+                      <UserCircle size={15} />
                       Ir al Studio
                     </Link>
                     <Link
@@ -279,12 +316,13 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                         fontFamily: "var(--pf-font-ui)",
                         fontSize: "0.8125rem",
                         color: "rgba(255,255,255,0.75)",
-                        borderRadius: 4,
+                        borderRadius: 8,
+                        transition: "background 150ms",
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <Gear size={16} />
+                      <Gear size={15} />
                       Configuración
                     </Link>
                     <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "6px 0" }} />
@@ -299,16 +337,17 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                         padding: "9px 12px",
                         background: "transparent",
                         border: "none",
-                        borderRadius: 4,
+                        borderRadius: 8,
                         fontFamily: "var(--pf-font-ui)",
                         fontSize: "0.8125rem",
                         color: "#EB5757",
                         cursor: "pointer",
+                        transition: "background 150ms",
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(235,87,87,0.08)")}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(235,87,87,0.10)")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <SignOut size={16} />
+                      <SignOut size={15} />
                       Cerrar sesión
                     </button>
                   </div>
@@ -320,39 +359,49 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                   to="/auth"
                   style={{
                     textDecoration: "none",
-                    color: "rgba(255,255,255,0.55)",
+                    color: "rgba(255,255,255,0.65)",
                     fontWeight: 500,
-                    padding: "8px 12px",
-                    borderRadius: 6,
+                    padding: "8px 14px",
+                    borderRadius: 9999,
                     fontFamily: "var(--pf-font-ui)",
                     fontSize: "0.8125rem",
+                    transition: "color 150ms, background 150ms",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#F5F5F7";
+                    e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "rgba(255,255,255,0.65)";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   Ingresar
                 </Link>
                 <Link
                   to="/auth"
-                  className="pf-cta-glow"
                   style={{
                     textDecoration: "none",
-                    padding: "9px 18px",
+                    padding: "8px 18px",
                     marginLeft: 4,
-                    background: "#8B5CF6",
-                    color: "#FFFFFF",
-                    borderRadius: 6,
+                    background: "#FFFFFF",
+                    color: "#0A0A0A",
+                    borderRadius: 9999,
                     fontFamily: "var(--pf-font-ui)",
                     fontSize: "0.8125rem",
                     fontWeight: 600,
-                    transition: "box-shadow 200ms",
+                    transition: "transform 150ms",
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                 >
                   Empezar gratis
                 </Link>
               </>
             )}
           </nav>
-        </div>
-      </header>
+        </header>
+      </div>
 
       {/* ═══════ CONTENT ═══════ */}
       <main>{children}</main>

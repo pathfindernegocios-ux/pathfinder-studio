@@ -8,6 +8,12 @@
 @import "@fontsource/chakra-petch/latin-ext-700.css";
 @import "@fontsource-variable/geist/wght.css";
 @import "@fontsource-variable/geist-mono/wght.css";
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+@import "@fontsource/jetbrains-mono/latin-600.css";
+@import "@fontsource/jetbrains-mono/latin-700.css";
 
 
 
@@ -693,11 +699,12 @@ html {
 
 /* Chrome text — gradient en el texto (solo hero) */
 .pf-chrome-text {
-  background: linear-gradient(135deg, #8B5CF6 0%, #22D3EE 50%, #EC4899 100%);
+  background: linear-gradient(135deg, #A78BFA 0%, #22D3EE 45%, #EC4899 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+  filter: drop-shadow(0 2px 24px rgba(139, 92, 246, 0.35));
 }
 
 /* Glow — halo de acento */
@@ -781,5 +788,194 @@ html {
     grid-template-columns: 1fr !important;
     padding: 32px 24px 24px !important;
     gap: 28px !important;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   JERARQUÍA TIPOGRÁFICA — Landing
+   ═══════════════════════════════════════════════════════════════ */
+
+/* H1 — SOLO Chakra Petch, solo hero */
+.pf-h1 {
+  font-family: var(--pf-font-display);
+  font-size: clamp(2.75rem, 5.5vw, 4.75rem);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  color: #F5F5F7;
+  margin: 0;
+}
+
+/* H2 — Sora */
+.pf-h2 {
+  font-family: var(--pf-font-display-alt);
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #F5F5F7;
+  margin: 0;
+}
+
+/* H3 — Satoshi (fallback Geist) */
+.pf-h3 {
+  font-family: 'Satoshi', var(--pf-font-ui);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: #F5F5F7;
+  margin: 0;
+}
+
+/* Body grande — párrafo principal */
+.pf-lead {
+  font-family: var(--pf-font-ui);
+  font-size: 1.0625rem;
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: -0.005em;
+  color: rgba(255,255,255,0.6);
+  margin: 0;
+}
+
+/* Body — párrafos normales */
+.pf-body {
+  font-family: var(--pf-font-ui);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.55);
+  margin: 0;
+}
+
+/* Mono — datos técnicos */
+.pf-mono {
+  font-family: var(--pf-font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+}
+
+/* Eyebrow — pequeña etiqueta arriba de un heading */
+.pf-eyebrow {
+  font-family: var(--pf-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin: 0 0 16px 0;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   SCOPE LEGACY — PricingPage
+   Restaura las fuentes originales (Satoshi + Inter Tight + JetBrains Mono)
+   solo dentro de este contenedor. El resto del proyecto usa el sistema v3.
+   ═══════════════════════════════════════════════════════════════ */
+.pf-legacy {
+  --pf-font-display: 'Satoshi', system-ui, sans-serif;
+  --pf-font-ui: 'Inter Tight', system-ui, sans-serif;
+  --pf-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   CUBO PATHFINDER — efecto morph tipo Rubik
+   ═══════════════════════════════════════════════════════════════ */
+.pf-cube-morph {
+  display: inline-block;
+  transform-style: preserve-3d;
+  animation: pf-cube-morph-anim 8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  filter: drop-shadow(0 0 40px rgba(139, 92, 246, 0.5));
+}
+
+@keyframes pf-cube-morph-anim {
+  0% {
+    transform: rotateY(0deg) rotateX(0deg) scale(1);
+    filter: drop-shadow(0 0 40px rgba(139, 92, 246, 0.5));
+  }
+  25% {
+    transform: rotateY(90deg) rotateX(10deg) scale(1.08);
+    filter: drop-shadow(0 0 60px rgba(34, 211, 238, 0.6));
+  }
+  50% {
+    transform: rotateY(180deg) rotateX(0deg) scale(1);
+    filter: drop-shadow(0 0 40px rgba(236, 72, 153, 0.5));
+  }
+  75% {
+    transform: rotateY(270deg) rotateX(-10deg) scale(1.08);
+    filter: drop-shadow(0 0 60px rgba(139, 92, 246, 0.6));
+  }
+  100% {
+    transform: rotateY(360deg) rotateX(0deg) scale(1);
+    filter: drop-shadow(0 0 40px rgba(139, 92, 246, 0.5));
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   CUBO PATHFINDER 3D — rotación tipo Rubik
+   ═══════════════════════════════════════════════════════════════ */
+.pf-cube-3d {
+  display: inline-block;
+  transform-style: preserve-3d;
+  animation: pf-cube-rotate 8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  filter: drop-shadow(0 0 32px rgba(139, 92, 246, 0.6));
+}
+
+@keyframes pf-cube-rotate {
+  0% {
+    transform: rotateY(0deg) rotateX(0deg) scale(1);
+    filter: drop-shadow(0 0 32px rgba(139, 92, 246, 0.6));
+  }
+  20% {
+    transform: rotateY(72deg) rotateX(12deg) scale(1.06);
+    filter: drop-shadow(0 0 48px rgba(34, 211, 238, 0.7));
+  }
+  40% {
+    transform: rotateY(144deg) rotateX(0deg) scale(1);
+    filter: drop-shadow(0 0 40px rgba(139, 92, 246, 0.7));
+  }
+  60% {
+    transform: rotateY(216deg) rotateX(-12deg) scale(1.06);
+    filter: drop-shadow(0 0 48px rgba(236, 72, 153, 0.7));
+  }
+  80% {
+    transform: rotateY(288deg) rotateX(0deg) scale(1);
+    filter: drop-shadow(0 0 40px rgba(34, 211, 238, 0.7));
+  }
+  100% {
+    transform: rotateY(360deg) rotateX(0deg) scale(1);
+    filter: drop-shadow(0 0 32px rgba(139, 92, 246, 0.6));
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ACENTOS VIVOS — drift lento y orgánico
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes pf-accent-float-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.9; }
+  50%      { transform: translate3d(60px, 40px, 0) scale(1.15); opacity: 1; }
+}
+
+@keyframes pf-accent-float-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
+  50%      { transform: translate3d(-80px, -50px, 0) scale(1.2); opacity: 1; }
+}
+
+@keyframes pf-accent-float-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.75; }
+  50%      { transform: translate3d(-40px, 60px, 0) scale(1.1); opacity: 0.95; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-vivid-accent {
+    animation: none !important;
   }
 }
