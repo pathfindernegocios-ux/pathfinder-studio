@@ -17,6 +17,7 @@ import SceneChip from '../components/SceneChip';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { getRuntimeLabel } from '../config/models';
+import { fetchAudioBlob } from '../lib/audioBlobCache';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -254,10 +255,16 @@ const StudioPage: React.FC = () => {
     setDiscardTargetId(null);
   };
 
-  const handleDownload = async (url: string, filename: string) => {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (url: string, filename: string, itemId: string) => {
+    if (downloadingId) return; // guard contra clicks multiples
+    setDownloadingId(itemId);
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
+      const isAudio = filename.endsWith('.wav') || filename.endsWith('.mp3');
+      const blob = isAudio
+        ? await fetchAudioBlob(url, { timeoutMs: 120000 })
+        : await (await fetch(url)).blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -265,9 +272,11 @@ const StudioPage: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
     } catch (error) {
-      void 0;
+      alert('No se pudo descargar el audio. Intenta de nuevo.');
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -1080,7 +1089,12 @@ const StudioPage: React.FC = () => {
                           />
                         )}
                         {item.mediaUrls.length > 0 && (
-                          <ActionButton onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'mp3' : 'png'}`)} icon={<Download size={14} />} label="Descargar" />
+                          <ActionButton
+  onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'wav' : 'png'}`, item.id)}
+  icon={downloadingId === item.id ? <Loader2 size={14} className="pf-spin" /> : <Download size={14} />}
+  label={downloadingId === item.id ? 'Descargando...' : 'Descargar'}
+  disabled={downloadingId !== null && downloadingId !== item.id}
+/>
                         )}
                         {item.mediaType === 'video' && item.modelId === 'ltx-2.3' && item.mediaUrls[0] && !item.storyboardMeta && (
                           <ActionButton onClick={() => handleContinueFromVideo(item)} icon={<Play size={14} />} label="Continuar" />

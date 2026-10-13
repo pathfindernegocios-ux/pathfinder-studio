@@ -8,6 +8,7 @@ import {
   ArrowLeft, Clock, Cpu, Film, Frown, Image as ImageIcon,
   Music, Maximize2, Trash2, X, Download, Calendar,
 } from 'lucide-react';
+import { fetchAudioBlob } from '../lib/audioBlobCache';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -287,6 +288,7 @@ const CreationDetailPage: React.FC = () => {
 
   const handleDownload = useCallback(async () => {
     if (!creation) return;
+    if (isDownloading) return; // guard contra clicks multiples
     setIsDownloading(true);
     try {
       const url = await getDownloadUrl(creation.id);
@@ -295,12 +297,13 @@ const CreationDetailPage: React.FC = () => {
       // Forzar descarga: fetch -> blob -> <a download>
       // (window.open() abre el archivo en pestaña nueva si el content-type es valido)
       try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('fetch failed');
-        const blob = await res.blob();
+        const isAudio = creation.media_type === 'audio';
+        const blob = isAudio
+          ? await fetchAudioBlob(url, { timeoutMs: 120000 })
+          : await (await fetch(url)).blob();
         const objectUrl = URL.createObjectURL(blob);
         const ext = creation.media_type === 'video' ? 'mp4'
-                  : creation.media_type === 'audio' ? 'mp3'
+                  : creation.media_type === 'audio' ? 'wav'
                   : 'png';
         const filename = `pathfinder-${creation.id.slice(0, 8)}.${ext}`;
         const a = document.createElement('a');
@@ -317,7 +320,7 @@ const CreationDetailPage: React.FC = () => {
     } finally {
       setIsDownloading(false);
     }
-  }, [creation, getDownloadUrl]);
+  }, [creation, getDownloadUrl, isDownloading]);
 
   const toggleLightbox = useCallback(() => setIsLightboxOpen((o) => !o), []);
 

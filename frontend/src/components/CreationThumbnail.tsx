@@ -6,6 +6,7 @@ import { useSignedUrl } from '../hooks/useSignedUrl';
 import { useCreations } from '../hooks/useCreations';
 import ConfirmDialog from './ConfirmDialog';
 import type { Creation } from '../types';
+import { fetchAudioBlob } from '../lib/audioBlobCache';
 
 const MODEL_LABELS: Record<string, string> = {
   'krea-2-turbo': 'Krea 2 Turbo',
@@ -252,31 +253,40 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
   const modelLabel = getModelLabel(creation);
   const relativeDate = formatRelative(creation.created_at);
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const downloadUrl = await getDownloadUrl(creation.id);
-    if (!downloadUrl) return;
-
-    // Forzar descarga: fetch -> blob -> <a download>
+    if (isDownloading) return; // guard contra clicks multiples
+    setIsDownloading(true);
     try {
-      const res = await fetch(downloadUrl);
-      if (!res.ok) throw new Error('fetch failed');
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const ext = creation.media_type === 'video' ? 'mp4'
-                : creation.media_type === 'audio' ? 'mp3'
-                : 'png';
-      const filename = `pathfinder-${creation.id.slice(0, 8)}.${ext}`;
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    } catch {
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+      const downloadUrl = await getDownloadUrl(creation.id);
+      if (!downloadUrl) return;
+
+      // Forzar descarga: fetch -> blob -> <a download>
+      try {
+        const isAudio = creation.media_type === 'audio';
+        const blob = isAudio
+          ? await fetchAudioBlob(downloadUrl, { timeoutMs: 120000 })
+          : await (await fetch(downloadUrl)).blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const ext = creation.media_type === 'video' ? 'mp4'
+                  : creation.media_type === 'audio' ? 'wav'
+                  : 'png';
+        const filename = `pathfinder-${creation.id.slice(0, 8)}.${ext}`;
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      } catch {
+        window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+      }
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -552,8 +562,9 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
             }}>
               <button
                 onClick={handleDownload}
-                title="Descargar"
-                aria-label="Descargar"
+                disabled={isDownloading}
+                title={isDownloading ? "Descargando..." : "Descargar"}
+                aria-label={isDownloading ? "Descargando..." : "Descargar"}
                 style={{
                   width: '30px',
                   height: '30px',
