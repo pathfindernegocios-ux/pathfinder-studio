@@ -1,10 +1,11 @@
 // src/components/marketing/MarketingLayout.tsx
+// Header flotante + Footer — FUTURISMO · ISOLATED SYSTEM · VOID
 import { markVoluntaryLogout } from "../../lib/voluntaryLogout";
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabaseClient";
-import { ChevronDown } from "lucide-react";
+import { CaretDown, SignOut, UserCircle, Gear } from "@phosphor-icons/react";
 import PathfinderLogo from "../PathfinderLogo";
 
 interface MarketingLayoutProps {
@@ -51,39 +52,43 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
 
   const avatarUrl = profile?.avatar_url || null;
 
+  const NAV = [
+    { to: "/how-it-works", label: "Cómo funciona" },
+    { to: "/academy", label: "Modelos" },
+    { to: "/pricing", label: "Precios" },
+  ];
+
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
         overflowY: "auto",
-        background: "var(--pf-bg-primary, #FFFFFF)",
-        color: "var(--pf-text-primary, #0A0A0A)",
+        background: "#000000",
+        color: "#F5F5F7",
       }}
     >
-      {/* Header sticky */}
+      {/* ═══════ HEADER — floating, blur on scroll ═══════ */}
       <header
         style={{
           position: "sticky",
           top: 0,
           zIndex: 100,
-          background: "rgba(0, 0, 0, 0.65)",
-          backdropFilter: "blur(24px) saturate(140%)",
-          WebkitBackdropFilter: "blur(24px) saturate(140%)",
-          borderBottom: "1px solid rgba(139, 92, 246, 0.15)",
+          background: "rgba(0, 0, 0, 0.72)",
+          backdropFilter: "blur(16px) saturate(140%)",
+          WebkitBackdropFilter: "blur(16px) saturate(140%)",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
         }}
       >
         <div
           style={{
-            maxWidth: "1200px",
+            maxWidth: 1240,
             margin: "0 auto",
-            padding: "16px 24px",
+            padding: "14px 32px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: "16px",
-            position: "relative",
-            zIndex: 1,
+            gap: 16,
           }}
         >
           <Link
@@ -92,36 +97,35 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
               textDecoration: "none",
               display: "flex",
               alignItems: "center",
-              gap: "12px",
+              gap: 10,
             }}
           >
-            <PathfinderLogo size={44} />
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+            <PathfinderLogo size={32} />
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
               <span
                 style={{
-                  fontFamily: "var(--pf-font-display, system-ui)",
-                  fontSize: "1.35rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  color: "#00B4FF",
-                  whiteSpace: "nowrap",
+                  fontFamily: "var(--pf-font-display)",
+                  fontSize: "1.0625rem",
+                  fontWeight: 600,
+                  letterSpacing: "-0.02em",
+                  color: "#F5F5F7",
+                  lineHeight: 1,
                 }}
               >
                 Pathfinder
               </span>
               <span
                 style={{
-                  fontFamily: "var(--pf-font-ui, system-ui)",
-                  fontSize: "0.6875rem",
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.5)",
-                  letterSpacing: "0.24em",
+                  fontFamily: "var(--pf-font-mono)",
+                  fontSize: "0.5625rem",
+                  fontWeight: 500,
+                  color: "rgba(255,255,255,0.32)",
+                  letterSpacing: "0.18em",
                   textTransform: "uppercase",
-                  marginTop: "4px",
-                  whiteSpace: "nowrap",
+                  lineHeight: 1,
                 }}
               >
-                Studio
+                STUDIO
               </span>
             </div>
           </Link>
@@ -130,107 +134,85 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "24px",
-              fontFamily: "var(--pf-font-ui, system-ui)",
-              fontSize: "0.875rem",
+              gap: 4,
+              fontFamily: "var(--pf-font-ui)",
+              fontSize: "0.8125rem",
             }}
+            className="pf-nav-desktop"
           >
-            <Link
-              to="/pricing"
-              style={{
-                textDecoration: "none",
-                color: "rgba(255,255,255,0.75)",
-                fontWeight: 500,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#FFFFFF")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
-            >
-              Ver planes
-            </Link>
-            <Link
-              to="/what-is-pathfinder"
-              style={{
-                textDecoration: "none",
-                color: "rgba(255,255,255,0.75)",
-                fontWeight: 500,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#FFFFFF")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
-            >
-              Qué es Pathfinder
-            </Link>
-            <Link
-              to="/how-it-works"
-              style={{
-                textDecoration: "none",
-                color: "rgba(255,255,255,0.75)",
-                fontWeight: 500,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#FFFFFF")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
-            >
-              Cómo funciona
-            </Link>
+            {NAV.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                style={{
+                  textDecoration: "none",
+                  color: "rgba(255,255,255,0.55)",
+                  fontWeight: 500,
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  transition: "color 150ms, background 150ms",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#F5F5F7";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "rgba(255,255,255,0.55)";
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {item.label}
+              </Link>
+            ))}
+
             {session ? (
-              <div ref={menuRef} style={{ position: "relative" }}>
+              <div ref={menuRef} style={{ position: "relative", marginLeft: 8 }}>
                 <button
                   onClick={() => setMenuOpen((o) => !o)}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "8px",
-                    padding: "6px 12px 6px 6px",
+                    gap: 8,
+                    padding: "5px 10px 5px 5px",
                     background: menuOpen
-                      ? "rgba(255,255,255,0.12)"
+                      ? "rgba(255,255,255,0.08)"
                       : "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    borderRadius: "9999px",
+                    border: "1px solid rgba(255,255,255,0.10)",
+                    borderRadius: 6,
                     cursor: "pointer",
-                    transition: "background 0.15s",
+                    transition: "background 150ms",
+                    fontFamily: "var(--pf-font-ui)",
                   }}
                 >
                   <div
                     style={{
-                      width: "28px",
-                      height: "28px",
-                      borderRadius: "50%",
+                      width: 24,
+                      height: 24,
+                      borderRadius: 4,
                       overflow: "hidden",
-                      background:
-                        "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      background: "linear-gradient(135deg, #8B5CF6 0%, #22D3EE 100%)",
                       color: "#FFFFFF",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontFamily: "var(--pf-font-ui, system-ui)",
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
+                      fontFamily: "var(--pf-font-mono)",
+                      fontSize: "0.6875rem",
+                      fontWeight: 600,
                       flexShrink: 0,
                     }}
                   >
                     {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
+                      <img src={avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
                       avatarInitial
                     )}
                   </div>
                   <span
                     style={{
-                      fontFamily: "var(--pf-font-ui, system-ui)",
                       fontSize: "0.8125rem",
                       fontWeight: 500,
-                      color: "#FFFFFF",
-                      maxWidth: "120px",
+                      color: "#F5F5F7",
+                      maxWidth: 110,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -238,12 +220,13 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                   >
                     {displayName}
                   </span>
-                  <ChevronDown
-                    size={14}
+                  <CaretDown
+                    size={12}
+                    weight="bold"
                     style={{
-                      color: "rgba(255,255,255,0.6)",
+                      color: "rgba(255,255,255,0.4)",
                       transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.15s",
+                      transition: "transform 150ms",
                       flexShrink: 0,
                     }}
                   />
@@ -255,12 +238,12 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                       position: "absolute",
                       top: "calc(100% + 8px)",
                       right: 0,
-                      minWidth: "200px",
-                      background: "#FFFFFF",
-                      border: "1px solid var(--pf-border-default, #E5E5E5)",
-                      borderRadius: "12px",
-                      boxShadow: "0 12px 32px rgba(0,0,0,0.15)",
-                      padding: "6px",
+                      minWidth: 220,
+                      background: "#141418",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 8,
+                      boxShadow: "0 24px 64px -12px rgba(0,0,0,0.8)",
+                      padding: 6,
                       zIndex: 200,
                     }}
                   >
@@ -268,221 +251,248 @@ const MarketingLayout: React.FC<MarketingLayoutProps> = ({ children }) => {
                       to="/studio"
                       onClick={() => setMenuOpen(false)}
                       style={{
-                        display: "block",
-                        padding: "10px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "9px 12px",
                         textDecoration: "none",
-                        fontFamily: "var(--pf-font-ui, system-ui)",
-                        fontSize: "0.875rem",
-                        color: "var(--pf-text-secondary, #525252)",
-                        borderRadius: "8px",
+                        fontFamily: "var(--pf-font-ui)",
+                        fontSize: "0.8125rem",
+                        color: "rgba(255,255,255,0.75)",
+                        borderRadius: 4,
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background =
-                          "var(--pf-bg-secondary, #FAFAFA)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
+                      <UserCircle size={16} />
                       Ir al Studio
                     </Link>
                     <Link
                       to="/settings"
                       onClick={() => setMenuOpen(false)}
                       style={{
-                        display: "block",
-                        padding: "10px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "9px 12px",
                         textDecoration: "none",
-                        fontFamily: "var(--pf-font-ui, system-ui)",
-                        fontSize: "0.875rem",
-                        color: "var(--pf-text-secondary, #525252)",
-                        borderRadius: "8px",
+                        fontFamily: "var(--pf-font-ui)",
+                        fontSize: "0.8125rem",
+                        color: "rgba(255,255,255,0.75)",
+                        borderRadius: 4,
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background =
-                          "var(--pf-bg-secondary, #FAFAFA)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
+                      <Gear size={16} />
                       Configuración
                     </Link>
-                    <div
-                      style={{
-                        height: "1px",
-                        background: "var(--pf-border-subtle, #F4F4F5)",
-                        margin: "6px 0",
-                      }}
-                    />
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "6px 0" }} />
                     <button
                       onClick={handleLogout}
                       style={{
                         width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
                         textAlign: "left",
-                        padding: "10px 12px",
+                        padding: "9px 12px",
                         background: "transparent",
                         border: "none",
-                        borderRadius: "8px",
-                        fontFamily: "var(--pf-font-ui, system-ui)",
-                        fontSize: "0.875rem",
-                        color: "#EF4444",
+                        borderRadius: 4,
+                        fontFamily: "var(--pf-font-ui)",
+                        fontSize: "0.8125rem",
+                        color: "#EB5757",
                         cursor: "pointer",
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.background =
-                          "rgba(239, 68, 68, 0.08)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.background = "transparent")
-                      }
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(235,87,87,0.08)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
+                      <SignOut size={16} />
                       Cerrar sesión
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <Link
-                to="/auth"
-                style={{
-                  textDecoration: "none",
-                  padding: "8px 16px",
-                  background: "#FFFFFF",
-                  color: "#0A0A0A",
-                  borderRadius: "9999px",
-                  fontWeight: 600,
-                }}
-              >
-                Iniciar sesión
-              </Link>
+              <>
+                <Link
+                  to="/auth"
+                  style={{
+                    textDecoration: "none",
+                    color: "rgba(255,255,255,0.55)",
+                    fontWeight: 500,
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  Ingresar
+                </Link>
+                <Link
+                  to="/auth"
+                  className="pf-cta-glow"
+                  style={{
+                    textDecoration: "none",
+                    padding: "9px 18px",
+                    marginLeft: 4,
+                    background: "#8B5CF6",
+                    color: "#FFFFFF",
+                    borderRadius: 6,
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
+                    transition: "box-shadow 200ms",
+                  }}
+                >
+                  Empezar gratis
+                </Link>
+              </>
             )}
           </nav>
         </div>
       </header>
 
-      {/* Contenido */}
+      {/* ═══════ CONTENT ═══════ */}
       <main>{children}</main>
 
-      {/* Footer */}
-      <footer
-        style={{
-          borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
-          padding: "48px 24px 32px",
-          background: "var(--pf-bg-secondary, #FAFAFA)",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1200px",
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "32px",
-            marginBottom: "40px",
-          }}
-        >
-          <div>
+      {/* ═══════ FOOTER — módulo aislado ═══════ */}
+      <footer style={{ background: "#000000", padding: "0 32px 40px" }}>
+        <div style={{ maxWidth: 1240, margin: "0 auto" }}>
+          <div
+            className="pf-module pf-module--crosshair"
+            style={{ padding: 0, position: "relative" }}
+          >
             <div
               style={{
-                fontFamily: "var(--pf-font-display, system-ui)",
-                fontSize: "1rem",
-                fontWeight: 800,
-                letterSpacing: "-0.03em",
-                marginBottom: "8px",
+                padding: "48px 40px 32px",
+                display: "grid",
+                gridTemplateColumns: "2fr repeat(3, 1fr)",
+                gap: 40,
               }}
+              className="pf-footer-grid"
             >
-              Pathfinder
+              {/* Brand */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <PathfinderLogo size={28} />
+                  <span
+                    style={{
+                      fontFamily: "var(--pf-font-display)",
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      letterSpacing: "-0.02em",
+                      color: "#F5F5F7",
+                    }}
+                  >
+                    Pathfinder
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.8125rem",
+                    color: "rgba(255,255,255,0.4)",
+                    lineHeight: 1.6,
+                    maxWidth: 260,
+                    marginBottom: 20,
+                  }}
+                >
+                  Infraestructura profesional para crear con IA.
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.625rem",
+                    letterSpacing: "0.14em",
+                    color: "rgba(255,255,255,0.25)",
+                  }}
+                >
+                  SYS.UPTIME ● 99.9%
+                </div>
+              </div>
+
+              {/* Columns */}
+              {[
+                {
+                  title: "PRODUCT",
+                  links: [
+                    { label: "Empezar gratis", to: "/auth" },
+                    { label: "Precios", to: "/pricing" },
+                    { label: "Modelos", to: "/academy" },
+                  ],
+                },
+                {
+                  title: "RESOURCES",
+                  links: [
+                    { label: "Cómo funciona", to: "/how-it-works" },
+                    { label: "Qué es Pathfinder", to: "/what-is-pathfinder" },
+                  ],
+                },
+                {
+                  title: "LEGAL",
+                  links: [
+                    { label: "Términos", to: "/legal/terms" },
+                    { label: "Privacidad", to: "/legal/privacy" },
+                  ],
+                },
+              ].map((col) => (
+                <div key={col.title}>
+                  <div
+                    style={{
+                      fontFamily: "var(--pf-font-mono)",
+                      fontSize: "0.625rem",
+                      fontWeight: 500,
+                      letterSpacing: "0.14em",
+                      color: "rgba(255,255,255,0.32)",
+                      marginBottom: 14,
+                    }}
+                  >
+                    {col.title}
+                  </div>
+                  <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+                    {col.links.map((l) => (
+                      <li key={l.to}>
+                        <Link
+                          to={l.to}
+                          style={{
+                            textDecoration: "none",
+                            color: "rgba(255,255,255,0.55)",
+                            fontSize: "0.8125rem",
+                            fontFamily: "var(--pf-font-ui)",
+                            transition: "color 150ms",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#F5F5F7")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
+                        >
+                          {l.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
+
             <div
               style={{
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.8125rem",
-                color: "var(--pf-text-muted, #A1A1AA)",
-                lineHeight: 1.5,
+                padding: "20px 40px 24px",
+                borderTop: "1px solid rgba(255,255,255,0.05)",
+                display: "flex",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 8,
+                fontFamily: "var(--pf-font-mono)",
+                fontSize: "0.6875rem",
+                letterSpacing: "0.08em",
+                color: "rgba(255,255,255,0.3)",
               }}
             >
-              Infraestructura profesional para crear con IA.
+              <span>© 2026 PATHFINDER.STUDIO</span>
+              <span>MEX.01 · ALL SYSTEMS NOMINAL</span>
             </div>
           </div>
-
-          <div>
-            <div
-              style={{
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "var(--pf-text-primary, #0A0A0A)",
-                marginBottom: "12px",
-              }}
-            >
-              Producto
-            </div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-              <li><Link to="/auth" style={{ textDecoration: "none", color: "var(--pf-text-secondary, #525252)", fontSize: "0.875rem", fontFamily: "var(--pf-font-ui, system-ui)" }}>Empezar gratis</Link></li>
-              <li><Link to="/pricing" style={{ textDecoration: "none", color: "var(--pf-text-secondary, #525252)", fontSize: "0.875rem", fontFamily: "var(--pf-font-ui, system-ui)" }}>Precios</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <div
-              style={{
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "var(--pf-text-primary, #0A0A0A)",
-                marginBottom: "12px",
-              }}
-            >
-              Empresa
-            </div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-              <li><a href="mailto:pathfinder.contacto@gmail.com" style={{ textDecoration: "none", color: "var(--pf-text-secondary, #525252)", fontSize: "0.875rem", fontFamily: "var(--pf-font-ui, system-ui)" }}>Contacto</a></li>
-            </ul>
-          </div>
-
-          <div>
-            <div
-              style={{
-                fontFamily: "var(--pf-font-ui, system-ui)",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "var(--pf-text-primary, #0A0A0A)",
-                marginBottom: "12px",
-              }}
-            >
-              Legal
-            </div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-              <li><Link to="/legal/terms" style={{ textDecoration: "none", color: "var(--pf-text-secondary, #525252)", fontSize: "0.875rem", fontFamily: "var(--pf-font-ui, system-ui)" }}>Términos</Link></li>
-              <li><Link to="/legal/privacy" style={{ textDecoration: "none", color: "var(--pf-text-secondary, #525252)", fontSize: "0.875rem", fontFamily: "var(--pf-font-ui, system-ui)" }}>Privacidad</Link></li>
-            </ul>
-          </div>
-        </div>
-
-        <div
-          style={{
-            maxWidth: "1200px",
-            margin: "0 auto",
-            paddingTop: "24px",
-            borderTop: "1px solid var(--pf-border-subtle, #F4F4F5)",
-            fontFamily: "var(--pf-font-ui, system-ui)",
-            fontSize: "0.75rem",
-            color: "var(--pf-text-muted, #A1A1AA)",
-            display: "flex",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "8px",
-          }}
-        >
-          <span>© 2026 Pathfinder Studio S.A. de C.V.</span>
-          <span>Hecho en México</span>
         </div>
       </footer>
     </div>
