@@ -986,6 +986,246 @@ const MODELS: Model[] = [
       files: [],
     },
   },
+
+  // ── OMNI VOICE ──
+  {
+    id: "tts-dual-omnivoice",
+    name: "OmniVoice",
+    capability: "audio",
+    tagline:
+      "Voz sintética con 4 modos: diseño, clonación, diálogos y auto voice. 13 idiomas.",
+    description:
+      "OmniVoice es un motor TTS de alta fidelidad con 4 modos de trabajo: genera voz sin referencia previa, clona voces desde muestras cortas, produce diálogos entre dos speakers, o diseña voces custom con tags de instrucción. Soporta 13 idiomas con español neutro incluido. Es la opción por defecto para narración, audiolibros y locución profesional.",
+    specs: [
+      { label: "Arquitectura", value: "OmniVoice", detail: "Motor TTS multi-modo" },
+      { label: "Modos", value: "4", detail: "Auto Voice · Voice Design · Voice Cloning · Two-Speaker" },
+      { label: "Idiomas", value: "13", detail: "Incluye español neutro" },
+      { label: "Steps", value: "32 (default)", detail: "Ajustable 10–50" },
+      { label: "Guide scale", value: "2.0 (default)", detail: "Control de adherencia al texto" },
+      { label: "Sample rate", value: "24,000 Hz", detail: "Calidad profesional" },
+      { label: "Duración", value: "Custom (auto) · 5s–60s", detail: "Ajustable por preset" },
+      { label: "Referencia mínima", value: "10 segundos de audio limpio", detail: "Para clonación" },
+    ],
+    useCases: [
+      {
+        title: "Locución para video",
+        desc: "Voice-over profesional para YouTube, TikTok, Reels o documentales.",
+        icon: "Mic",
+      },
+      {
+        title: "Audiolibros y narración",
+        desc: "Lectura de textos largos con voz consistente a lo largo de horas.",
+        icon: "BookOpen",
+      },
+      {
+        title: "Diálogos entre personajes",
+        desc: "Modo Two-Speaker: dos voces distintas en una sola generación para ficción sonora.",
+        icon: "Users",
+      },
+      {
+        title: "Doblaje multiidioma",
+        desc: "Mismo texto en 13 idiomas con la misma voz clonada o diseñada.",
+        icon: "Globe",
+      },
+      {
+        title: "Clonación de tu propia voz",
+        desc: "Con 10 segundos de audio limpio puedes producir todo tu contenido en tu voz.",
+        icon: "User",
+      },
+      {
+        title: "Voice Design sin referencia",
+        desc: "Diseña una voz custom con tags: 'voz femenina joven, tono cálido, pausado'.",
+        icon: "Wand2",
+      },
+    ],
+    promptGuide: {
+      structure:
+        "Voice Design: [Tags: descripción de voz] + texto a narrar | Cloning: [referencia de audio] + texto | Two-Speaker: [Referencia A] + [Referencia B] + texto con guiones",
+      negativePrompt:
+        "No aplica — el control de calidad viene de la instrucción y la referencia",
+      tips: [
+        "En el texto, evita puntos internos: usa comas para que el TTS fluya natural.",
+        "Marcadores conversacionales funcionan bien: 'Ahora', 'Entonces', 'Mira'.",
+        "Para clonación, la referencia debe tener mínimo 10 segundos de voz limpia, sin ruido de fondo.",
+        "En Voice Design, los tags afectan la voz final: 'voz cálida, joven, pausada'.",
+        "Para Two-Speaker, asigna cada referencia a un speaker explícitamente en el prompt.",
+        "Si la generación suena 'leída', baja el guide scale o agrega marcadores conversacionales.",
+        "El modo Auto Voice es el más rápido — úsalo para drafts antes de diseñar la voz final.",
+      ],
+    },
+    examples: [
+      {
+        label: "Voice Design",
+        context: "Locución de video sin referencia previa",
+        prompt:
+          "[Tags: voz femenina joven, tono cálido, pausado] Bienvenido a Pathfinder, ahora vamos a crear algo juntos.",
+      },
+      {
+        label: "Two-Speaker",
+        context: "Diálogo entre dos personajes para ficción sonora",
+        prompt:
+          "[Referencia A: voz masculina adulta] [Referencia B: voz femenina joven] — ¿Ya llegaste? — Sí, estoy aquí desde hace una hora. — Perdón, el tráfico estuvo terrible.",
+      },
+      {
+        label: "Clonación",
+        context: "Producción en serie con tu propia voz",
+        prompt:
+          "Texto a narrar en tu voz clonada. Recuerda usar comas en lugar de puntos internos para fluidez.",
+      },
+      {
+        label: "Narración para audiolibro",
+        context: "Capítulo de audiolibro con voz consistente",
+        prompt:
+          "Había una vez, en un pueblo pequeño rodeado de montañas, un anciano que contaba historias a los niños cada atardecer. Sus relatos, decían, tenían el poder de sanar.",
+      },
+    ],
+    limitations: [
+      "El audio clonado puede sonar 'leído' si la referencia es muy corta (menos de 10s).",
+      "Emociones muy sutiles (ironía, sarcasmo) pueden no captarse bien.",
+      "El modo Two-Speaker requiere dos referencias limpias y bien diferenciadas.",
+      "La clonación hereda el acento y tono de la referencia — no se puede cambiar después.",
+      "Voces con acentos muy marcados pueden sonar menos naturales en idiomas que no son el nativo.",
+    ],
+    fcmContract: {
+      modes: [
+        "Auto Voice (sin referencia)",
+        "Voice Design (solo tags)",
+        "Voice Cloning (1 referencia)",
+        "Two-Speaker (2 referencias)",
+      ],
+      params: [
+        "voiceMode (4 opciones)",
+        "voiceInstruction (tags para Voice Design)",
+        "language (13 idiomas)",
+        "duration (Custom · 5s · 10s · 15s · 25s · 40s · 60s)",
+        "seed",
+        "steps (10–50, default 32)",
+        "guideScale (default 2.0)",
+      ],
+      files: ["audioGuide (referencia 1)", "audioGuide2 (referencia 2)"],
+    },
+  },
+
+  // ── INDEX TTS 2.5 ──
+  {
+    id: "tts-dual-index",
+    name: "Index TTS 2.5",
+    capability: "audio",
+    tagline:
+      "Clonación de voz con control de emoción. Dos referencias: una de voz, otra de emoción.",
+    description:
+      "Index TTS 2.5 es un motor TTS especializado en control emocional avanzado. Toma dos referencias de audio: una para la voz a clonar y otra para la emoción a aplicar. El resultado: 'decir este texto con esta voz, pero con esta emoción específica'. Ideal para publicidad, ficción sonora y narración dramática donde el matiz emocional es crítico.",
+    specs: [
+      { label: "Arquitectura", value: "Index TTS 2.5", detail: "Con Qwen0.6B-Emo (emoción)" },
+      { label: "Modos", value: "2", detail: "Voice Cloning · Voice + Emotion" },
+      { label: "Idiomas", value: "6", detail: "ES · EN · ZH · ZHEN · JA · AR" },
+      { label: "Steps", value: "25 (default)", detail: "Ajustable 10–40" },
+      { label: "Guide scale", value: "1.0 (default)", detail: "Control de adherencia" },
+      { label: "Sample rate", value: "22,050 Hz", detail: "Calidad profesional" },
+      { label: "Duración", value: "Custom (auto) · 5s–60s", detail: "Ajustable por preset" },
+      { label: "Cross-lingual", value: "Sí", detail: "Voz china → output en inglés, ej." },
+    ],
+    useCases: [
+      {
+        title: "Publicidad con emoción",
+        desc: "Locutor entusiasta, grave, cálido — la emoción viene de la referencia.",
+        icon: "Megaphone",
+      },
+      {
+        title: "Ficción sonora / audiodrama",
+        desc: "Personajes con matices emocionales específicos: miedo, alegría, tristeza.",
+        icon: "Drama",
+      },
+      {
+        title: "Narración dramática",
+        desc: "Audiolibros con carga emocional: suspenso, romance, thriller.",
+        icon: "BookOpen",
+      },
+      {
+        title: "Cross-lingual voice transfer",
+        desc: "Usar una voz clonada en un idioma y generar output en otro idioma soportado.",
+        icon: "Globe",
+      },
+      {
+        title: "Contenido de marca con tono específico",
+        desc: "Mantener la voz de la marca pero adaptar la emoción según el mensaje.",
+        icon: "Sparkle",
+      },
+      {
+        title: "Personajes con personalidad",
+        desc: "Diferentes emociones para el mismo personaje en distintas escenas.",
+        icon: "Users",
+      },
+    ],
+    promptGuide: {
+      structure:
+        "Voice Cloning: [Referencia de voz] + texto | Voice + Emotion: [Referencia de voz] + [Referencia de emoción] + texto",
+      negativePrompt:
+        "No aplica — el control viene de las dos referencias de audio",
+      tips: [
+        "Separa el texto de la emoción: la emoción viene de la referencia, no del prompt.",
+        "Usa referencias de emoción claras y reconocibles: alegría, tristeza, enojo, sorpresa.",
+        "Ajusta la velocidad de habla por separado si el resultado suena rápido o lento.",
+        "Activa la normalización de texto para números, siglas y monedas.",
+        "La temperatura baja (0.6–0.8) da resultados más estables; alta (0.9+) más variación.",
+        "Con cross-lingual, la voz hereda el acento del idioma destino de forma natural.",
+      ],
+    },
+    examples: [
+      {
+        label: "Narración emotiva",
+        context: "Cierre de audiolibro con carga emocional",
+        prompt:
+          "[Referencia de voz: narrador] [Referencia de emoción: audio triste] Y así, después de tantos años, todo lo que quedó fue el silencio.",
+      },
+      {
+        label: "Publicidad entusiasta",
+        context: "Spot publicitario de producto",
+        prompt:
+          "[Referencia de voz: locutor profesional] [Referencia de emoción: audio entusiasta] Descubre Pathfinder. La estación de IA que estabas esperando.",
+      },
+      {
+        label: "Personaje con miedo",
+        context: "Escena de suspenso para audiodrama",
+        prompt:
+          "[Referencia de voz: personaje femenino] [Referencia de emoción: audio con miedo] ¿Hay alguien ahí? Por favor, respóndeme.",
+      },
+      {
+        label: "Cross-lingual",
+        context: "Misma voz, diferente idioma",
+        prompt:
+          "[Referencia de voz: voz en español] texto en inglés, manteniendo el timbre original de la referencia, emoción neutral, ritmo natural",
+      },
+    ],
+    limitations: [
+      "Requiere referencia de audio obligatoriamente — no funciona sin ella.",
+      "El control de emoción depende de la claridad de la referencia emocional.",
+      "Menos idiomas soportados que OmniVoice (6 vs 13).",
+      "Disponible en Colab solo para plan Creator o Founder.",
+      "La clonación hereda el tono emocional de la referencia base si no se especifica la segunda.",
+    ],
+    fcmContract: {
+      modes: [
+        "Voice Cloning (1 referencia)",
+        "Voice + Emotion (2 referencias)",
+      ],
+      params: [
+        "voiceMode (2 opciones)",
+        "emotionInstruction (descripción de emoción)",
+        "language (6 idiomas)",
+        "duration (Custom · 5s · 10s · 15s · 25s · 40s · 60s)",
+        "seed",
+        "steps (10–40, default 25)",
+        "guideScale (default 1.0)",
+        "speechSpeed",
+        "temperature (0.6–1.0)",
+        "topP (default 0.8)",
+        "topK (default 30)",
+        "textNormalization",
+      ],
+      files: ["audioGuide (voz)", "audioGuide2 (emoción)"],
+    },
+  },
 ];
 
 // ============================================================================
