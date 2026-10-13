@@ -25,7 +25,7 @@ export const Card: React.FC<CardProps> = ({
         interactive
           ? {
               y: -2,
-              boxShadow: shadow.base,
+              boxShadow: shadow.none,
               transition: { duration: duration.micro, ease: ease.out },
             }
           : undefined
@@ -35,7 +35,7 @@ export const Card: React.FC<CardProps> = ({
         border: '1px solid var(--pf-border-subtle)',
         borderRadius: radius.base,
         padding: padded ? space[6] : 0,
-        boxShadow: shadow.sm,
+        boxShadow: shadow.none,
         cursor: interactive ? 'pointer' : 'default',
         transition: 'border-color 150ms ease-out',
         ...style,
