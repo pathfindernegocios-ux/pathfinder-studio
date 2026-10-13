@@ -44,7 +44,7 @@ export const Drawer: React.FC<DrawerProps> = ({
             maxWidth: '95vw',
             background: 'var(--pf-bg-primary)',
             borderLeft: '1px solid var(--pf-border-subtle)',
-            boxShadow: shadow.lg,
+            boxShadow: shadow.drawer,
             zIndex: 101,
             display: 'flex',
             flexDirection: 'column',

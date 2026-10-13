@@ -1,17 +1,18 @@
-@import "@fontsource/jetbrains-mono/latin-400.css";
-@import "@fontsource/jetbrains-mono/latin-500.css";
-@import "@fontsource/jetbrains-mono/latin-600.css";
-@import "@fontsource/jetbrains-mono/latin-700.css";
-@import "@fontsource/jetbrains-mono/latin-ext-400.css";
-@import "@fontsource/jetbrains-mono/latin-ext-500.css";
-@import "@fontsource/jetbrains-mono/latin-ext-600.css";
-@import "@fontsource/jetbrains-mono/latin-ext-700.css";
+@import "@fontsource/chakra-petch/latin-400.css";
+@import "@fontsource/chakra-petch/latin-500.css";
+@import "@fontsource/chakra-petch/latin-600.css";
+@import "@fontsource/chakra-petch/latin-700.css";
+@import "@fontsource/chakra-petch/latin-ext-400.css";
+@import "@fontsource/chakra-petch/latin-ext-500.css";
+@import "@fontsource/chakra-petch/latin-ext-600.css";
+@import "@fontsource/chakra-petch/latin-ext-700.css";
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource-variable/geist-mono/wght.css";
 
-@import url('https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+
 
 :root {
-  --pf-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --pf-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --pf-bg-primary: #FFFFFF;
   --pf-bg-secondary: #FAFAFA;
   --pf-bg-tertiary: #F5F5F5;
@@ -39,8 +40,8 @@
   --pf-skeleton-base: #1a1a1a;
   --pf-skeleton-highlight: #2a2a2a;
 
-  --pf-font-display: 'Satoshi', 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
-  --pf-font-ui: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
+  --pf-font-display: 'Chakra Petch', system-ui, sans-serif;
+  --pf-font-ui: 'Geist', system-ui, sans-serif;
   --pf-font-prompt: 'Satoshi', 'Inter Tight', sans-serif;
   /* Fuentes del contenido del chat (prompt + respuesta de la IA) */
   --pf-font-chat: 'Geist', 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -681,4 +682,90 @@ html {
 @keyframes pf-lightbox-fade {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   PATHFINDER DESIGN SYSTEM v3 — FUTURISMO
+   Utilidades globales
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Chrome text — gradient en el texto (solo hero) */
+.pf-chrome-text {
+  background: linear-gradient(135deg, #8B5CF6 0%, #22D3EE 50%, #EC4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Glow — halo de acento */
+.pf-glow {
+  box-shadow: 0 0 24px -8px rgba(110, 86, 207, 0.6);
+}
+.pf-glow-strong {
+  box-shadow: 0 0 40px -10px rgba(110, 86, 207, 0.8);
+}
+
+/* Grid pattern — fondo futurista */
+.pf-grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Noise overlay — textura global */
+.pf-noise {
+  position: relative;
+}
+.pf-noise::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E");
+}
+
+/* Mesh gradient hero */
+.pf-mesh {
+  background-image:
+    radial-gradient(ellipse 40% 30% at 20% 20%, rgba(139,92,246,0.18), transparent),
+    radial-gradient(ellipse 35% 25% at 80% 30%, rgba(34,211,238,0.14), transparent),
+    radial-gradient(ellipse 50% 40% at 50% 80%, rgba(236,72,153,0.10), transparent);
+}
+
+/* Chrome border — feature cards (Krea-tier) */
+.pf-chrome-border {
+  position: relative;
+  background: linear-gradient(180deg, rgba(139,92,246,0.03), transparent);
+}
+.pf-chrome-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #8B5CF6, #22D3EE, #EC4899);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+  animation: pf-chrome-shimmer 4s linear infinite;
+}
+
+@keyframes pf-chrome-shimmer {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.9; }
+}
+
+/* Hover glow en CTA — futuros botones */
+.pf-cta-glow {
+  transition: box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pf-cta-glow:hover {
+  box-shadow: 0 0 32px -6px rgba(110, 86, 207, 0.7);
 }
