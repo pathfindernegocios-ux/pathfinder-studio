@@ -1,9 +1,11 @@
 // src/pages/WelcomePage.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Rocket, Play, ArrowDown } from "lucide-react";
+import { BadgeCheck, Rocket, Play, ArrowDown } from "lucide-react";
 import PathfinderLogo from "../components/PathfinderLogo";
 import VideoPlayer from "../components/VideoPlayer";
+import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabaseClient";
 
 // ============================================================
 // MEDIA URLs — subí los videos a Storage y pegá las URLs acá.
@@ -195,9 +197,15 @@ const RocketLaunch: React.FC = () => {
 // ============================================================
 // WELCOME PAGE
 // ============================================================
+const TOS_VERSION = "2026-10-13";
+const PRIVACY_VERSION = "2026-10-13";
+
 const WelcomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
@@ -237,8 +245,23 @@ const WelcomePage: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  const handleEnterStudio = () => {
-    // TODO (Bloque B): UPDATE profiles.welcome_completed_at = now() antes de navegar.
+  const handleEnterStudio = async () => {
+    if (!tosAccepted || isSubmitting) return;
+    setIsSubmitting(true);
+    if (session?.user?.id) {
+      try {
+        await supabase
+          .from("profiles")
+          .update({
+            tos_accepted_at: new Date().toISOString(),
+            tos_version: TOS_VERSION,
+            privacy_version: PRIVACY_VERSION,
+          })
+          .eq("id", session.user.id);
+      } catch (e) {
+        void 0;
+      }
+    }
     navigate("/studio");
   };
 
@@ -532,7 +555,7 @@ const WelcomePage: React.FC = () => {
               marginBottom: "32px",
             }}
           >
-            <Sparkles size={32} strokeWidth={1.8} />
+            <BadgeCheck size={32} strokeWidth={1.8} />
           </div>
 
           <h2
@@ -567,35 +590,131 @@ const WelcomePage: React.FC = () => {
             Abre el Studio y empieza a crear. Si te pierdes, la guía paso a paso te tiene cubierto.
           </p>
 
+          {/* Checkbox de Términos */}
+          <div
+            style={{
+              maxWidth: "560px",
+              margin: "0 auto 32px",
+              padding: "16px 20px",
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "12px",
+              textAlign: "left",
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                gap: "12px",
+                alignItems: "flex-start",
+                cursor: "pointer",
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.875rem",
+                lineHeight: 1.55,
+                color: "rgba(255,255,255,0.75)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={tosAccepted}
+                onChange={(e) => setTosAccepted(e.target.checked)}
+                style={{
+                  marginTop: "3px",
+                  width: "18px",
+                  height: "18px",
+                  accentColor: "#10b981",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              />
+              <span>
+                Acepto los{" "}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#a5b4fc",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}
+                >
+                  Términos de Servicio de Pathfinder
+                </a>
+                , los{" "}
+                <a
+                  href="https://www.kaggle.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#a5b4fc",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}
+                >
+                  Términos de Kaggle
+                </a>{" "}
+                y los{" "}
+                <a
+                  href="https://research.google.com/colaboratory/tos.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#a5b4fc",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}
+                >
+                  Términos de Google Colab
+                </a>
+                .
+              </span>
+            </label>
+          </div>
+
           <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
             <button
               onClick={handleEnterStudio}
+              disabled={!tosAccepted || isSubmitting}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "8px",
-                background: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
-                color: "#ffffff",
+                background: tosAccepted
+                  ? "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)"
+                  : "rgba(255,255,255,0.08)",
+                color: tosAccepted ? "#ffffff" : "rgba(255,255,255,0.4)",
                 border: "none",
                 borderRadius: "9999px",
                 padding: "16px 40px",
                 fontSize: "1rem",
                 fontWeight: 700,
                 fontFamily: "var(--pf-font-ui, system-ui)",
-                cursor: "pointer",
-                boxShadow: "0 10px 30px -8px rgba(16, 185, 129, 0.5)",
-                transition: "transform 0.2s, box-shadow 0.2s",
+                cursor: !tosAccepted
+                  ? "not-allowed"
+                  : isSubmitting
+                  ? "wait"
+                  : "pointer",
+                boxShadow: tosAccepted
+                  ? "0 10px 30px -8px rgba(16, 185, 129, 0.5)"
+                  : "none",
+                transition: "transform 0.2s, box-shadow 0.2s, background 0.2s",
+                opacity: isSubmitting ? 0.7 : 1,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 16px 40px -8px rgba(16, 185, 129, 0.7)";
+                if (tosAccepted && !isSubmitting) {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 16px 40px -8px rgba(16, 185, 129, 0.7)";
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 10px 30px -8px rgba(16, 185, 129, 0.5)";
+                if (tosAccepted && !isSubmitting) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 10px 30px -8px rgba(16, 185, 129, 0.5)";
+                }
               }}
             >
-              Ir al Studio →
+              {isSubmitting ? "Guardando..." : "Ir al Studio →"}
             </button>
 
             <button
