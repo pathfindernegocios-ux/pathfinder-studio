@@ -47,10 +47,10 @@ import { AssetsPage } from "./pages/placeholders/AssetsPage";
 
 // Legal
 import TermsPage from "./pages/legal/TermsPage";
-import HowItWorksPage, { HowItWorksContent } from "./pages/HowItWorksPage";
+import HowItWorksPage from "./pages/HowItWorksPage";
 import WhatIsPathfinderPage from "./pages/WhatIsPathfinderPage";
 import WelcomePage from "./pages/WelcomePage";
-import AcademyPage, { AcademyContent } from "./pages/AcademyPage";
+import AcademyPage from "./pages/AcademyPage";
 import PrivacyPage from "./pages/legal/PrivacyPage";
 
 // ---------------------------------------------------------------------------
@@ -352,40 +352,8 @@ function App() {
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/legal/terms" element={<TermsPage />} />
           <Route path="/legal/privacy" element={<PrivacyPage />} />
-          <Route
-            path="/how-it-works"
-            element={
-              session && profile ? (
-                <ProtectedAppLayout
-                  session={session}
-                  profile={profile}
-                  sidebarCollapsed={sidebarCollapsed}
-                  setSidebarCollapsed={setSidebarCollapsed}
-                >
-                  <HowItWorksContent />
-                </ProtectedAppLayout>
-              ) : (
-                <HowItWorksPage />
-              )
-            }
-          />
-          <Route
-            path="/academy"
-            element={
-              session && profile ? (
-                <ProtectedAppLayout
-                  session={session}
-                  profile={profile}
-                  sidebarCollapsed={sidebarCollapsed}
-                  setSidebarCollapsed={setSidebarCollapsed}
-                >
-                  <AcademyContent />
-                </ProtectedAppLayout>
-              ) : (
-                <AcademyPage />
-              )
-            }
-          />
+          <Route path="/how-it-works" element={<HowItWorksPage />} />
+          <Route path="/academy" element={<AcademyPage />} />
 
           {/* ============================================================
               ONBOARDING & ESTADOS DE CUENTA
