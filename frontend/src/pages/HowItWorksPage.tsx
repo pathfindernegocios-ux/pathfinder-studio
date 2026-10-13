@@ -507,6 +507,17 @@ export const HowItWorksContent: React.FC = () => {
   const [isMarking, setIsMarking] = useState(false);
   const [activeStep, setActiveStep] = useState("step-01");
   const [activePlatform, setActivePlatform] = useState<Platform>("kaggle");
+  const [zoomedImage, setZoomedImage] = useState<{ url: string; alt: string } | null>(null);
+
+  // Escape cierra el lightbox
+  useEffect(() => {
+    if (!zoomedImage) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoomedImage(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomedImage]);
 
   const hasViewedBefore = !!profile?.how_it_works_viewed_at;
 
@@ -1488,11 +1499,27 @@ export const HowItWorksContent: React.FC = () => {
         >
           <div>
             <div
+              onClick={() =>
+                setZoomedImage({
+                  url: MEDIA_URLS.step5_shutdown_kaggle,
+                  alt: "Kaggle — Stop Session desde el menú de tres puntos",
+                })
+              }
               style={{
                 borderRadius: "12px",
                 overflow: "hidden",
                 border: "1px solid var(--pf-border-subtle, #F4F4F5)",
                 background: "var(--pf-bg-secondary, #FAFAFA)",
+                cursor: "zoom-in",
+                transition: "transform 0.15s ease, box-shadow 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 8px 24px -8px rgba(0,0,0,0.25)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
               }}
             >
               <img
@@ -1517,11 +1544,27 @@ export const HowItWorksContent: React.FC = () => {
 
           <div>
             <div
+              onClick={() =>
+                setZoomedImage({
+                  url: MEDIA_URLS.step5_shutdown_colab,
+                  alt: "Colab — Desconectar y borrar el tiempo de ejecución",
+                })
+              }
               style={{
                 borderRadius: "12px",
                 overflow: "hidden",
                 border: "1px solid var(--pf-border-subtle, #F4F4F5)",
                 background: "var(--pf-bg-secondary, #FAFAFA)",
+                cursor: "zoom-in",
+                transition: "transform 0.15s ease, box-shadow 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 8px 24px -8px rgba(0,0,0,0.25)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
               }}
             >
               <img
@@ -1865,6 +1908,72 @@ export const HowItWorksContent: React.FC = () => {
           </Link>
         )}
       </section>
+
+      {/* ==================== LIGHTBOX ==================== */}
+      {zoomedImage && (
+        <div
+          onClick={() => setZoomedImage(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.88)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "40px",
+            cursor: "zoom-out",
+            animation: "pf-lightbox-fade 0.15s ease",
+          }}
+        >
+          <button
+            onClick={() => setZoomedImage(null)}
+            aria-label="Cerrar"
+            style={{
+              position: "absolute",
+              top: "20px",
+              right: "20px",
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: "rgba(255, 255, 255, 0.1)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              color: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              padding: 0,
+              fontSize: "22px",
+              lineHeight: 1,
+              transition: "background 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+            }}
+          >
+            ×
+          </button>
+          <img
+            src={zoomedImage.url}
+            alt={zoomedImage.alt}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              borderRadius: "8px",
+              boxShadow: "0 24px 80px -12px rgba(0, 0, 0, 0.6)",
+              cursor: "default",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
