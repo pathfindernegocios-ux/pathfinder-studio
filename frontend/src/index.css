@@ -1002,3 +1002,70 @@ html {
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* How It Works — responsive */
+@media (max-width: 968px) {
+  .pf-hiw-layout {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .pf-hiw-layout > aside {
+    position: relative !important;
+    top: auto !important;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   HOW IT WORKS — atmósfera y responsive
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes pf-aurora-drift-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(60px, 40px, 0) scale(1.10); }
+}
+@keyframes pf-aurora-drift-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-70px, -50px, 0) scale(1.15); }
+}
+.pf-aurora-1 { animation: pf-aurora-drift-1 32s ease-in-out infinite; }
+.pf-aurora-2 { animation: pf-aurora-drift-2 38s ease-in-out infinite; }
+
+@media (max-width: 968px) {
+  .pf-split-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-aurora-1, .pf-aurora-2 { animation: none !important; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ACADEMY — status dot y responsive
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes pf-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(1.25); opacity: 1; }
+}
+.pf-status-dot {
+  animation: pf-dot-pulse 2s ease-in-out infinite;
+}
+
+@media (max-width: 968px) {
+  .pf-hero-thumbs {
+    grid-template-columns: 1fr !important;
+  }
+  .pf-spotlight-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .pf-bento-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .pf-bento-grid > div {
+    grid-column: span 1 !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-status-dot { animation: none !important; }
+}

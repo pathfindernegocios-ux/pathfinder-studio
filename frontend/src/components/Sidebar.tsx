@@ -11,9 +11,7 @@ import {
   StudioIcon, 
   CreationsIcon, 
   StationIcon, 
-  AcademyIcon, 
   SettingsIcon,
-  HowItWorksIcon,
 } from './NavIcons';
 
 
@@ -78,8 +76,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
     { path: '/studio', label: 'Studio', icon: StudioIcon, featured: true },
     { path: '/creations', label: 'Mis Creaciones', icon: CreationsIcon, featured: true },
     { path: '/station', label: 'Mi Estación', icon: StationIcon, featured: true },
-    { path: '/how-it-works', label: 'Cómo funciona', icon: HowItWorksIcon, featured: true },
-    { path: '/academy', label: 'Conoce tus modelos', icon: AcademyIcon, featured: false },
     { path: '/settings', label: 'Configuración', icon: SettingsIcon, featured: false },
   ];
 
