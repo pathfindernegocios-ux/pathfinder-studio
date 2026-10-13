@@ -40,6 +40,12 @@ export function useAuth(): UseAuthResult {
   // Si recibimos SIGNED_OUT pero nunca tuvimos sesion, no fue una
   // revocacion — el user simplemente nunca se logueo.
   const hadSessionRef = useRef<boolean>(false);
+  // Timeout ID del check que verifica si la sesion realmente fue revocada.
+  // Si llega un SIGNED_OUT transitorio, esperamos 2.5s y consultamos al
+  // server con getUser(). Solo si el server confirma 401/403 disparamos
+  // el modal de sesion expirada. Cualquier otro caso (network blip) se
+  // ignora y la sesion sigue viva.
+  const revokedCheckRef = useRef<number | null>(null);
 
   const [hasEnteredStudio, setHasEnteredStudio] = useState<boolean>(() => {
     try {
@@ -106,11 +112,45 @@ export function useAuth(): UseAuthResult {
 
         if (!session) {
           // Distinguir logout voluntario de revocacion server-side.
-          // Si ya teniamos sesion y NO fue un logout pedido por el user,
-          // es una revocacion involuntaria — disparamos el modal de
-          // sesion expirada via sessionRevokedAt.
           if (hadSessionRef.current && !wasRecentVoluntaryLogout()) {
-            setSessionRevokedAt(Date.now());
+            // No disparamos el modal inmediatamente. El SDK de Supabase
+            // puede emitir SIGNED_OUT por fallos transitorios de refresh
+            // (network blip) sin que el server haya revocado la sesion.
+            // Esperamos 2.5s y consultamos al server con getUser().
+            if (revokedCheckRef.current) {
+              window.clearTimeout(revokedCheckRef.current);
+            }
+            revokedCheckRef.current = window.setTimeout(async () => {
+              try {
+                const { data, error } = await supabase.auth.getUser();
+                if (error && (error.status === 401 || error.status === 403)) {
+                  // El server confirma que la sesion no existe / fue revocada.
+                  setSessionRevokedAt(Date.now());
+                } else if (!error && !data.user) {
+                  // Sin error pero sin user: raro, tratamos como revocada.
+                  setSessionRevokedAt(Date.now());
+                } else if (!error && data.user) {
+                  // La sesion sigue viva en el server. Fue un fallo
+                  // transitorio del SDK. Intentamos restaurar el estado
+                  // local con un refresh.
+                  try {
+                    const { data: refreshed } = await supabase.auth.refreshSession();
+                    if (refreshed?.session) {
+                      setSession(refreshed.session);
+                      hadSessionRef.current = true;
+                    }
+                  } catch {
+                    // Si falla el refresh, no marcamos nada. El user
+                    // puede recargar la pagina y va a estar OK.
+                  }
+                }
+              } catch {
+                // Network error durante el check: no marcamos revocada.
+                // Si realmente fue revocada, el proximo getUser() del
+                // proximo ciclo la va a capturar.
+              }
+              revokedCheckRef.current = null;
+            }, 2500);
           } else {
             clearVoluntaryLogout();
           }
@@ -123,7 +163,12 @@ export function useAuth(): UseAuthResult {
             localStorage.removeItem("pathfinder_has_entered_studio");
           } catch {}
         } else if (session.user?.id) {
-          // Nueva sesion activa: resetear el flag de revocacion.
+          // Nueva sesion activa: cancelar cualquier check pendiente y
+          // resetear el flag de revocacion.
+          if (revokedCheckRef.current) {
+            window.clearTimeout(revokedCheckRef.current);
+            revokedCheckRef.current = null;
+          }
           hadSessionRef.current = true;
           setSessionRevokedAt(null);
           await fetchProfile(session.user.id);
@@ -133,6 +178,10 @@ export function useAuth(): UseAuthResult {
 
     return () => {
       authListener.subscription.unsubscribe();
+      if (revokedCheckRef.current) {
+        window.clearTimeout(revokedCheckRef.current);
+        revokedCheckRef.current = null;
+      }
     };
   }, [fetchProfile]);
 
