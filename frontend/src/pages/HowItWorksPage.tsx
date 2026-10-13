@@ -77,6 +77,10 @@ const MEDIA_URLS = {
     "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/welcome-step3-ready.mp4",
   step5_save_shutdown:
     "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/step5_save_shutdown.mp4",
+  step5_shutdown_kaggle:
+    "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/step5_shutdown_kaggle.png",
+  step5_shutdown_colab:
+    "https://sxvgldvnxwjtvqownayr.supabase.co/storage/v1/object/public/how-it-works-media/step5_shutdown_colab.png",
 };
 
 // ---------------------------------------------------------------------------
@@ -1472,6 +1476,74 @@ export const HowItWorksContent: React.FC = () => {
           <strong>Entorno de ejecución</strong> →{" "}
           <strong>Desconectar y borrar el tiempo de ejecución</strong>.
         </Step>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "16px",
+            marginTop: "24px",
+            marginBottom: "8px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                borderRadius: "12px",
+                overflow: "hidden",
+                border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                background: "var(--pf-bg-secondary, #FAFAFA)",
+              }}
+            >
+              <img
+                src={MEDIA_URLS.step5_shutdown_kaggle}
+                alt="Kaggle — Stop Session desde el menú de tres puntos"
+                style={{ width: "100%", display: "block" }}
+              />
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.8125rem",
+                lineHeight: 1.5,
+                color: "var(--pf-text-muted, #A1A1AA)",
+                marginTop: "10px",
+                textAlign: "center",
+              }}
+            >
+              Kaggle · menú de tres puntos → <strong>Stop session</strong>
+            </div>
+          </div>
+
+          <div>
+            <div
+              style={{
+                borderRadius: "12px",
+                overflow: "hidden",
+                border: "1px solid var(--pf-border-subtle, #F4F4F5)",
+                background: "var(--pf-bg-secondary, #FAFAFA)",
+              }}
+            >
+              <img
+                src={MEDIA_URLS.step5_shutdown_colab}
+                alt="Colab — Desconectar y borrar el tiempo de ejecución"
+                style={{ width: "100%", display: "block" }}
+              />
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--pf-font-ui, system-ui)",
+                fontSize: "0.8125rem",
+                lineHeight: 1.5,
+                color: "var(--pf-text-muted, #A1A1AA)",
+                marginTop: "10px",
+                textAlign: "center",
+              }}
+            >
+              Colab · <strong>Desconectar y borrar el tiempo de ejecución</strong>
+            </div>
+          </div>
+        </div>
 
         <MediaBlock
           type="video"
