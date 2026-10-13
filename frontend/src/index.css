@@ -979,3 +979,26 @@ html {
     animation: none !important;
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — Landing
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 968px) {
+  .pf-hero-split {
+    grid-template-columns: 1fr !important;
+    gap: 48px !important;
+  }
+  .pf-capability-row {
+    grid-template-columns: 1fr !important;
+    gap: 40px !important;
+    direction: ltr !important;
+  }
+  .pf-steps-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .pf-pricing-teaser {
+    grid-template-columns: 1fr !important;
+  }
+}
