@@ -932,7 +932,7 @@ const ValueStackBlock: React.FC = () => {
   const items = [
     { label: "GPU Kaggle + Colab · 120 h/mes", value: "$1,200" },
     { label: "Colab extra · 5 a 8 h/día", value: "$400" },
-    { label: "Catálogo de 8 modelos IA", value: "$800" },
+    { label: "Catálogo de 10 modelos IA", value: "$800" },
     { label: "Multi-runtime simultáneo", value: "$300" },
     { label: "Mis Creaciones · 7 días", value: "$200" },
   ];
