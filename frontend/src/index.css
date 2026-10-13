@@ -665,3 +665,10 @@ html {
   background: rgba(255,255,255,0.25);
   border-radius: 9999px;
 }
+
+
+/* Lightbox fade — HowItWorks */
+@keyframes pf-lightbox-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
