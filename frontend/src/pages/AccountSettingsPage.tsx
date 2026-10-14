@@ -3,9 +3,9 @@ import { markVoluntaryLogout } from "../lib/voluntaryLogout";
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
-import { useTheme } from "../hooks/useTheme";
 import { supabase } from "../lib/supabaseClient";
-import { Monitor, Sun, Moon, Loader2, ExternalLink, Crown, Sparkles } from "lucide-react";
+import { useUIStore, type StudioTheme } from "../stores/useUIStore";
+import { Sun, Moon, Loader2, ExternalLink, Crown, Sparkles } from "lucide-react";
 import AvatarPicker from "../components/AvatarPicker";
 
 type Tab = "profile" | "account" | "security";
@@ -108,7 +108,8 @@ const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
 const AccountSettingsPage: React.FC = () => {
   const { profile, session } = useAuth();
   const { allModels, unlockedIds } = useModels();
-  const { preference, setPreference } = useTheme();
+  const studioTheme = useUIStore((s) => s.studioTheme);
+  const setStudioTheme = useUIStore((s) => s.setStudioTheme);
 
   const [tab, setTab] = useState<Tab>("profile");
   const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
@@ -455,17 +456,16 @@ const AccountSettingsPage: React.FC = () => {
                 }}
               >
                 {[
-                  { id: "light" as const, Icon: Sun, label: "Claro" },
-                  { id: "system" as const, Icon: Monitor, label: "Sistema" },
-                  { id: "dark" as const, Icon: Moon, label: "Oscuro" },
-                  { id: "neon" as const, Icon: Sparkles, label: "Neón" },
+                  { id: "space" as StudioTheme, Icon: Sparkles, label: "Space" },
+                  { id: "dark" as StudioTheme, Icon: Moon, label: "Dark" },
+                  { id: "light" as StudioTheme, Icon: Sun, label: "Light" },
                 ].map((opt) => {
-                  const isActive = preference === opt.id;
+                  const isActive = studioTheme === opt.id;
                   return (
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => setPreference(opt.id)}
+                      onClick={() => setStudioTheme(opt.id)}
                       style={{
                         display: "flex",
                         alignItems: "center",

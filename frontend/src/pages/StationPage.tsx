@@ -10,7 +10,6 @@ import { Power } from 'lucide-react';
 import { useGenerationContext } from '../context/GenerationContext';
 import { usePurchase } from '../hooks/usePurchase';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -703,8 +702,6 @@ const StationPage: React.FC = () => {
   const { stationStatusMap, refreshStationStatus } = useGenerationContext();
   const { startCheckout, state: purchaseState } = usePurchase();
   const { profile } = useAuth();
-  const { resolved } = useTheme();
-  const isLight = resolved === 'light';
   const navigate = useNavigate();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadingColabId, setDownloadingColabId] = useState<string | null>(null);
@@ -975,35 +972,27 @@ const StationPage: React.FC = () => {
                   position: "relative",
                   marginTop: "32px",
                   padding: "32px 32px 28px",
-                  background: isLight
-                    ? "linear-gradient(135deg, rgba(139,92,246,0.07) 0%, rgba(236,72,153,0.05) 100%)"
-                    : "linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(236,72,153,0.12) 50%, rgba(34,211,238,0.08) 100%)",
-                  border: isLight
-                    ? "1px solid rgba(139,92,246,0.3)"
-                    : "1px solid rgba(139,92,246,0.4)",
+                  background: "linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(236,72,153,0.12) 50%, rgba(34,211,238,0.08) 100%)",
+                  border: "1px solid rgba(139,92,246,0.40)",
                   borderRadius: "18px",
                   overflow: "hidden",
-                  boxShadow: isLight
-                    ? "0 12px 32px -16px rgba(139,92,246,0.25)"
-                    : "0 20px 60px -20px rgba(139,92,246,0.5)",
+                  boxShadow: "0 20px 60px -20px rgba(139,92,246,0.50)",
                 }}
               >
-                {/* Glow decorativo — solo en dark/neon */}
-                {!isLight && (
-                  <div
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      top: "-40%",
-                      right: "-10%",
-                      width: "400px",
-                      height: "400px",
-                      background:
-                        "radial-gradient(circle, rgba(236,72,153,0.25) 0%, transparent 70%)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                )}
+                {/* Glow decorativo */}
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    top: "-40%",
+                    right: "-10%",
+                    width: "400px",
+                    height: "400px",
+                    background:
+                      "radial-gradient(circle, rgba(236,72,153,0.25) 0%, transparent 70%)",
+                    pointerEvents: "none",
+                  }}
+                />
 
                 <div
                   style={{
@@ -1023,19 +1012,15 @@ const StationPage: React.FC = () => {
                         alignItems: "center",
                         gap: "8px",
                         padding: "5px 12px",
-                        background: isLight
-                          ? "rgba(220,38,38,0.08)"
-                          : "rgba(220,38,38,0.18)",
-                        border: isLight
-                          ? "1px solid rgba(220,38,38,0.35)"
-                          : "1px solid rgba(220,38,38,0.5)",
+                        background: "rgba(220,38,38,0.18)",
+                        border: "1px solid rgba(220,38,38,0.50)",
                         borderRadius: "9999px",
                         fontFamily: "var(--pf-font-ui, system-ui)",
                         fontSize: "0.6875rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         letterSpacing: "0.1em",
-                        color: isLight ? "#B91C1C" : "#FCA5A5",
+                        color: "var(--pf-error)",
                         marginBottom: "14px",
                       }}
                     >
@@ -1056,7 +1041,7 @@ const StationPage: React.FC = () => {
                       }}
                     >
                       Desbloquea 5 modelos más.<br />
-                      <span style={{ color: isLight ? "#6D28D9" : "#A5B4FC" }}>
+                      <span style={{ color: "var(--pf-accent-primary)" }}>
                         Corre Kaggle y Colab al mismo tiempo.
                       </span>
                     </div>
