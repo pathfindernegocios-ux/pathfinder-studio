@@ -10,14 +10,15 @@ import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { Download, Trash2, RefreshCw, Save, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
-import NebulaLoader from '../components/NebulaLoader';
-import GenerationNarrative from '../components/GenerationNarrative';
 import Callout from '../components/Callout';
 import SceneChip from '../components/SceneChip';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { getRuntimeLabel } from '../config/models';
 import { fetchAudioBlob } from '../lib/audioBlobCache';
+import { AtmosphereLayer } from '../components/marketing/Atmosphere';
+import { SkeletonImage, SkeletonVideo, SkeletonAudio, SkeletonStyles } from '../components/studio/Skeletons';
+import { useUIStore } from '../stores/useUIStore';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -35,10 +36,49 @@ const frameWidthStyle = (aspectRatioCss: string): string => {
   return `min(360px, 75vw, calc(52vh * ${w} / ${h}))`;
 };
 
+// ============================================================
+// GENERATION PROGRESS — heurística simple
+// ============================================================
+interface GenerationInfoLike {
+  id?: string | null;
+  progress?: number;
+  status?: string;
+}
+
+function getGenerationProgress(
+  item: { id?: string; elapsedSeconds?: number | null; createdAt?: number; isGenerating?: boolean },
+  boot: { isBooting: boolean; progress: number },
+  generationInfo: GenerationInfoLike | null
+): number {
+  // 1. Progreso real del backend para ESTE item
+  //    (solo si el id matchea y el status es preparing/running)
+  const isThisItemActive =
+    item.isGenerating &&
+    generationInfo?.id != null &&
+    generationInfo.id === item.id &&
+    (generationInfo.status === 'preparing' || generationInfo.status === 'running');
+
+  if (isThisItemActive && typeof generationInfo.progress === 'number' && generationInfo.progress > 0) {
+    // El backend reporta 0..1. Dejamos el último 3% para el swap visual.
+    return Math.min(0.97, Math.max(0.02, generationInfo.progress));
+  }
+
+  // 2. Fallback: progreso del boot del notebook (si está arrancando)
+  if (boot.isBooting && boot.progress > 0) {
+    return Math.min(0.95, Math.max(boot.progress, 0.02));
+  }
+
+  // 3. Fallback final: heurística por tiempo transcurrido
+  const elapsed = item.elapsedSeconds ?? 0;
+  const target = 0.95;
+  return Math.min(target, 1 - Math.exp(-elapsed / 90));
+}
+
 const StudioPage: React.FC = () => {
   const { saveCreation, saveError } = useCreations();
   const isMobile = useIsMobile();
   const { profile } = useAuth();
+  const studioTheme = useUIStore((s) => s.studioTheme);
 
   // Datos del usuario para avatares del chat
   const userAvatarUrl = profile?.avatar_url || null;
@@ -57,6 +97,7 @@ const StudioPage: React.FC = () => {
     activeImageModelId,
     activeVideoModelId,
     stationStatusMap,
+    generationInfo,
   } = useGenerationContext();
 
   const currentModelId = capability === 'image'
@@ -334,6 +375,9 @@ const StudioPage: React.FC = () => {
     // así que el panel flotante nunca se desincroniza del borde real.
     <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
 
+      {/* ATMÓSFERA — solo visible en tema Space */}
+      {studioTheme === 'space' && <AtmosphereLayer />}
+
       {/* ESTACIÓN INDICATOR — pill enriquecido arriba a la derecha */}
       {currentModelId && (() => {
         // Resolver estado visual
@@ -443,21 +487,51 @@ const StudioPage: React.FC = () => {
             >
               <div
                 onClick={() => setBootPopoverOpen(v => !v)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  const chev = e.currentTarget.querySelector('.pf-pill-chevron') as HTMLElement | null;
+                  if (chev) chev.style.opacity = '0.7';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  const chev = e.currentTarget.querySelector('.pf-pill-chevron') as HTMLElement | null;
+                  if (chev) chev.style.opacity = '0';
+                }}
                 style={{
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '6px 12px 6px 10px',
+                  gap: '10px',
+                  padding: '7px 14px 7px 12px',
                   borderRadius: '9999px',
-                  background: 'var(--pf-bg-primary)',
-                  border: `1px solid ${isBooting || isDetecting ? 'rgba(34,211,238,0.25)' : isReconnecting ? 'rgba(245,158,11,0.35)' : isError ? 'rgba(248,113,113,0.35)' : 'var(--pf-border-subtle)'}`,
-                  boxShadow: isBooting || isDetecting ? '0 0 0 3px rgba(34,211,238,0.08)' : '0 1px 2px rgba(0,0,0,0.04)',
+                  background: 'var(--pf-glass-surface, rgba(15,15,20,0.70))',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  border: `1px solid ${
+                    isBooting || isDetecting
+                      ? 'rgba(34,211,238,0.35)'
+                      : isReconnecting || isStale
+                      ? 'rgba(245,158,11,0.45)'
+                      : isError
+                      ? 'rgba(248,113,113,0.45)'
+                      : isReady
+                      ? 'rgba(16,185,129,0.35)'
+                      : 'var(--pf-border-default, rgba(255,255,255,0.10))'
+                  }`,
+                  boxShadow:
+                    isBooting || isDetecting
+                      ? '0 0 0 3px rgba(34,211,238,0.10), 0 8px 24px -12px rgba(34,211,238,0.35)'
+                      : isReady
+                      ? '0 0 0 3px rgba(16,185,129,0.08), 0 8px 24px -12px rgba(16,185,129,0.30)'
+                      : isError
+                      ? '0 0 0 3px rgba(248,113,113,0.10), 0 8px 24px -12px rgba(248,113,113,0.35)'
+                      : '0 4px 16px -8px rgba(0,0,0,0.45)',
                   fontFamily: 'var(--pf-font-ui)',
                   fontSize: '0.75rem',
                   fontWeight: 500,
                   letterSpacing: '-0.01em',
-                  color: isBooting || isDetecting ? accent : 'var(--pf-text-secondary)',
-                  transition: 'all 0.3s ease',
+                  color: isBooting || isDetecting ? accent : isReady ? 'var(--pf-text-primary)' : 'var(--pf-text-secondary)',
+                  transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms ease, border-color 300ms ease',
                   cursor: 'pointer',
                   userSelect: 'none',
                 }}
@@ -491,24 +565,111 @@ const StudioPage: React.FC = () => {
                     height: '6px',
                     borderRadius: '50%',
                     background: accent,
-                    boxShadow: isReady ? '0 0 0 3px rgba(16,185,129,0.15)' : isError ? '0 0 0 3px rgba(248,113,113,0.15)' : isReconnecting ? '0 0 0 3px rgba(245,158,11,0.15)' : 'none',
+                    boxShadow: isReady
+                      ? '0 0 0 3px rgba(16,185,129,0.15), 0 0 12px rgba(16,185,129,0.55)'
+                      : isError
+                      ? '0 0 0 3px rgba(248,113,113,0.15), 0 0 12px rgba(248,113,113,0.55)'
+                      : isReconnecting || isStale
+                      ? '0 0 0 3px rgba(245,158,11,0.15), 0 0 12px rgba(245,158,11,0.55)'
+                      : 'none',
                     transition: 'all 0.3s ease',
                     flexShrink: 0,
                   }} />
                 )}
-                <span>{label}</span>
+                <span style={{ whiteSpace: 'nowrap' }}>{label}</span>
+
+                {/* Barra de progreso inline — solo booteando */}
                 {isBooting && (
-                  <span
-                    style={{
-                      fontFamily: 'var(--pf-font-chat-mono, monospace)',
-                      fontSize: '0.6875rem',
-                      color: accent,
-                      opacity: 0.9,
-                    }}
-                  >
-                    {pct}%
-                  </span>
+                  <>
+                    <span
+                      aria-hidden
+                      style={{
+                        position: 'relative',
+                        display: 'inline-block',
+                        width: 60,
+                        height: 2,
+                        borderRadius: 9999,
+                        background: 'rgba(255,255,255,0.10)',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          width: `${pct}%`,
+                          background: 'linear-gradient(90deg, #22D3EE 0%, #8B5CF6 100%)',
+                          borderRadius: 9999,
+                          transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 0 8px rgba(139,92,246,0.6)',
+                        }}
+                      />
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        color: accent,
+                        fontVariantNumeric: 'tabular-nums',
+                        minWidth: '32px',
+                        textAlign: 'right',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {pct}%
+                    </span>
+                  </>
                 )}
+
+                {/* Tiempo vivo — siempre visible salvo detecting/idle */}
+                {!isDetecting && !isBooting && (
+                  <>
+                    <span
+                      aria-hidden
+                      style={{
+                        width: 3,
+                        height: 3,
+                        borderRadius: '50%',
+                        background: 'var(--pf-text-muted, #6E747D)',
+                        opacity: 0.5,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <StationPillTime
+                      variant={
+                        isError ? 'error' :
+                        isOffline ? 'offline' :
+                        isReconnecting ? 'reconnecting' :
+                        isStale ? 'stale' :
+                        isReady ? 'ready' :
+                        'idle'
+                      }
+                      updatedAt={boot.updatedAt}
+                      readySince={null}
+                    />
+                  </>
+                )}
+
+                {/* Chevron — aparece al hover */}
+                <svg
+                  className="pf-pill-chevron"
+                  width={10}
+                  height={10}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  style={{
+                    flexShrink: 0,
+                    opacity: 0,
+                    transition: 'opacity 200ms ease',
+                    marginLeft: 2,
+                  }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
               </div>
 
               {bootPopoverOpen && (
@@ -731,14 +892,94 @@ const StudioPage: React.FC = () => {
           gap: '16px'
         }}>
 
-          {/* ESTADO VACÍO */}
+          {/* ESTADO VACÍO — premium */}
           {sessionHistory.length === 0 && !isLoading && (
-            <div style={{ textAlign: 'center', opacity: 0.7, animation: 'fadeIn 0.8s ease-out' }}>
-              <h2 className="pf-font-prompt" style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--pf-text-primary)', marginBottom: '12px' }}>
+            <div
+              style={{
+                textAlign: 'center',
+                animation: 'pfEmptyIn 0.9s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                paddingBottom: '40px',
+              }}
+            >
+              {/* Hexágono Pathfinder con glow */}
+              <div
+                aria-hidden
+                style={{
+                  position: 'relative',
+                  width: 72,
+                  height: 72,
+                  marginBottom: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  filter: 'drop-shadow(0 0 32px rgba(139,92,246,0.55))',
+                  animation: 'pfEmptyPulse 3s ease-in-out infinite',
+                }}
+              >
+                <svg
+                  width="72"
+                  height="72"
+                  viewBox="0 0 100 100"
+                  fill="none"
+                >
+                  <defs>
+                    <linearGradient id="pf-empty-hex-stroke" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#A78BFA" />
+                      <stop offset="100%" stopColor="#8B5CF6" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M50 6 L88 28 L88 72 L50 94 L12 72 L12 28 Z"
+                    stroke="url(#pf-empty-hex-stroke)"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                    fill="rgba(139,92,246,0.06)"
+                  />
+                  <path
+                    d="M50 30 L68 41 L68 59 L50 70 L32 59 L32 41 Z"
+                    stroke="url(#pf-empty-hex-stroke)"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                    fill="none"
+                    opacity="0.55"
+                  />
+                  <circle cx="50" cy="50" r="3" fill="#A78BFA" />
+                </svg>
+              </div>
+
+              <h2
+                style={{
+                  fontFamily: "'Satoshi', system-ui, sans-serif",
+                  fontSize: 'clamp(2rem, 4vw, 2.75rem)',
+                  fontWeight: 700,
+                  letterSpacing: '-0.035em',
+                  lineHeight: 1.05,
+                  margin: 0,
+                  marginBottom: 20,
+                  background: 'linear-gradient(135deg, var(--pf-text-primary) 0%, var(--pf-accent-primary) 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
                 ¿Qué quieres crear hoy?
               </h2>
-              <p style={{ fontFamily: 'var(--pf-font-ui)', fontSize: '0.95rem', color: 'var(--pf-text-secondary)', maxWidth: '340px', lineHeight: '1.5' }}>
-                Escribe un prompt abajo. Las generaciones aparecerán aquí como un chat.
+
+              <p
+                style={{
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '1rem',
+                  color: 'var(--pf-text-secondary)',
+                  maxWidth: '460px',
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}
+              >
+                Describe tu idea abajo. Pathfinder la convierte en imagen,
+                video o audio con IA de última generación.
               </p>
             </div>
           )}
@@ -762,29 +1003,90 @@ const StudioPage: React.FC = () => {
                   marginBottom: item.isGenerating ? '0' : '14px'
                 }}
               >
-                {/* Prompt Usuario */}
+                {/* Prompt Usuario — burbuja premium */}
                 {item.prompt && (
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: '6px' }}>
-                    <div style={{
-                      background: 'var(--pf-bg-tertiary)',
-                      padding: '10px 16px',
-                      borderRadius: '16px',
-                      borderTopRightRadius: '4px',
-                      color: 'var(--pf-text-primary)',
-                      fontFamily: 'var(--pf-font-chat)',
-                      fontSize: '0.9rem',
-                      lineHeight: '1.5',
-                      maxWidth: '85%',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                    }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '12px',
+                      alignItems: 'flex-start',
+                      justifyContent: 'flex-end',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: 'rgba(139,92,246,0.10)',
+                        border: '1px solid rgba(139,92,246,0.22)',
+                        padding: '12px 18px',
+                        borderRadius: '18px 18px 4px 18px',
+                        color: 'var(--pf-text-primary)',
+                        fontFamily: 'var(--pf-font-chat)',
+                        fontSize: '0.9375rem',
+                        lineHeight: 1.55,
+                        maxWidth: '85%',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        boxShadow: '0 4px 16px -8px rgba(139,92,246,0.35)',
+                      }}
+                    >
                       {item.prompt}
                     </div>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: 'var(--pf-bg-elevated)', fontWeight: 700, flexShrink: 0, overflow: 'hidden', fontFamily: 'var(--pf-font-ui)' }}>
-                      {userAvatarUrl ? (
-                        <img src={userAvatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        userInitial
-                      )}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 4,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          background: userAvatarUrl
+                            ? 'transparent'
+                            : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                          border: '1px solid rgba(139,92,246,0.35)',
+                          boxShadow: '0 0 0 3px rgba(139,92,246,0.08)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 12,
+                          color: '#FFFFFF',
+                          fontWeight: 700,
+                          overflow: 'hidden',
+                          fontFamily: 'var(--pf-font-ui)',
+                        }}
+                      >
+                        {userAvatarUrl ? (
+                          <img
+                            src={userAvatarUrl}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          userInitial
+                        )}
+                      </div>
+                      <span
+                        style={{
+                          fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                          fontSize: '0.5625rem',
+                          fontWeight: 500,
+                          letterSpacing: '0.10em',
+                          textTransform: 'uppercase',
+                          color: 'var(--pf-text-muted)',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 72,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {profile?.username || 'Tú'}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -796,17 +1098,32 @@ const StudioPage: React.FC = () => {
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--pf-text-secondary)', fontFamily: 'var(--pf-font-ui)', fontWeight: 500 }}>
-                      <span>{item.modelLabel}</span>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                        fontSize: '0.6875rem',
+                        fontWeight: 500,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        color: 'var(--pf-text-muted)',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span style={{ color: 'var(--pf-text-secondary)' }}>
+                        {item.modelLabel}
+                      </span>
                       {item.aspectRatio && item.mediaType !== 'audio' && (
                         <>
-                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--pf-border-default)' }}></span>
+                          <span aria-hidden style={{ opacity: 0.4 }}>·</span>
                           <span>{item.aspectRatio.replace('/', ':')}</span>
                         </>
                       )}
                       {item.storyboardMeta && (
                         <>
-                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--pf-border-default)' }}></span>
+                          <span aria-hidden style={{ opacity: 0.4 }}>·</span>
                           <span>
                             {item.isGenerating
                               ? `Escena ${item.storyboardMeta.currentScene}/${item.storyboardMeta.totalScenes}`
@@ -816,8 +1133,8 @@ const StudioPage: React.FC = () => {
                       )}
                       {!item.isGenerating && item.elapsedSeconds != null && item.elapsedSeconds > 0 && (
                         <>
-                          <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--pf-border-default)' }}></span>
-                          <span style={{ color: 'var(--pf-text-tertiary)' }}>
+                          <span aria-hidden style={{ opacity: 0.4 }}>·</span>
+                          <span>
                             {item.elapsedSeconds < 60
                               ? `${Math.round(item.elapsedSeconds)}s`
                               : item.elapsedSeconds < 3600
@@ -880,108 +1197,53 @@ const StudioPage: React.FC = () => {
                                         gap: '8px', width: '100%' }}>
                             {item.sceneUrls.map((u, i) => (
                               <div key={i} style={{ borderRadius: '10px', overflow: 'hidden',
-                                                    border: '1px solid rgba(34, 211, 238, 0.2)' }}>
+                                                    border: '1px solid rgba(139,92,246,0.25)' }}>
                                 <video src={u} muted autoPlay loop playsInline
                                        style={{ width: '100%', display: 'block' }} />
                               </div>
                             ))}
-                            <div style={{ aspectRatio: item.aspectRatio || '1/1',
-                                          background: '#000000', borderRadius: '10px',
-                                          position: 'relative', overflow: 'hidden',
-                                          border: '1px solid rgba(34, 211, 238, 0.2)',
-                                          boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)' }}>
-                              <NebulaLoader />
-                            </div>
+                            <SkeletonVideo
+                              aspectRatio={item.aspectRatio || '1/1'}
+                              modelLabel={item.modelLabel}
+                              progress={getGenerationProgress(item, boot, generationInfo)}
+                              stepMessage={boot.stepMessage || undefined}
+                              totalScenes={item.storyboardMeta?.totalScenes || 1}
+                              currentScene={item.storyboardMeta?.currentScene || 1}
+                              startedAt={item.createdAt}
+                            />
+                          </div>
+                        ) : item.mediaType === 'video' ? (
+                          <div style={{ width: frameWidth }}>
+                            <SkeletonVideo
+                              aspectRatio={item.aspectRatio || '16/9'}
+                              modelLabel={item.modelLabel}
+                              progress={getGenerationProgress(item, boot, generationInfo)}
+                              stepMessage={boot.stepMessage || undefined}
+                              totalScenes={item.storyboardMeta?.totalScenes || 1}
+                              currentScene={item.storyboardMeta?.currentScene || 1}
+                              startedAt={item.createdAt}
+                            />
                           </div>
                         ) : (
-                          <div style={{ width: frameWidth,
-                                        aspectRatio: item.aspectRatio || '1/1',
-                                        background: '#000000', borderRadius: '10px',
-                                        position: 'relative', overflow: 'hidden',
-                                        border: '1px solid rgba(34, 211, 238, 0.2)',
-                                        boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)' }}>
-                            <NebulaLoader />
+                          <div style={{ width: frameWidth }}>
+                            <SkeletonImage
+                              aspectRatio={item.aspectRatio || '1/1'}
+                              modelLabel={item.modelLabel}
+                              progress={getGenerationProgress(item, boot, generationInfo)}
+                              stepMessage={boot.stepMessage || undefined}
+                              startedAt={item.createdAt}
+                            />
                           </div>
                         )
                       )}
 
                       {item.isGenerating && item.mediaType === 'audio' && (
-                        <div style={{
-                          width: frameWidth,
-                          height: '80px',
-                          background: '#000000',
-                          borderRadius: '12px',
-                          border: '1px solid rgba(34, 211, 238, 0.2)',
-                          boxShadow: '0 4px 20px rgba(34, 211, 238, 0.08)',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          display: 'flex',
-                          alignItems: 'center',
-                          paddingLeft: '16px',
-                          paddingRight: '16px',
-                          gap: '12px'
-                        }}>
-                          <NebulaLoader />
-                          <div style={{
-                            position: 'relative',
-                            zIndex: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            width: '100%'
-                          }}>
-                            <div style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '50%',
-                              background: 'rgba(34, 211, 238, 0.15)',
-                              border: '1px solid rgba(34, 211, 238, 0.4)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              boxShadow: '0 0 16px -4px rgba(34, 211, 238, 0.6)'
-                            }}>
-                              <div style={{
-                                width: '12px',
-                                height: '12px',
-                                borderRadius: '50%',
-                                background: '#67E8F9',
-                                animation: 'pf-audio-pulse 1.4s ease-in-out infinite'
-                              }} />
-                            </div>
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
-                              <span style={{
-                                fontFamily: 'var(--pf-font-ui)',
-                                fontSize: '0.7rem',
-                                letterSpacing: '1.5px',
-                                color: '#67E8F9',
-                                fontWeight: 600
-                              }}>
-                                CREANDO...
-                              </span>
-                              <span style={{
-                                fontFamily: 'var(--pf-font-ui)',
-                                fontSize: '0.6875rem',
-                                color: 'rgba(255,255,255,0.5)'
-                              }}>
-                                Sintetizando voz
-                              </span>
-                            </div>
-                            {/* Mini waveform pulsante */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '24px' }}>
-                              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                                <div key={i} style={{
-                                  width: '3px',
-                                  background: '#67E8F9',
-                                  borderRadius: '2px',
-                                  opacity: 0.85,
-                                  animation: `pf-audio-bar 1s ease-in-out ${i * 0.1}s infinite`
-                                }} />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                        <SkeletonAudio
+                          modelLabel={item.modelLabel}
+                          progress={getGenerationProgress(item, boot, generationInfo)}
+                          stepMessage={boot.stepMessage || undefined}
+                          startedAt={item.createdAt}
+                        />
                       )}
 
                       {!item.isGenerating && item.mediaUrls.length > 0 && item.mediaType !== 'audio' && (
@@ -1053,14 +1315,7 @@ const StudioPage: React.FC = () => {
                       )}
                     </div>
 
-                    {item.isGenerating && (
-                      <GenerationNarrative
-                        mediaType={item.mediaType}
-                        startedAt={item.createdAt}
-                        resolution={(item.params as any)?.resolution}
-                        isStoryboard={!!item.storyboardMeta}
-                      />
-                    )}
+
 
                     {!item.isGenerating && (
                       <div style={{ display: 'flex', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
@@ -1070,6 +1325,7 @@ const StudioPage: React.FC = () => {
                               onClick={() => handleSave(item)}
                               icon={<Save size={14} />}
                               label="Guardar"
+                              primary
                             />
                             {guardCalloutVisible && item.id === lastTemporaryWithMediaId && (
                               <Callout
@@ -1250,8 +1506,17 @@ const StudioPage: React.FC = () => {
         onCancel={() => setDiscardTargetId(null)}
       />
 
+      <SkeletonStyles />
       <style>{`
         @keyframes shimmer { to { background-position: -200% 0; } }
+        @keyframes pfEmptyIn {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pfEmptyPulse {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 32px rgba(139,92,246,0.55)); }
+          50% { transform: scale(1.04); filter: drop-shadow(0 0 44px rgba(139,92,246,0.85)); }
+        }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
@@ -1267,34 +1532,156 @@ const StudioPage: React.FC = () => {
   );
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// STATION PILL — sub-componentes premium
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Tiempo vivo del pill. Re-renderiza cada segundo sin contaminar el padre.
+ * Muestra:
+ *  - booteando: tiempo transcurrido desde boot.updatedAt (2:14)
+ *  - ready: uptime desde que llegó a READY (4m 12s)
+ *  - error/offline/reconnecting/stale: "hace Xs" desde última señal
+ */
+const StationPillTime: React.FC<{
+  variant: 'booting' | 'ready' | 'error' | 'offline' | 'reconnecting' | 'stale' | 'detecting' | 'idle';
+  updatedAt: string | null;
+  readySince?: number | null;
+}> = ({ variant, updatedAt, readySince }) => {
+  const [, forceTick] = React.useState(0);
+
+  React.useEffect(() => {
+    if (variant === 'detecting' || variant === 'idle') return;
+    const id = window.setInterval(() => forceTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [variant]);
+
+  const fmt = (totalSec: number): string => {
+    const s = Math.max(0, Math.floor(totalSec));
+    if (s < 60) return `${s}s`;
+    if (s < 3600) {
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return r === 0 ? `${m}m` : `${m}m ${r}s`;
+    }
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  };
+
+  let text: string | null = null;
+
+  if (variant === 'ready' && readySince) {
+    text = fmt((Date.now() - readySince) / 1000);
+  } else if (variant === 'booting' && updatedAt) {
+    // El backend reporta actualizaciones cada ~5s. Para mostrar el tiempo
+    // transcurrido desde el arranque real, restamos 5s de margen (un tick
+    // de polling aproximado).
+    const elapsed = (Date.now() - new Date(updatedAt).getTime()) / 1000;
+    text = fmt(elapsed);
+  } else if ((variant === 'error' || variant === 'offline' || variant === 'reconnecting' || variant === 'stale') && updatedAt) {
+    const elapsed = (Date.now() - new Date(updatedAt).getTime()) / 1000;
+    text = `hace ${fmt(elapsed)}`;
+  }
+
+  if (!text) return null;
+
+  return (
+    <span
+      style={{
+        fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+        fontSize: '0.6875rem',
+        fontWeight: 500,
+        letterSpacing: '0.02em',
+        color: 'var(--pf-text-muted, #6E747D)',
+        fontVariantNumeric: 'tabular-nums',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+      }}
+    >
+      {text}
+    </span>
+  );
+};
+
 // Componente auxiliar para botones
 // En móvil: solo íconos (con tooltip nativo via `title`) para evitar que el
 // texto se corte y para ahorrar espacio horizontal.
-const ActionButton = ({ onClick, icon, label, danger, disabled }: any) => {
+const ActionButton = ({ onClick, icon, label, danger, disabled, primary }: any) => {
   const isMobile = useIsMobile();
+  const baseBg = primary
+    ? 'linear-gradient(135deg, #8B5CF6 0%, #7C66DD 100%)'
+    : danger
+    ? 'rgba(235,87,87,0.06)'
+    : 'rgba(255,255,255,0.03)';
+
+  const baseBorder = primary
+    ? '1px solid rgba(139,92,246,0.55)'
+    : danger
+    ? '1px solid rgba(235,87,87,0.28)'
+    : '1px solid var(--pf-border-subtle, rgba(255,255,255,0.06))';
+
+  const baseColor = primary
+    ? '#FFFFFF'
+    : danger
+    ? '#FCA5A5'
+    : 'var(--pf-text-secondary)';
+
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       title={label}
       style={{
-        display: 'flex', alignItems: 'center', gap: '4px',
-        padding: isMobile ? '8px 10px' : '6px 12px',
-        background: 'var(--pf-bg-secondary)',
-        border: '1px solid var(--pf-border-subtle)',
-        borderRadius: '8px',
-        color: danger ? '#ef4444' : 'var(--pf-text-secondary)',
-        fontSize: '0.75rem',
-        fontFamily: 'var(--pf-font-ui)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: isMobile ? 0 : 7,
+        padding: isMobile ? '8px 10px' : '7px 14px',
+        background: baseBg,
+        border: baseBorder,
+        borderRadius: 9999,
+        color: baseColor,
+        fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+        fontSize: '0.6875rem',
         fontWeight: 500,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-        transition: 'all 0.2s',
+        opacity: disabled ? 0.4 : 1,
+        transition: 'transform 180ms cubic-bezier(0.16, 1, 0.3, 1), background 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
         userSelect: 'none',
         justifyContent: 'center',
+        boxShadow: primary ? '0 8px 20px -8px rgba(139,92,246,0.55)' : 'none',
       }}
-      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => !disabled && (e.currentTarget.style.background = 'var(--pf-bg-tertiary)', e.currentTarget.style.borderColor = danger ? '#ef4444' : 'var(--pf-text-secondary)')}
-      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => !disabled && (e.currentTarget.style.background = 'var(--pf-bg-secondary)', e.currentTarget.style.borderColor = 'var(--pf-border-subtle)')}
+      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
+        if (disabled) return;
+        const el = e.currentTarget;
+        el.style.transform = 'translateY(-1px)';
+        if (primary) {
+          el.style.boxShadow = '0 12px 28px -8px rgba(139,92,246,0.75)';
+          el.style.background = 'linear-gradient(135deg, #9F7BFF 0%, #8B5CF6 100%)';
+        } else if (danger) {
+          el.style.background = 'rgba(235,87,87,0.12)';
+          el.style.borderColor = 'rgba(235,87,87,0.50)';
+        } else {
+          el.style.background = 'rgba(139,92,246,0.10)';
+          el.style.borderColor = 'rgba(139,92,246,0.40)';
+          el.style.color = 'var(--pf-text-primary)';
+        }
+      }}
+      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
+        if (disabled) return;
+        const el = e.currentTarget;
+        el.style.transform = 'translateY(0)';
+        el.style.background = baseBg;
+        el.style.borderColor = primary
+          ? 'rgba(139,92,246,0.55)'
+          : danger
+          ? 'rgba(235,87,87,0.28)'
+          : 'var(--pf-border-subtle, rgba(255,255,255,0.06))';
+        el.style.color = baseColor;
+        el.style.boxShadow = primary ? '0 8px 20px -8px rgba(139,92,246,0.55)' : 'none';
+      }}
     >
       {icon} {!isMobile && <span>{label}</span>}
     </button>
