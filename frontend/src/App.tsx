@@ -143,10 +143,6 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const studioTheme = useUIStore((s) => s.studioTheme);
 
-  // El tema premium (space/dark/light) SOLO se aplica en /studio.
-  // Fuera de Studio no seteamos data-theme → cae al :root legacy.
-  const isStudio = location.pathname.startsWith("/studio");
-
   // Cerrar el drawer al cambiar de ruta (solo en móvil)
   useEffect(() => {
     if (isMobile) setMobileMenuOpen(false);
@@ -199,7 +195,7 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
 
   return (
     <div
-      data-theme={isStudio ? studioTheme : undefined}
+      data-theme={studioTheme}
       style={{
         display: "flex",
         height: "100vh",
