@@ -10,9 +10,9 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { useUIStore } from "./stores/useUIStore";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { GenerationProvider, useGenerationContext } from "./context/GenerationContext";
-import { ThemeProvider } from "./hooks/useTheme";
 import { supabase } from "./lib/supabaseClient";
 import { setPostAuthRedirect } from "./lib/postAuthRedirect";
 import { SessionExpiredModal } from "./components/SessionExpiredModal";
@@ -20,7 +20,6 @@ import type { Profile } from "./types";
 
 // Componentes
 import Sidebar from "./components/Sidebar";
-import { NeonBackdrop } from "./components/NeonBackdrop";
 import AuthScreen from "./components/AuthScreen";
 
 // Páginas públicas
@@ -142,6 +141,7 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
   const isMobile = useIsMobile();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const studioTheme = useUIStore((s) => s.studioTheme);
 
   // Cerrar el drawer al cambiar de ruta (solo en móvil)
   useEffect(() => {
@@ -195,16 +195,17 @@ const ProtectedAppLayout: React.FC<ProtectedAppLayoutProps> = ({
 
   return (
     <div
+      data-theme={studioTheme}
       style={{
         display: "flex",
         height: "100vh",
         background: "var(--pf-bg-primary)",
         overflow: "hidden",
         position: "relative",
+        color: "var(--pf-text-primary)",
       }}
     >
       {/* Blobs neón (solo tema "neon") */}
-      <NeonBackdrop />
 
       {/* Backdrop (solo móvil, cuando el drawer está abierto) */}
       {isMobile && mobileMenuOpen && (
@@ -316,7 +317,6 @@ function App() {
   const hasUsername = !!profile?.username;
 
   return (
-    <ThemeProvider enabled={true}>
       <GenerationProvider stationId={session?.user?.id || null} sessionRevokedAt={sessionRevokedAt}>
         <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>
@@ -434,7 +434,6 @@ function App() {
         </Routes>
         </BrowserRouter>
       </GenerationProvider>
-    </ThemeProvider>
   );
 }
 

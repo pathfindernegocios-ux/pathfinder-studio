@@ -4,9 +4,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PathfinderLogo from './PathfinderLogo';
-import { useTheme } from '../hooks/useTheme';
 import { supabase } from '../lib/supabaseClient';
 import { clearLiveCache } from '../lib/liveCache';
+import { useUIStore, type StudioTheme } from '../stores/useUIStore';
+import { Sparkle, CircleHalf, Circle } from '@phosphor-icons/react';
 import { 
   StudioIcon, 
   CreationsIcon, 
@@ -27,10 +28,13 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
-  const { resolved } = useTheme();
-  const isLight = resolved === 'light';
   const location = useLocation();
   const { session, profile } = useAuth();
+  const studioTheme = useUIStore((s) => s.studioTheme);
+  const setStudioTheme = useUIStore((s) => s.setStudioTheme);
+
+  // Selector de temas solo visible en Studio
+  const isStudio = location.pathname.startsWith('/studio');
 
   const handleLogout = async () => {
     markVoluntaryLogout();
@@ -136,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
                   fontFamily: 'var(--pf-font-display, system-ui)', 
                   fontSize: '1.25rem', 
                   fontWeight: 800, 
-                  color: isLight ? '#0143E0' : '#00B4FF', 
+                  color: '#8B5CF6', 
                   letterSpacing: '-0.03em',
                   whiteSpace: 'nowrap'
                 }}
@@ -249,6 +253,87 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
           );
         })}
       </nav>
+
+      {/* Theme Selector — solo en /studio */}
+      {isStudio && (
+        <div
+          style={{
+            padding: collapsed ? '10px 12px' : '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: '6px',
+          }}
+        >
+          {!collapsed && (
+            <span
+              style={{
+                fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                fontSize: '0.5625rem',
+                fontWeight: 600,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: 'var(--pf-text-muted, #6E747D)',
+                marginRight: 'auto',
+              }}
+            >
+              Tema
+            </span>
+          )}
+          {([
+            { value: 'space' as StudioTheme, Icon: Sparkle, label: 'Space' },
+            { value: 'dark' as StudioTheme, Icon: CircleHalf, label: 'Dark' },
+            { value: 'light' as StudioTheme, Icon: Circle, label: 'Light' },
+          ]).map(({ value, Icon, label }) => {
+            const active = studioTheme === value;
+            return (
+              <button
+                key={value}
+                onClick={() => setStudioTheme(value)}
+                title={label}
+                aria-label={`Tema ${label}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '8px',
+                  background: active
+                    ? 'rgba(139,92,246,0.15)'
+                    : 'transparent',
+                  border: active
+                    ? '1px solid rgba(139,92,246,0.50)'
+                    : '1px solid var(--pf-border-subtle, #2A2D31)',
+                  color: active
+                    ? '#A78BFA'
+                    : 'var(--pf-text-muted, #6E747D)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'all 150ms ease',
+                  boxShadow: active
+                    ? '0 0 12px -2px rgba(139,92,246,0.5)'
+                    : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.borderColor = 'rgba(139,92,246,0.35)';
+                    e.currentTarget.style.color = 'var(--pf-text-secondary, #9EA4AA)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.borderColor = 'var(--pf-border-subtle, #2A2D31)';
+                    e.currentTarget.style.color = 'var(--pf-text-muted, #6E747D)';
+                  }
+                }}
+              >
+                <Icon size={14} weight={active ? 'fill' : 'regular'} />
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* User Section */}
       <div style={{ 

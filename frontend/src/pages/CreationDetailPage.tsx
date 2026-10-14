@@ -1,17 +1,24 @@
 // src/pages/CreationDetailPage.tsx
+// Detalle de una pieza — media + panel de metadatos editorial.
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft, Clock, Cpu, FilmSlate, SmileyXEyes, Image as ImageIcon,
+  MusicNotes, ArrowsOut, Trash, X, DownloadSimple, CalendarBlank,
+  Warning,
+} from '@phosphor-icons/react';
 import { useCreations } from '../hooks/useCreations';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Creation } from '../types';
-import {
-  ArrowLeft, Clock, Cpu, Film, Frown, Image as ImageIcon,
-  Music, Maximize2, Trash2, X, Download, Calendar,
-} from 'lucide-react';
 import { fetchAudioBlob } from '../lib/audioBlobCache';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { AtmosphereLayer } from '../components/marketing/Atmosphere';
+import { useUIStore } from '../stores/useUIStore';
 
+// ============================================================
+// CONSTANTS
+// ============================================================
 const MODEL_LABELS: Record<string, string> = {
   'krea-2-turbo': 'Krea 2 Turbo',
   'qwen-image-2.1': 'Qwen Image 2.1',
@@ -20,9 +27,16 @@ const MODEL_LABELS: Record<string, string> = {
   'ltx-2.3-msr': 'LTX 2.3 MSR',
   'ltx-2.5-msr': 'LTX 2.5 MSR',
   'wan-dual': 'Wan 2.1 Dual',
+  'wan-dual-i2v': 'Wan 2.1 i2v',
+  'wan-dual-t2v': 'Wan 2.1 t2v',
   'tts-dual': 'TTS Dual',
+  'tts-dual-omnivoice': 'OmniVoice',
+  'tts-dual-index': 'Index TTS 2.5',
 };
 
+// ============================================================
+// HELPERS
+// ============================================================
 function getModelLabel(modelId?: string | null, fallback?: string | null): string {
   const id = modelId || fallback || '';
   return MODEL_LABELS[id] || id || 'IA';
@@ -30,7 +44,7 @@ function getModelLabel(modelId?: string | null, fallback?: string | null): strin
 
 function formatExpiry(expiresAt: string): { text: string; urgent: boolean } {
   const remainingMs = new Date(expiresAt).getTime() - Date.now();
-  if (remainingMs <= 0) return { text: 'Expirado', urgent: true };
+  if (remainingMs <= 0) return { text: 'Expirada', urgent: true };
   const hours = remainingMs / 3_600_000;
   if (hours < 1) return { text: 'Expira en menos de 1 hora', urgent: true };
   if (hours < 24) {
@@ -68,7 +82,53 @@ function seededPeaks(id: string, count: number): number[] {
   return Array.from({ length: count }, () => 0.2 + rand() * 0.8);
 }
 
-const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, prompt }) => {
+// ============================================================
+// META ROW (definido arriba para evitar problemas de orden)
+// ============================================================
+const MetaRow: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+        fontSize: '0.625rem',
+        fontWeight: 600,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        color: 'var(--pf-text-muted)',
+      }}
+    >
+      {icon}
+      {label}
+    </div>
+    <div
+      style={{
+        fontFamily: 'var(--pf-font-ui)',
+        fontSize: '0.875rem',
+        color: 'var(--pf-text-primary)',
+        fontWeight: 500,
+        textAlign: 'right',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        maxWidth: '60%',
+      }}
+    >
+      {value}
+    </div>
+  </div>
+);
+
+// ============================================================
+// AUDIO PLAYER — detail
+// ============================================================
+const AudioDetailPlayer: React.FC<{ url: string; prompt: string; creationId: string }> = ({
+  url,
+  prompt,
+  creationId,
+}) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -93,14 +153,16 @@ const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, pro
   const progress = duration > 0 ? currentTime / duration : 0;
 
   return (
-    <div style={{
-      width: '100%',
-      padding: '60px 40px',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: '32px',
-    }}>
+    <div
+      style={{
+        width: '100%',
+        padding: '80px 40px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 36,
+      }}
+    >
       <audio
         ref={audioRef}
         src={url}
@@ -112,35 +174,56 @@ const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, pro
         onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
       />
 
-      <div style={{
-        width: '96px',
-        height: '96px',
-        borderRadius: '50%',
-        background: '#6366F1',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 12px 40px rgba(99, 102, 241, 0.4)',
-      }}>
-        <Music size={44} color="#FFFFFF" strokeWidth={1.75} />
+      {/* Disco central con glow */}
+      <div style={{ position: 'relative' }}>
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: -40,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(139,92,246,0.28) 0%, transparent 65%)',
+            filter: 'blur(40px)',
+            animation: 'pfDetailGlow 4s ease-in-out infinite',
+          }}
+        />
+        <div
+          style={{
+            position: 'relative',
+            width: 96,
+            height: 96,
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle at 40% 35%, var(--pf-accent-primary) 0%, rgba(139,92,246,0.55) 60%, transparent 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 12px 40px rgba(139,92,246,0.4)',
+            border: '1px solid rgba(139,92,246,0.35)',
+          }}
+        >
+          <MusicNotes size={40} weight="regular" color="#FFFFFF" />
+        </div>
       </div>
 
-      <div style={{
-        width: '100%',
-        maxWidth: '520px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '16px',
-      }}>
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 560,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+        }}
+      >
         <button
           onClick={togglePlay}
           title={isPlaying ? 'Pausar' : 'Reproducir'}
           aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
           style={{
-            width: '52px',
-            height: '52px',
+            width: 52,
+            height: 52,
             borderRadius: '50%',
-            background: '#6366F1',
+            background: 'var(--pf-accent-primary)',
             border: 'none',
             color: '#FFFFFF',
             display: 'flex',
@@ -149,16 +232,14 @@ const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, pro
             cursor: 'pointer',
             padding: 0,
             flexShrink: 0,
-            boxShadow: '0 6px 20px rgba(99, 102, 241, 0.4)',
-            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+            boxShadow: '0 12px 32px -8px rgba(139,92,246,0.6)',
+            transition: 'transform 180ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'scale(1.06)';
-            e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.55)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
           }}
         >
           {isPlaying ? (
@@ -167,24 +248,24 @@ const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, pro
               <rect x="14" y="5" width="4" height="14" rx="1" />
             </svg>
           ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '3px' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: 3 }}>
               <polygon points="6 4 20 12 6 20 6 4" />
             </svg>
           )}
         </button>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div
             onClick={handleSeek}
             style={{
-              height: '36px',
+              height: 40,
               display: 'flex',
               alignItems: 'center',
-              gap: '2px',
+              gap: 2,
               cursor: 'pointer',
             }}
           >
-            {seededPeaks(prompt || 'audio', 56).map((h, i) => {
+            {seededPeaks(creationId || prompt || 'audio', 56).map((h, i) => {
               const played = i / 56 <= progress;
               return (
                 <div
@@ -192,10 +273,10 @@ const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, pro
                   style={{
                     flex: 1,
                     height: `${h * 100}%`,
-                    background: played ? '#6366F1' : 'var(--pf-text-muted, #6E747D)',
-                    opacity: played ? 1 : 0.4,
-                    borderRadius: '2px',
-                    transition: 'background 0.1s ease, opacity 0.1s ease',
+                    background: played ? 'var(--pf-accent-primary)' : 'var(--pf-text-muted)',
+                    opacity: played ? 0.95 : 0.28,
+                    borderRadius: 1,
+                    transition: 'background 100ms linear, opacity 100ms linear',
                     pointerEvents: 'none',
                   }}
                 />
@@ -203,14 +284,18 @@ const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, pro
             })}
           </div>
 
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            fontFamily: 'var(--pf-font-ui)',
-            fontSize: '0.75rem',
-            color: 'var(--pf-text-secondary)',
-            fontVariantNumeric: 'tabular-nums',
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+              fontSize: '0.6875rem',
+              fontWeight: 500,
+              letterSpacing: '0.08em',
+              color: 'var(--pf-text-muted)',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
             <span>{formatDuration(currentTime)}</span>
             <span>{formatDuration(duration)}</span>
           </div>
@@ -220,10 +305,14 @@ const AudioDetailPlayer: React.FC<{ url: string; prompt: string }> = ({ url, pro
   );
 };
 
+// ============================================================
+// PAGE
+// ============================================================
 const CreationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getCreations, deleteCreation, getDownloadUrl } = useCreations();
+  const studioTheme = useUIStore((s) => s.studioTheme);
 
   const [creation, setCreation] = useState<Creation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -253,7 +342,6 @@ const CreationDetailPage: React.FC = () => {
     loadCreation();
   }, [id, getCreations]);
 
-  // Refresca el countdown cada 60s
   useEffect(() => {
     const t = window.setInterval(() => setTick((n) => n + 1), 60_000);
     return () => window.clearInterval(t);
@@ -266,10 +354,8 @@ const CreationDetailPage: React.FC = () => {
   const expiry = useMemo(
     () => (creation?.expires_at ? formatExpiry(creation.expires_at) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [creation?.expires_at, setTick],
+    [creation?.expires_at],
   );
-
-
 
   const handleDelete = useCallback(() => setShowDeleteDialog(true), []);
 
@@ -282,23 +368,20 @@ const CreationDetailPage: React.FC = () => {
     } catch {
       setIsDeleting(false);
       setShowDeleteDialog(false);
-      alert('No se pudo eliminar la creación. Inténtalo de nuevo.');
+      alert('No se pudo eliminar la pieza. Inténtalo de nuevo.');
     }
   }, [creation, deleteCreation, navigate]);
 
   const handleDownload = useCallback(async () => {
     if (!creation) return;
-    if (isDownloading) return; // guard contra clicks multiples
+    if (isDownloading) return;
     setIsDownloading(true);
     try {
       const url = await getDownloadUrl(creation.id);
       if (!url) return;
-
-      // Forzar descarga: fetch -> blob -> <a download>
-      // (window.open() abre el archivo en pestaña nueva si el content-type es valido)
       try {
-        const isAudio = creation.media_type === 'audio';
-        const blob = isAudio
+        const isAudioFile = creation.media_type === 'audio';
+        const blob = isAudioFile
           ? await fetchAudioBlob(url, { timeoutMs: 120000 })
           : await (await fetch(url)).blob();
         const objectUrl = URL.createObjectURL(blob);
@@ -314,7 +397,6 @@ const CreationDetailPage: React.FC = () => {
         a.remove();
         setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
       } catch {
-        // Fallback: abrir en pestaña nueva (comportamiento previo)
         window.open(url, '_blank', 'noopener,noreferrer');
       }
     } finally {
@@ -324,35 +406,66 @@ const CreationDetailPage: React.FC = () => {
 
   const toggleLightbox = useCallback(() => setIsLightboxOpen((o) => !o), []);
 
-  // ── Estados de carga / not found ─────────────────────────────
+  const hasSpaceAtmosphere = studioTheme === 'space';
 
+  // ─── Loading ───
   if (loading) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{
-          fontFamily: 'var(--pf-font-ui)',
-          color: 'var(--pf-text-muted)',
-          fontSize: '1rem',
+      <div
+        style={{
+          height: '100%',
           display: 'flex',
-          gap: '12px',
           alignItems: 'center',
-        }}>
-          <div style={{ width: '20px', height: '20px', border: '2px solid var(--pf-border-default)', borderTopColor: 'var(--pf-text-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-          Cargando detalles...
-        </div>
+          justifyContent: 'center',
+          fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+          fontSize: '0.6875rem',
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          color: 'var(--pf-text-muted)',
+        }}
+      >
+        Cargando pieza...
       </div>
     );
   }
 
+  // ─── Not found ───
   if (!creation) {
     return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', textAlign: 'center' }}>
-        <Frown size={64} strokeWidth={1.5} style={{ marginBottom: '24px', opacity: 0.5, color: 'var(--pf-text-primary)' }} />
-        <h1 style={{ fontFamily: 'var(--pf-font-display)', fontSize: '2rem', fontWeight: 600, color: 'var(--pf-text-primary)', marginBottom: '16px' }}>
-          Creación no encontrada
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 20px',
+          textAlign: 'center',
+        }}
+      >
+        <SmileyXEyes size={56} weight="regular" style={{ color: 'var(--pf-text-muted)', marginBottom: 24 }} />
+        <h1
+          style={{
+            fontFamily: "'Satoshi', system-ui, sans-serif",
+            fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
+            fontWeight: 700,
+            letterSpacing: '-0.03em',
+            color: 'var(--pf-text-primary)',
+            margin: '0 0 16px',
+          }}
+        >
+          Pieza no encontrada
         </h1>
-        <p style={{ fontFamily: 'var(--pf-font-ui)', fontSize: '1rem', color: 'var(--pf-text-secondary)', marginBottom: '32px' }}>
-          La creación que buscas no existe, ha sido eliminada o no tienes permiso para verla.
+        <p
+          style={{
+            fontFamily: 'var(--pf-font-ui)',
+            fontSize: '1rem',
+            color: 'var(--pf-text-secondary)',
+            marginBottom: 32,
+            maxWidth: 460,
+          }}
+        >
+          La pieza que buscas no existe, fue eliminada o no tienes permiso para verla.
         </p>
         <Link
           to="/creations"
@@ -360,18 +473,19 @@ const CreationDetailPage: React.FC = () => {
             textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '8px',
-            background: 'var(--pf-text-primary)',
-            color: 'var(--pf-bg-elevated)',
+            gap: 8,
+            background: 'var(--pf-accent-primary)',
+            color: '#FFFFFF',
             fontFamily: 'var(--pf-font-ui)',
-            fontSize: '1rem',
+            fontSize: '0.9375rem',
             fontWeight: 600,
             padding: '12px 24px',
-            borderRadius: '9999px',
+            borderRadius: 9999,
+            boxShadow: '0 12px 32px -8px rgba(139,92,246,0.6)',
           }}
         >
-          <ArrowLeft size={18} />
-          Volver a la Colección
+          <ArrowLeft size={16} weight="regular" />
+          Volver
         </Link>
       </div>
     );
@@ -380,333 +494,421 @@ const CreationDetailPage: React.FC = () => {
   const modelLabel = getModelLabel(creation.model_id, creation.model);
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', scrollBehavior: 'smooth' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px 24px 60px' }}>
-
-        {/* Barra superior: volver + acciones */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', gap: '16px', flexWrap: 'wrap' }}>
-          <Link
-            to="/creations"
-            style={{
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontFamily: 'var(--pf-font-ui)',
-              fontSize: '0.9375rem',
-              fontWeight: 500,
-              color: 'var(--pf-text-secondary)',
-              transition: 'color 0.2s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--pf-text-primary)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--pf-text-secondary)')}
-          >
-            <ArrowLeft size={18} />
-            Volver a la Colección
-          </Link>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={handleDownload}
-              disabled={isDownloading}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'var(--pf-bg-secondary)',
-                border: '1px solid var(--pf-border-default)',
-                borderRadius: '9999px',
-                padding: '10px 18px',
-                fontFamily: 'var(--pf-font-ui)',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: 'var(--pf-text-primary)',
-                cursor: isDownloading ? 'not-allowed' : 'pointer',
-                opacity: isDownloading ? 0.6 : 1,
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => { if (!isDownloading) e.currentTarget.style.background = 'var(--pf-bg-tertiary)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--pf-bg-secondary)'; }}
-            >
-              <Download size={16} />
-              {isDownloading ? 'Preparando...' : 'Descargar'}
-            </button>
-
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.25)',
-                borderRadius: '9999px',
-                padding: '10px 18px',
-                fontFamily: 'var(--pf-font-ui)',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: '#EF4444',
-                cursor: isDeleting ? 'not-allowed' : 'pointer',
-                opacity: isDeleting ? 0.6 : 1,
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => { if (!isDeleting) e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
-            >
-              <Trash2 size={16} />
-              Eliminar
-            </button>
-          </div>
-        </div>
-
-        {/* Grid principal: media | panel */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr)',
-          gap: '40px',
-          alignItems: 'flex-start',
-        }}
-        className="pf-detail-grid"
+    <div style={{ height: '100%', overflowY: 'auto', position: 'relative' }}>
+      {hasSpaceAtmosphere && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: 'none',
+          }}
         >
-          {/* Columna izquierda: media */}
-          <div style={{ position: 'relative' }}>
-            <div
-              onClick={isImage ? toggleLightbox : undefined}
+          <AtmosphereLayer />
+        </div>
+      )}
+
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 24px 80px' }}>
+
+          {/* ═══════════ TOP BAR ═══════════ */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 32,
+              gap: 16,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Link
+              to="/creations"
               style={{
-                position: 'relative',
-                background: 'var(--pf-bg-secondary)',
-                borderRadius: '20px',
-                overflow: 'hidden',
-                display: 'flex',
+                textDecoration: 'none',
+                display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                cursor: isImage ? 'zoom-in' : 'default',
-                width: '100%',
-                minHeight: '400px',
-                maxHeight: '78vh',
+                gap: 8,
+                padding: '8px 16px',
+                border: '1px solid var(--pf-border-subtle)',
+                borderRadius: 9999,
+                fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                fontSize: '0.6875rem',
+                fontWeight: 500,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: 'var(--pf-text-secondary)',
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(139,92,246,0.35)';
+                e.currentTarget.style.color = 'var(--pf-text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--pf-border-subtle)';
+                e.currentTarget.style.color = 'var(--pf-text-secondary)';
               }}
             >
-              {/* Blur del propio media como fondo.
-                  - Para imagenes: <div> con background-image.
-                  - Para videos: un <video> ambient (CSS no acepta videos como background-image). */}
-              {mediaUrl && !loadingUrl && !mediaBroken && isVideo && (
-                <video
-                  src={mediaUrl}
-                  muted
-                  playsInline
-                  preload="auto"
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    inset: '-20px',
-                    width: 'calc(100% + 40px)',
-                    height: 'calc(100% + 40px)',
-                    objectFit: 'cover',
-                    filter: 'blur(40px) saturate(1.4)',
-                    opacity: 0.35,
-                    zIndex: 0,
-                    pointerEvents: 'none',
-                  }}
-                />
-              )}
-              {mediaUrl && !loadingUrl && !mediaBroken && isImage && (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    inset: '-20px',
-                    backgroundImage: `url(${mediaUrl})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    filter: 'blur(40px) saturate(1.4)',
-                    opacity: 0.35,
-                    zIndex: 0,
-                  }}
-                />
-              )}
+              <ArrowLeft size={12} weight="regular" />
+              Volver
+            </Link>
 
-              <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {loadingUrl ? (
-                  <div style={{ color: 'var(--pf-text-muted)', fontFamily: 'var(--pf-font-ui)', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ width: '24px', height: '24px', border: '3px solid var(--pf-border-default)', borderTopColor: 'var(--pf-text-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                    <span>Cargando obra...</span>
-                  </div>
-                ) : mediaBroken ? (
-                  <div style={{
-                    color: 'var(--pf-text-muted)',
-                    fontFamily: 'var(--pf-font-ui)',
-                    fontSize: '0.9375rem',
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: 'var(--pf-accent-primary)',
+                  border: 'none',
+                  borderRadius: 9999,
+                  padding: '10px 20px',
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  color: '#FFFFFF',
+                  cursor: isDownloading ? 'not-allowed' : 'pointer',
+                  opacity: isDownloading ? 0.6 : 1,
+                  boxShadow: '0 12px 32px -8px rgba(139,92,246,0.6)',
+                  transition: 'transform 150ms ease',
+                }}
+                onMouseEnter={(e) => { if (!isDownloading) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <DownloadSimple size={14} weight="regular" />
+                {isDownloading ? 'Preparando...' : 'Descargar'}
+              </button>
+
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: 'transparent',
+                  border: '1px solid rgba(235,87,87,0.35)',
+                  borderRadius: 9999,
+                  padding: '10px 20px',
+                  fontFamily: 'var(--pf-font-ui)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  color: '#FCA5A5',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  opacity: isDeleting ? 0.6 : 1,
+                  transition: 'all 150ms ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDeleting) {
+                    e.currentTarget.style.background = 'rgba(235,87,87,0.10)';
+                    e.currentTarget.style.borderColor = 'rgba(235,87,87,0.55)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'rgba(235,87,87,0.35)';
+                }}
+              >
+                <Trash size={14} weight="regular" />
+                Eliminar
+              </button>
+            </div>
+          </div>
+
+          {/* ═══════════ GRID: media | aside ═══════════ */}
+          <div
+            className="pf-detail-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1fr)',
+              gap: 40,
+              alignItems: 'flex-start',
+            }}
+          >
+            {/* ── Media ── */}
+            <div style={{ position: 'relative' }}>
+              <div
+                onClick={isImage ? toggleLightbox : undefined}
+                style={{
+                  position: 'relative',
+                  background: 'var(--pf-bg-secondary)',
+                  borderRadius: 20,
+                  border: '1px solid var(--pf-border-subtle)',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: isImage ? 'zoom-in' : 'default',
+                  width: '100%',
+                  minHeight: 400,
+                  maxHeight: '78vh',
+                }}
+              >
+                {/* Blur background */}
+                {mediaUrl && !loadingUrl && !mediaBroken && isVideo && (
+                  <video
+                    src={mediaUrl}
+                    muted
+                    playsInline
+                    preload="auto"
+                    aria-hidden
+                    style={{
+                      position: 'absolute',
+                      inset: -20,
+                      width: 'calc(100% + 40px)',
+                      height: 'calc(100% + 40px)',
+                      objectFit: 'cover',
+                      filter: 'blur(40px) saturate(1.4)',
+                      opacity: 0.35,
+                      zIndex: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+                {mediaUrl && !loadingUrl && !mediaBroken && isImage && (
+                  <div
+                    aria-hidden
+                    style={{
+                      position: 'absolute',
+                      inset: -20,
+                      backgroundImage: `url(${mediaUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(40px) saturate(1.4)',
+                      opacity: 0.35,
+                      zIndex: 0,
+                    }}
+                  />
+                )}
+
+                <div
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    width: '100%',
+                    height: '100%',
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '12px',
-                  }}>
-                    <X size={32} strokeWidth={1.5} />
-                    Esta pieza ya no está disponible
-                  </div>
-                ) : mediaUrl ? (
-                  isVideo ? (
-                    <VideoPlayer
-                      src={mediaUrl}
-                      objectFit="contain"
-                      background="transparent"
-                      aspectRatio={creation.aspect_ratio}
-                    />
-                  ) : isAudio ? (
-                    <AudioDetailPlayer url={mediaUrl} prompt={creation.prompt} />
-                  ) : (
-                    <img
-                      src={mediaUrl}
-                      alt={creation.prompt}
-                      onError={() => setMediaBroken(true)}
+                    justifyContent: 'center',
+                  }}
+                >
+                  {loadingUrl ? (
+                    <div
                       style={{
-                        maxWidth: '100%',
-                        maxHeight: '78vh',
-                        objectFit: 'contain',
-                        display: 'block',
+                        fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                        fontSize: '0.6875rem',
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        color: 'var(--pf-text-muted)',
                       }}
-                    />
-                  )
-                ) : (
-                  <div style={{ color: 'var(--pf-text-muted)', fontFamily: 'var(--pf-font-ui)' }}>
-                    No disponible
+                    >
+                      Cargando...
+                    </div>
+                  ) : mediaBroken ? (
+                    <div
+                      style={{
+                        color: 'var(--pf-text-muted)',
+                        fontFamily: 'var(--pf-font-ui)',
+                        fontSize: '0.9375rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      <Warning size={32} weight="regular" />
+                      Esta pieza ya no está disponible
+                    </div>
+                  ) : mediaUrl ? (
+                    isVideo ? (
+                      <VideoPlayer
+                        src={mediaUrl}
+                        objectFit="contain"
+                        background="transparent"
+                        aspectRatio={creation.aspect_ratio || undefined}
+                      />
+                    ) : isAudio ? (
+                      <AudioDetailPlayer
+                        url={mediaUrl}
+                        prompt={creation.prompt}
+                        creationId={creation.id}
+                      />
+                    ) : (
+                      <img
+                        src={mediaUrl}
+                        alt={creation.prompt}
+                        onError={() => setMediaBroken(true)}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '78vh',
+                          objectFit: 'contain',
+                          display: 'block',
+                        }}
+                      />
+                    )
+                  ) : (
+                    <div style={{ color: 'var(--pf-text-muted)', fontFamily: 'var(--pf-font-ui)' }}>
+                      No disponible
+                    </div>
+                  )}
+                </div>
+
+                {isImage && mediaUrl && !mediaBroken && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 16,
+                      right: 16,
+                      background: 'rgba(15,15,18,0.70)',
+                      backdropFilter: 'blur(10px)',
+                      WebkitBackdropFilter: 'blur(10px)',
+                      padding: '6px 12px',
+                      borderRadius: 9999,
+                      border: '1px solid rgba(255,255,255,0.10)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                      fontSize: '0.5625rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      color: 'rgba(255,255,255,0.75)',
+                      pointerEvents: 'none',
+                      zIndex: 2,
+                    }}
+                  >
+                    <ArrowsOut size={11} weight="regular" />
+                    Ampliar
                   </div>
                 )}
               </div>
-
-              {/* Hint de lightbox para imagen */}
-              {isImage && mediaUrl && !mediaBroken && (
-                <div style={{
-                  position: 'absolute',
-                  top: '16px',
-                  right: '16px',
-                  background: 'rgba(0,0,0,0.55)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                  padding: '6px 12px',
-                  borderRadius: '99px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  color: '#FFFFFF',
-                  pointerEvents: 'none',
-                  zIndex: 2,
-                }}>
-                  <Maximize2 size={12} />
-                  Ampliar
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Columna derecha: panel de metadatos */}
-          <aside
-            className="pf-detail-aside"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '24px',
-            }}
-          >
-            {/* Prompt */}
-            <div>
-              <div style={{
+            {/* ── Aside ── */}
+            <aside
+              className="pf-detail-aside"
+              style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '12px',
-                color: 'var(--pf-text-muted)',
-                textTransform: 'uppercase',
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-              }}>
-                <Cpu size={13} />
-                Prompt
-              </div>
-              <p style={{
-                fontFamily: 'var(--pf-font-prompt, var(--pf-font-ui))',
-                fontSize: '1rem',
-                lineHeight: 1.6,
-                color: 'var(--pf-text-primary)',
-                margin: 0,
-              }}>
-                {creation.prompt}
-              </p>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: '1px', background: 'var(--pf-border-subtle)' }} />
-
-            {/* Parámetros */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <MetaRow
-                icon={<Film size={14} />}
-                label="Tipo"
-                value={isVideo ? 'Video' : isAudio ? 'Audio' : 'Imagen'}
-              />
-              <MetaRow
-                icon={<Cpu size={14} />}
-                label="Modelo"
-                value={modelLabel}
-              />
-              {creation.resolution && (
-                <MetaRow
-                  icon={<ImageIcon size={14} />}
-                  label="Resolución"
-                  value={creation.resolution}
-                />
-              )}
-              {creation.aspect_ratio && (
-                <MetaRow
-                  icon={<ImageIcon size={14} />}
-                  label="Aspecto"
-                  value={creation.aspect_ratio}
-                />
-              )}
-              {creation.seed !== null && creation.seed !== undefined && (
-                <MetaRow
-                  icon={<Cpu size={14} />}
-                  label="Seed"
-                  value={String(creation.seed)}
-                />
-              )}
-              <MetaRow
-                icon={<Calendar size={14} />}
-                label="Creado"
-                value={formatDate(creation.created_at)}
-              />
-            </div>
-
-            {/* Expiración */}
-            {expiry && (
-              <>
-                <div style={{ height: '1px', background: 'var(--pf-border-subtle)' }} />
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 14px',
-                  background: expiry.urgent ? 'rgba(245,158,11,0.08)' : 'var(--pf-bg-secondary)',
-                  border: `1px solid ${expiry.urgent ? 'rgba(245,158,11,0.25)' : 'var(--pf-border-subtle)'}`,
-                  borderRadius: '10px',
-                  fontFamily: 'var(--pf-font-ui)',
-                  fontSize: '0.8125rem',
-                  color: expiry.urgent ? '#F59E0B' : 'var(--pf-text-secondary)',
-                }}>
-                  <Clock size={14} />
-                  {expiry.text}
+                flexDirection: 'column',
+                gap: 24,
+              }}
+            >
+              {/* Prompt */}
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 12,
+                    fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                    fontSize: '0.625rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: 'var(--pf-text-muted)',
+                  }}
+                >
+                  <Cpu size={13} weight="regular" />
+                  Prompt
                 </div>
-              </>
-            )}
-          </aside>
+                <p
+                  style={{
+                    fontFamily: 'var(--pf-font-ui)',
+                    fontSize: '1rem',
+                    lineHeight: 1.6,
+                    color: 'var(--pf-text-primary)',
+                    margin: 0,
+                  }}
+                >
+                  {creation.prompt}
+                </p>
+              </div>
+
+              <div style={{ height: 1, background: 'var(--pf-border-subtle)' }} />
+
+              {/* Metadata */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <MetaRow
+                  icon={<FilmSlate size={14} weight="regular" />}
+                  label="Tipo"
+                  value={isVideo ? 'Video' : isAudio ? 'Audio' : 'Imagen'}
+                />
+                <MetaRow
+                  icon={<Cpu size={14} weight="regular" />}
+                  label="Modelo"
+                  value={modelLabel}
+                />
+                {creation.resolution && (
+                  <MetaRow
+                    icon={<ImageIcon size={14} weight="regular" />}
+                    label="Resolución"
+                    value={creation.resolution}
+                  />
+                )}
+                {creation.aspect_ratio && (
+                  <MetaRow
+                    icon={<ImageIcon size={14} weight="regular" />}
+                    label="Aspecto"
+                    value={creation.aspect_ratio}
+                  />
+                )}
+                {creation.seed !== null && creation.seed !== undefined && (
+                  <MetaRow
+                    icon={<Cpu size={14} weight="regular" />}
+                    label="Seed"
+                    value={String(creation.seed)}
+                  />
+                )}
+                <MetaRow
+                  icon={<CalendarBlank size={14} weight="regular" />}
+                  label="Creado"
+                  value={formatDate(creation.created_at)}
+                />
+              </div>
+
+              {/* Expiry */}
+              {expiry && (
+                <>
+                  <div style={{ height: 1, background: 'var(--pf-border-subtle)' }} />
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '12px 16px',
+                      background: expiry.urgent
+                        ? 'rgba(245,158,11,0.08)'
+                        : 'transparent',
+                      border: expiry.urgent
+                        ? '1px solid rgba(245,158,11,0.30)'
+                        : '1px solid var(--pf-border-subtle)',
+                      borderRadius: 10,
+                      fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)',
+                      fontSize: '0.6875rem',
+                      fontWeight: 500,
+                      letterSpacing: '0.10em',
+                      textTransform: 'uppercase',
+                      color: expiry.urgent ? '#F59E0B' : 'var(--pf-text-secondary)',
+                    }}
+                  >
+                    {expiry.urgent
+                      ? <Warning size={13} weight="regular" />
+                      : <Clock size={13} weight="regular" />}
+                    {expiry.text}
+                  </div>
+                </>
+              )}
+            </aside>
+          </div>
         </div>
       </div>
 
-      {/* Lightbox Modal */}
+      {/* ═══════════ LIGHTBOX ═══════════ */}
       {isLightboxOpen && mediaUrl && isImage && (
         <div
           onClick={toggleLightbox}
@@ -719,7 +921,7 @@ const CreationDetailPage: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            animation: 'fadeIn 0.2s ease-out',
+            animation: 'pfDetailFade 200ms ease-out',
             cursor: 'zoom-out',
           }}
         >
@@ -727,13 +929,13 @@ const CreationDetailPage: React.FC = () => {
             onClick={(e) => { e.stopPropagation(); toggleLightbox(); }}
             style={{
               position: 'absolute',
-              top: '30px',
-              right: '30px',
-              background: 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: 'white',
-              width: '48px',
-              height: '48px',
+              top: 30,
+              right: 30,
+              background: 'rgba(255,255,255,0.10)',
+              border: '1px solid rgba(255,255,255,0.20)',
+              color: '#FFFFFF',
+              width: 48,
+              height: 48,
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
@@ -742,7 +944,7 @@ const CreationDetailPage: React.FC = () => {
               zIndex: 1001,
             }}
           >
-            <X size={24} />
+            <X size={20} weight="regular" />
           </button>
           <img
             src={mediaUrl}
@@ -751,7 +953,7 @@ const CreationDetailPage: React.FC = () => {
               maxWidth: '95%',
               maxHeight: '95vh',
               objectFit: 'contain',
-              animation: 'scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              animation: 'pfDetailScale 300ms cubic-bezier(0.16, 1, 0.3, 1)',
             }}
             onClick={(e) => e.stopPropagation()}
           />
@@ -760,8 +962,8 @@ const CreationDetailPage: React.FC = () => {
 
       <ConfirmDialog
         open={showDeleteDialog}
-        title="¿Eliminar esta creación?"
-        description="Esta acción no se puede deshacer. La creación y su archivo se eliminarán de forma permanente."
+        title="¿Eliminar esta pieza?"
+        description="Esta acción no se puede deshacer. La pieza y su archivo se eliminarán de forma permanente."
         confirmLabel="Sí, eliminar"
         cancelLabel="Cancelar"
         danger
@@ -771,9 +973,18 @@ const CreationDetailPage: React.FC = () => {
       />
 
       <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes pfDetailGlow {
+          0%, 100% { transform: scale(1); opacity: 0.85; }
+          50%      { transform: scale(1.15); opacity: 1; }
+        }
+        @keyframes pfDetailFade {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes pfDetailScale {
+          from { transform: scale(0.95); opacity: 0; }
+          to   { transform: scale(1); opacity: 1; }
+        }
 
         @media (min-width: 1024px) {
           .pf-detail-grid {
@@ -784,39 +995,13 @@ const CreationDetailPage: React.FC = () => {
             top: 32px;
           }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+          [style*="pfDetail"] { animation: none !important; }
+        }
       `}</style>
     </div>
   );
 };
-
-// Fila de metadatos consistente
-const MetaRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      fontFamily: 'var(--pf-font-ui)',
-      fontSize: '0.8125rem',
-      color: 'var(--pf-text-muted)',
-    }}>
-      {icon}
-      {label}
-    </div>
-    <div style={{
-      fontFamily: 'var(--pf-font-ui)',
-      fontSize: '0.8125rem',
-      color: 'var(--pf-text-primary)',
-      fontWeight: 500,
-      textAlign: 'right',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-      maxWidth: '60%',
-    }}>
-      {value}
-    </div>
-  </div>
-);
 
 export default CreationDetailPage;
