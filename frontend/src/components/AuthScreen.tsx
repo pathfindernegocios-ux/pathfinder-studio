@@ -1,34 +1,28 @@
 // src/components/AuthScreen.tsx
+// Login — rediseño v3 con fuentes legacy (Satoshi + Inter Tight + JetBrains Mono).
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-import { Video, Image as ImageIcon, Music } from 'lucide-react';
-import AuthBackdrop from './AuthBackdrop';
+import { FilmStrip, Image as ImageIcon, MusicNotes } from '@phosphor-icons/react';
+import SpaceWarp from './marketing/SpaceWarp';
+import PathfinderLogo from './PathfinderLogo';
 
 // ---------------------------------------------------------------------------
 // Pool de imágenes para el panel izquierdo.
-// Una imagen random por page load — no cambia mientras el usuario está acá.
-// Se reutiliza el mismo set que el HeroMediaWall cuando migremos a Supabase.
 // ---------------------------------------------------------------------------
 const AUTH_IMAGE_POOL = Array.from({ length: 56 }, (_, i) => `auth-pool-${i + 1}`);
-
-// Rotación: 24h. Misma imagen durante el día, cambia al día siguiente.
-// Para cambiar a "por sesión" (sessionStorage), ver toggle abajo.
 const AUTH_SEED_STORAGE_KEY = "pf_auth_hero_seed";
 const AUTH_SEED_TTL_MS = 24 * 60 * 60 * 1000;
-const AUTH_USE_SESSION_STORAGE = false; // ← true para comportamiento "por sesión"
+const AUTH_USE_SESSION_STORAGE = false;
 
 function pickAuthSeed(): string {
   if (typeof window === "undefined") return AUTH_IMAGE_POOL[0];
-
   try {
     const storage = AUTH_USE_SESSION_STORAGE ? sessionStorage : localStorage;
     const raw = storage.getItem(AUTH_SEED_STORAGE_KEY);
-
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Modo 24h: validar TTL
       if (
         !AUTH_USE_SESSION_STORAGE &&
         parsed.seed &&
@@ -37,13 +31,10 @@ function pickAuthSeed(): string {
       ) {
         return parsed.seed;
       }
-      // Modo sesión: cualquier valor guardado es válido
       if (AUTH_USE_SESSION_STORAGE && parsed.seed) {
         return parsed.seed;
       }
     }
-
-    // No hay válido → generar uno nuevo
     const seed = AUTH_IMAGE_POOL[Math.floor(Math.random() * AUTH_IMAGE_POOL.length)];
     storage.setItem(
       AUTH_SEED_STORAGE_KEY,
@@ -51,7 +42,6 @@ function pickAuthSeed(): string {
     );
     return seed;
   } catch (e) {
-    // Fallback: random sin persistir
     return AUTH_IMAGE_POOL[Math.floor(Math.random() * AUTH_IMAGE_POOL.length)];
   }
 }
@@ -65,6 +55,54 @@ const GoogleIcon: React.FC = () => (
   </svg>
 );
 
+const AuroraAtmosphere: React.FC = () => (
+  <>
+    <div
+      aria-hidden
+      className="pf-aurora-1"
+      style={{
+        position: "fixed",
+        top: "-20%",
+        left: "-15%",
+        width: "900px",
+        height: "900px",
+        background: "radial-gradient(circle, rgba(139,92,246,0.16) 0%, rgba(139,92,246,0.04) 40%, transparent 70%)",
+        filter: "blur(80px)",
+        pointerEvents: "none",
+        zIndex: 1,
+      }}
+    />
+    <div
+      aria-hidden
+      className="pf-aurora-2"
+      style={{
+        position: "fixed",
+        bottom: "-25%",
+        right: "-10%",
+        width: "800px",
+        height: "800px",
+        background: "radial-gradient(circle, rgba(34,211,238,0.08) 0%, rgba(34,211,238,0.02) 40%, transparent 70%)",
+        filter: "blur(90px)",
+        pointerEvents: "none",
+        zIndex: 1,
+      }}
+    />
+    <div
+      aria-hidden
+      style={{
+        position: "fixed",
+        inset: 0,
+        opacity: 0.025,
+        mixBlendMode: "overlay",
+        pointerEvents: "none",
+        zIndex: 1,
+        backgroundImage:
+          "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' /%3E%3C/svg%3E\")",
+      }}
+    />
+  </>
+);
+
 const AuthScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +110,6 @@ const AuthScreen: React.FC = () => {
   const { session, accountStatus, isOnboarded, isProfileLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Imagen random — inicializada una sola vez por mount
   const [heroSeed] = useState(() => pickAuthSeed());
   const heroUrl = `https://picsum.photos/seed/${heroSeed}/1200/1600`;
 
@@ -116,6 +153,7 @@ const AuthScreen: React.FC = () => {
 
   return (
     <div
+      className="pf-legacy"
       style={{
         minHeight: '100vh',
         width: '100vw',
@@ -125,11 +163,23 @@ const AuthScreen: React.FC = () => {
         position: 'relative',
       }}
     >
-      {/* Nebulosa animada (detrás de todo) */}
-      <AuthBackdrop />
-      {/* ============================================================ */}
-      {/* Lado Izquierdo: imagen random + overlay + contenido         */}
-      {/* ============================================================ */}
+      {/* SpaceWarp deepfield + aurora + grain */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        <SpaceWarp variant="deepfield" density={2000} intensity={1} centerX={0.5} centerY={0.4} />
+      </div>
+      <AuroraAtmosphere />
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* Panel Izquierdo: imagen random + overlay violeta + contenido */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       <div
         className="auth-left-panel"
         style={{
@@ -137,7 +187,7 @@ const AuthScreen: React.FC = () => {
           flex: '1',
           overflow: 'hidden',
           borderRight: '1px solid rgba(139, 92, 246, 0.15)',
-          zIndex: 1,
+          zIndex: 2,
         }}
       >
         {/* Imagen de fondo */}
@@ -155,17 +205,18 @@ const AuthScreen: React.FC = () => {
           }}
         />
 
-        {/* Overlay oscuro para legibilidad */}
+        {/* Overlay violeta v3 */}
         <div
+          aria-hidden
           style={{
             position: 'absolute',
             inset: 0,
             background:
-              'linear-gradient(135deg, rgba(10,10,10,0.80) 0%, rgba(10,10,10,0.55) 50%, rgba(10,10,10,0.85) 100%)',
+              'linear-gradient(135deg, rgba(139,92,246,0.35) 0%, rgba(0,0,0,0.75) 50%, rgba(139,92,246,0.25) 100%)',
           }}
         />
 
-        {/* Contenido encima de la imagen */}
+        {/* Contenido */}
         <div
           style={{
             position: 'relative',
@@ -178,49 +229,76 @@ const AuthScreen: React.FC = () => {
             color: '#FFFFFF',
           }}
         >
-          {/* Logo clickeable → home */}
           <Link
             to="/"
             style={{
               textDecoration: 'none',
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              marginBottom: '24px',
-              fontFamily: 'var(--pf-font-display)',
-              letterSpacing: '-0.03em',
-              color: '#FFFFFF',
-              display: 'inline-block',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: '32px',
               width: 'fit-content',
               transition: 'opacity 0.15s',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           >
-            Pathfinder
+            <PathfinderLogo size={36} />
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+              <span
+                style={{
+                  fontFamily: 'var(--pf-font-display)',
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  letterSpacing: '-0.025em',
+                  color: '#FFFFFF',
+                  marginBottom: 3,
+                }}
+              >
+                Pathfinder
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--pf-font-mono)',
+                  fontSize: '0.5625rem',
+                  fontWeight: 500,
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.5)',
+                }}
+              >
+                Studio
+              </span>
+            </div>
           </Link>
 
           <h1
             style={{
-              fontSize: '3.5rem',
+              fontSize: 'clamp(2.5rem, 4.5vw, 3.5rem)',
               fontWeight: 700,
-              lineHeight: 1.1,
-              color: '#FFFFFF',
+              lineHeight: 1.05,
+              margin: 0,
               marginBottom: '24px',
               fontFamily: 'var(--pf-font-display)',
-              letterSpacing: '-0.04em',
-              textShadow: '0 2px 24px rgba(0,0,0,0.5)',
+              letterSpacing: '-0.035em',
+              background: 'linear-gradient(135deg, #FFFFFF 0%, #A78BFA 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
             }}
           >
-            ¿Qué vamos a <br />
-            <span style={{ color: 'rgba(255,255,255,0.75)' }}>crear hoy?</span>
+            ¿Qué vamos a
+            <br />
+            crear hoy?
           </h1>
 
           <p
             style={{
-              fontSize: '1.25rem',
-              color: 'rgba(255,255,255,0.85)',
+              fontSize: '1.0625rem',
+              color: 'rgba(255,255,255,0.7)',
               lineHeight: 1.6,
               maxWidth: '500px',
+              margin: 0,
               marginBottom: '40px',
               fontFamily: 'var(--pf-font-ui)',
             }}
@@ -229,83 +307,75 @@ const AuthScreen: React.FC = () => {
             video con sonido utilizando IA de última generación.
           </p>
 
-          {/* Iconos + texto — sin emojis, con lucide-react */}
+          {/* Chips mono — capabilities */}
           <div
             style={{
               display: 'flex',
-              gap: '20px',
+              gap: 10,
               marginTop: 'auto',
-              alignItems: 'center',
+              flexWrap: 'wrap',
             }}
           >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.875rem',
-                color: 'rgba(255,255,255,0.75)',
-                fontFamily: 'var(--pf-font-ui)',
-              }}
-            >
-              <Video size={16} />
-              <span>Video</span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.875rem',
-                color: 'rgba(255,255,255,0.75)',
-                fontFamily: 'var(--pf-font-ui)',
-              }}
-            >
-              <ImageIcon size={16} />
-              <span>Imagen</span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '0.875rem',
-                color: 'rgba(255,255,255,0.75)',
-                fontFamily: 'var(--pf-font-ui)',
-              }}
-            >
-              <Music size={16} />
-              <span>Audio</span>
-            </div>
+            {[
+              { Icon: FilmStrip, label: 'Video' },
+              { Icon: ImageIcon, label: 'Imagen' },
+              { Icon: MusicNotes, label: 'Audio' },
+            ].map(({ Icon, label }) => (
+              <div
+                key={label}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '7px 14px',
+                  background: 'rgba(15,15,18,0.55)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(139,92,246,0.30)',
+                  borderRadius: 9999,
+                  fontFamily: 'var(--pf-font-mono)',
+                  fontSize: '0.625rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: '#A78BFA',
+                }}
+              >
+                <Icon size={12} weight="regular" />
+                {label}
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* Lado Derecho: formulario de auth                             */}
-      {/* ============================================================ */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* Panel Derecho: formulario de auth                            */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       <div
         style={{
-          width: '450px',
+          width: '460px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          padding: '40px',
+          padding: '48px 40px',
           background: 'rgba(8, 4, 20, 0.55)',
           backdropFilter: 'blur(24px) saturate(140%)',
           WebkitBackdropFilter: 'blur(24px) saturate(140%)',
-          borderLeft: '1px solid rgba(139, 92, 246, 0.15)',
-          zIndex: 1,
+          borderLeft: '1px solid rgba(139, 92, 246, 0.20)',
+          zIndex: 2,
           position: 'relative',
         }}
       >
-        <div style={{ marginBottom: '40px' }}>
+        <div style={{ marginBottom: 40 }}>
           <h2
             style={{
               fontSize: '1.5rem',
-              fontWeight: 600,
-              marginBottom: '8px',
+              fontWeight: 700,
+              margin: 0,
+              marginBottom: 10,
               fontFamily: 'var(--pf-font-display)',
+              letterSpacing: '-0.025em',
               color: '#FFFFFF',
             }}
           >
@@ -313,42 +383,54 @@ const AuthScreen: React.FC = () => {
           </h2>
           <p
             style={{
-              color: 'rgba(255,255,255,0.7)',
+              color: 'rgba(255,255,255,0.65)',
               fontSize: '0.9375rem',
               lineHeight: 1.5,
+              margin: 0,
+              fontFamily: 'var(--pf-font-ui)',
             }}
           >
             Crea tu cuenta y empieza a generar con IA en segundos.
           </p>
         </div>
 
+        {/* Botón Google — pill v3 */}
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={loading}
           style={{
             width: '100%',
-            padding: '14px 20px',
+            padding: '14px 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '12px',
+            gap: 12,
             background: '#FFFFFF',
             color: '#1F1F1F',
-            border: '1px solid #DADCE0',
-            borderRadius: '8px',
+            border: '1px solid rgba(255,255,255,0.85)',
+            borderRadius: 9999,
             fontSize: '0.9375rem',
-            fontWeight: 500,
-            fontFamily: 'var(--pf-font-ui, system-ui)',
+            fontWeight: 600,
+            fontFamily: 'var(--pf-font-ui)',
             cursor: loading ? 'wait' : 'pointer',
-            transition: 'background 0.15s, box-shadow 0.15s',
+            transition: 'transform 150ms, box-shadow 150ms, background 150ms',
             opacity: loading ? 0.7 : 1,
+            boxShadow: '0 12px 32px -12px rgba(255,255,255,0.25)',
           }}
           onMouseEnter={(e) => {
-            if (!loading) e.currentTarget.style.background = '#F8F9FA';
+            if (!loading) {
+              e.currentTarget.style.background = '#F8F9FA';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 16px 40px -12px rgba(255,255,255,0.35)';
+            }
           }}
           onMouseLeave={(e) => {
-            if (!loading) e.currentTarget.style.background = '#FFFFFF';
+            if (!loading) {
+              e.currentTarget.style.background = '#FFFFFF';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 12px 32px -12px rgba(255,255,255,0.25)';
+            }
           }}
         >
           <GoogleIcon />
@@ -358,46 +440,50 @@ const AuthScreen: React.FC = () => {
         {error && (
           <div
             style={{
-              marginTop: '16px',
-              padding: '12px',
-              background: 'rgba(239, 68, 68, 0.12)',
-              color: '#F87171',
-              borderRadius: '8px',
+              marginTop: 16,
+              padding: '12px 16px',
+              background: 'rgba(235,87,87,0.10)',
+              color: '#FCA5A5',
+              borderRadius: 10,
               fontSize: '0.875rem',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              border: '1px solid rgba(235,87,87,0.30)',
               lineHeight: 1.5,
+              fontFamily: 'var(--pf-font-ui)',
             }}
           >
             {error}
           </div>
         )}
 
+        {/* Divider "PRÓXIMAMENTE" */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            marginTop: '32px',
-            marginBottom: '16px',
+            gap: 14,
+            marginTop: 36,
+            marginBottom: 18,
           }}
         >
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.10)' }} />
           <span
             style={{
-              fontSize: '0.75rem',
-              color: 'rgba(255,255,255,0.5)',
-              fontFamily: 'var(--pf-font-ui)',
+              fontFamily: 'var(--pf-font-mono)',
+              fontSize: '0.625rem',
+              fontWeight: 600,
+              letterSpacing: '0.16em',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              color: 'rgba(255,255,255,0.45)',
             }}
           >
             Próximamente
           </span>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
         <p
           style={{
+            fontFamily: 'var(--pf-font-ui)',
             fontSize: '0.8125rem',
             color: 'rgba(255,255,255,0.5)',
             textAlign: 'center',
@@ -408,26 +494,28 @@ const AuthScreen: React.FC = () => {
           El registro con email estará disponible en las próximas semanas.
         </p>
 
+        {/* TOS */}
         <p
           style={{
-            marginTop: '40px',
+            marginTop: 40,
+            fontFamily: 'var(--pf-font-ui)',
             fontSize: '0.75rem',
             color: 'rgba(255,255,255,0.45)',
-            lineHeight: 1.5,
+            lineHeight: 1.6,
             textAlign: 'center',
           }}
         >
           Al continuar, aceptas nuestros{' '}
           <Link
             to="/legal/terms"
-            style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'underline' }}
+            style={{ color: '#A78BFA', textDecoration: 'underline', textUnderlineOffset: 2 }}
           >
             Términos de Servicio
           </Link>{' '}
           y reconoces haber leído el{' '}
           <Link
             to="/legal/privacy"
-            style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'underline' }}
+            style={{ color: '#A78BFA', textDecoration: 'underline', textUnderlineOffset: 2 }}
           >
             Aviso de Privacidad
           </Link>
@@ -435,7 +523,9 @@ const AuthScreen: React.FC = () => {
         </p>
       </div>
 
-      {/* Mobile: la imagen se oculta o se reduce */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* Mobile: ocultar panel izquierdo                               */}
+      {/* ═══════════════════════════════════════════════════════════ */}
       <style>{`
         @media (max-width: 900px) {
           .auth-left-panel {

@@ -10,6 +10,8 @@ interface SpaceWarpProps {
   /** Centro de rotación (0-1). Solo aplica a startrails. */
   centerX?: number;
   centerY?: number;
+  /** Ref con el offset vertical (px) a aplicar al dibujo. Se lee cada frame sin re-inicializar. */
+  parallaxRef?: React.MutableRefObject<number>;
 }
 
 const SpaceWarp: React.FC<SpaceWarpProps> = ({
@@ -18,6 +20,7 @@ const SpaceWarp: React.FC<SpaceWarpProps> = ({
   intensity = 1,
   centerX = 0.5,
   centerY = 0.5,
+  parallaxRef,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -221,6 +224,11 @@ const SpaceWarp: React.FC<SpaceWarpProps> = ({
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, width, height);
 
+      // Parallax: aplica offset vertical sin re-inicializar
+      const offsetY = parallaxRef?.current ?? 0;
+      ctx.save();
+      if (offsetY !== 0) ctx.translate(0, offsetY);
+
       ctx.globalCompositeOperation = "lighter";
       for (const n of nebulas) {
         const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.radius);
@@ -279,6 +287,8 @@ const SpaceWarp: React.FC<SpaceWarpProps> = ({
         if (star.y < -10) star.y = height + 10;
         if (star.y > height + 10) star.y = -10;
       }
+
+      ctx.restore();
     };
 
     // ── DIBUJO: Star Trails ──
@@ -286,6 +296,11 @@ const SpaceWarp: React.FC<SpaceWarpProps> = ({
       // Fondo
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, width, height);
+
+      // Parallax
+      const offsetY = parallaxRef?.current ?? 0;
+      ctx.save();
+      if (offsetY !== 0) ctx.translate(0, offsetY);
 
       // Nebulosas
       ctx.globalCompositeOperation = "lighter";
@@ -348,6 +363,8 @@ const SpaceWarp: React.FC<SpaceWarpProps> = ({
         // Avanzar el ángulo
         star.angle += star.speed;
       }
+
+      ctx.restore();
     };
 
     const draw = () => {

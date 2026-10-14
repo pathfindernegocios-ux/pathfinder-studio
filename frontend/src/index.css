@@ -19,6 +19,8 @@
 
 :root {
   --pf-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ─── Valores base (legacy / marketing / fuera de Studio) ─── */
   --pf-bg-primary: #FFFFFF;
   --pf-bg-secondary: #FAFAFA;
   --pf-bg-tertiary: #F5F5F5;
@@ -34,8 +36,6 @@
   --pf-error: #EF4444;
   --pf-glass-surface: rgba(255, 255, 255, 0.75);
   --pf-shadow-floating: 0 24px 48px -12px rgba(0, 0, 0, 0.12);
-
-  /* Superficies específicas para dark theme */
   --pf-bg-input: #FFFFFF;
   --pf-bg-elevated: #FFFFFF;
   --pf-overlay-backdrop: rgba(0, 0, 0, 0.5);
@@ -46,102 +46,110 @@
   --pf-skeleton-base: #1a1a1a;
   --pf-skeleton-highlight: #2a2a2a;
 
+  /* Tokens nuevos (usan los temas premium) */
+  --pf-glow-color: rgba(139,92,246,0.35);
+  --pf-glow-enabled: 0;
+
+  /* Fuentes */
   --pf-font-display: 'Chakra Petch', system-ui, sans-serif;
   --pf-font-display-alt: 'Sora Variable', system-ui, sans-serif;
   --pf-font-ui: 'Geist', system-ui, sans-serif;
   --pf-font-prompt: 'Satoshi', 'Inter Tight', sans-serif;
-  /* Fuentes del contenido del chat (prompt + respuesta de la IA) */
   --pf-font-chat: 'Geist', 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
   --pf-font-chat-mono: 'Geist Mono', 'Geist', 'Inter Tight', monospace;
+
+  color-scheme: light;
 }
 
 /* ============================================================
    DARK THEME
-   Solo aplica a la App (logueado). El marketing siempre usa light.
-   Se activa con: document.documentElement.dataset.theme = "dark"
+   Profesional, minimalista, alto contraste.
+   Inspirado en Linear y Vercel. Sin atmósfera, sin glow.
    ============================================================ */
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   --pf-bg-primary: #0A0A0A;
   --pf-bg-secondary: #141414;
-  --pf-bg-tertiary: #1F1F1F;
+  --pf-bg-tertiary: #1A1A1A;
+  --pf-bg-input: #1A1A1A;
+  --pf-bg-elevated: #141414;
 
-  --pf-text-primary: #F5F5F5;
+  --pf-text-primary: #E5E5E5;
   --pf-text-secondary: #A1A1AA;
   --pf-text-muted: #6E747D;
+  --pf-text-inverse: #0A0A0A;
 
-  --pf-border-default: #2A2A2A;
-  --pf-border-subtle: #1F1F1F;
+  --pf-border-default: rgba(255,255,255,0.10);
+  --pf-border-subtle: rgba(255,255,255,0.06);
 
-  --pf-accent-primary: #F5F5F5;
-  --pf-accent-secondary: #A1A1AA;
+  --pf-accent-primary: #7C6FD6;
+  --pf-accent-secondary: #6D8DA6;
 
-  /* Estados mantienen su color (funcionan en ambos temas) */
   --pf-success: #10B981;
   --pf-warning: #F59E0B;
   --pf-error: #EF4444;
 
-  --pf-glass-surface: rgba(20, 20, 20, 0.75);
-  --pf-shadow-floating: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
+  --pf-glass-surface: rgba(20,20,20,0.75);
+  --pf-shadow-floating: 0 24px 48px -12px rgba(0,0,0,0.6);
 
-  /* Superficies específicas para dark theme */
-  --pf-bg-input: #1F1F1F;
-  --pf-bg-elevated: #1A1A1A;
-  --pf-overlay-backdrop: rgba(0, 0, 0, 0.75);
-  --pf-text-inverse: #0A0A0A;
-  --pf-chip-bg: #1F1F1F;
-  --pf-chip-bg-hover: #2A2A2A;
-  --pf-chip-border: #2A2A2A;
-  --pf-skeleton-base: #1a1a1a;
-  --pf-skeleton-highlight: #2a2a2a;
+  --pf-overlay-backdrop: rgba(0,0,0,0.75);
+  --pf-chip-bg: #1A1A1A;
+  --pf-chip-bg-hover: #262626;
+  --pf-chip-border: rgba(255,255,255,0.08);
+  --pf-skeleton-base: #1A1A1A;
+  --pf-skeleton-highlight: #262626;
+
+  --pf-glow-color: rgba(124,111,214,0.15);
+  --pf-glow-enabled: 0;
 
   color-scheme: dark;
 }
 
 /* ============================================================
-   NEON THEME — Estación creativa (negro puro + acentos indigo)
-   Identidad visual de la Welcome. Continuidad psicológica.
-   Se activa con: document.documentElement.dataset.theme = "neon"
+   SPACE THEME — default de Studio
+   Estación en modo exploración. Negro puro + violeta Pathfinder
+   + cyan instrumentación + atmósfera viva.
    ============================================================ */
-:root[data-theme="neon"] {
+:root[data-theme="space"] {
   --pf-bg-primary: #000000;
-  --pf-bg-secondary: #0A0A0A;
-  --pf-bg-tertiary: #141414;
+  --pf-bg-secondary: #0A0A0F;
+  --pf-bg-tertiary: #0F0F14;
+  --pf-bg-input: #0F0F14;
+  --pf-bg-elevated: #0F0F14;
 
-  --pf-text-primary: #F5F5F5;
-  --pf-text-secondary: #A1A1AA;
-  --pf-text-muted: #6E747D;
+  --pf-text-primary: #F5F5F7;
+  --pf-text-secondary: rgba(255,255,255,0.55);
+  --pf-text-muted: rgba(255,255,255,0.40);
+  --pf-text-inverse: #000000;
 
-  --pf-border-default: #1F1F1F;
-  --pf-border-subtle: #141414;
+  --pf-border-default: rgba(255,255,255,0.10);
+  --pf-border-subtle: rgba(255,255,255,0.06);
 
-  --pf-accent-primary: #6366F1;
-  --pf-accent-secondary: #8B5CF6;
+  --pf-accent-primary: #8B5CF6;
+  --pf-accent-secondary: #22D3EE;
 
-  /* Estados mantienen su color (funcionan en ambos temas) */
   --pf-success: #10B981;
   --pf-warning: #F59E0B;
-  --pf-error: #EF4444;
+  --pf-error: #EB5757;
 
-  --pf-glass-surface: rgba(99, 102, 241, 0.06);
-  --pf-shadow-floating: 0 24px 48px -12px rgba(99, 102, 241, 0.35);
+  --pf-glass-surface: rgba(15,15,20,0.65);
+  --pf-shadow-floating: 0 24px 60px -20px rgba(139,92,246,0.45);
 
-  /* Superficies específicas */
-  --pf-bg-input: #0A0A0A;
-  --pf-bg-elevated: #0A0A0A;
-  --pf-overlay-backdrop: rgba(0, 0, 0, 0.85);
-  --pf-text-inverse: #000000;
-  --pf-chip-bg: #0A0A0A;
-  --pf-chip-bg-hover: #141414;
-  --pf-chip-border: #1F1F1F;
-  --pf-skeleton-base: #0A0A0A;
-  --pf-skeleton-highlight: #141414;
+  --pf-overlay-backdrop: rgba(0,0,0,0.85);
+  --pf-chip-bg: #0F0F14;
+  --pf-chip-bg-hover: #16161C;
+  --pf-chip-border: rgba(255,255,255,0.08);
+  --pf-skeleton-base: #0A0A0F;
+  --pf-skeleton-highlight: #16161C;
+
+  --pf-glow-color: rgba(139,92,246,0.35);
+  --pf-glow-enabled: 1;
 
   color-scheme: dark;
 }
 
-/* Glow neón sutil en elementos activos (solo en tema Neón) */
-:root[data-theme="neon"] .pf-glow {
-  box-shadow: 0 0 24px -4px rgba(99, 102, 241, 0.35);
+/* Glow sutil en elementos activos (solo en Space) */
+[data-theme="space"] .pf-glow {
+  box-shadow: 0 0 24px -4px var(--pf-glow-color);
 }
 
 /* Suavizar transición cuando cambia el tema */
@@ -558,12 +566,12 @@ html {
   background: var(--pf-text-primary);
   opacity: 0.25;
 }
-:root[data-theme="dark"] .pf-audio-bar-past,
-:root[data-theme="neon"] .pf-audio-bar-past {
+[data-theme="dark"] .pf-audio-bar-past,
+[data-theme="space"] .pf-audio-bar-past {
   background: #67E8F9;
 }
-:root[data-theme="dark"] .pf-audio-bar-future,
-:root[data-theme="neon"] .pf-audio-bar-future {
+[data-theme="dark"] .pf-audio-bar-future,
+[data-theme="space"] .pf-audio-bar-future {
   background: var(--pf-text-muted);
   opacity: 0.35;
 }
