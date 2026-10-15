@@ -154,6 +154,8 @@ interface GenerateParams {
   qwenEditImage?: File | null;
   qwenEditMask?: File | null;
   qwenStrength?: number;
+  // ── Krea 2 Turbo — Prompt Enhancer ──
+  enhanceMode?: 'off' | 'on' | 'text';
 }
 
 interface GenerationContextValue {
@@ -1474,6 +1476,7 @@ export function GenerationProvider({
               params.qwenEditMask || null,
               params.qwenStrength ?? 1.0,
               token,
+              params.enhanceMode || 'off',
             ]);
 
             const data = result.data as unknown[];
@@ -1555,6 +1558,7 @@ export function GenerationProvider({
               params.seed,
               params.numImages || 1,
               token,
+              params.enhanceMode || 'off',
             ]);
             const data = result.data as unknown[];
             const images = parseImagesFromResult(data[0]);

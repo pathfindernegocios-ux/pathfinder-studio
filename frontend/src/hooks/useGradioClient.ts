@@ -120,7 +120,19 @@ export function useGradioClient(gradioUrls: string[] | null) {
     return null;
   }, [gradioUrls]);
 
-  // Cleanup al cambiar el array de URLs o al desmontar: cerrar clients viejos.
+  // Cleanup SOLO al desmontar. NO cerramos clients cuando `gradioUrls`
+  // cambia (ej. cambio de modelo activo en la misma capability): un client
+  // puede tener un predict en vuelo (Krea generando mientras el user
+  // cambia a Qwen). Cerrarlo mataría el SSE y el predict fallaría con
+  // "Connection errored out" aunque el notebook siga generando OK.
+  //
+  // Multi-notebook: cada runtime (Krea en Kaggle, Qwen en Colab) tiene su
+  // propio Client vivo en el cache. Cambiar de modelo activo solo cambia
+  // qué URL devuelve getClient; los demás clients siguen abiertos.
+  //
+  // El cierre efectivo ocurre al desmontar el hook (navegar fuera del
+  // Studio o remount del provider). Los tunnels muertos se detectan vía
+  // markUrlFailed y el cold TTL, no hace falta cerrarlos proactivamente.
   useEffect(() => {
     const cache = cacheRef.current;
     const cold = coldRef.current;
@@ -129,7 +141,8 @@ export function useGradioClient(gradioUrls: string[] | null) {
       cache.clear();
       cold.clear();
     };
-  }, [gradioUrls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { getClient };
 }
