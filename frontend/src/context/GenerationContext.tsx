@@ -351,6 +351,26 @@ function persistDeletedItems(records: DeletedItemRecord[]) {
   }
 }
 
+// Reconciliación local ↔ backend. Evita duplicación cuando el backend
+// reporta el mismo item que ya existe localmente como optimistic (creado al
+// click de Generar). Regla: si un item del backend tiene el mismo
+// (modelId + prompt) que un item de prev, el local se DESCARTA — el del
+// backend tiene el id real, la media real y el estado real.
+function reconcileWithBackend(
+  backendItems: SessionItem[],
+  prev: SessionItem[],
+  isDeleted: (id: string) => boolean,
+): SessionItem[] {
+  const backendIds = new Set(backendItems.map((b) => b.id));
+  const backendKeys = new Set(backendItems.map((b) => `${b.modelId}::${b.prompt}`));
+  const preserved = prev.filter((it) => {
+    if (backendIds.has(it.id)) return false;
+    if (backendKeys.has(`${it.modelId}::${it.prompt}`)) return false;
+    return true;
+  });
+  return [...backendItems, ...preserved].filter((it) => !isDeleted(it.id));
+}
+
 function mapBackendItem(raw: any): SessionItem {
   const status = raw.status as string;
   const isGenerating = status === "preparing" || status === "running";
@@ -546,8 +566,12 @@ export function GenerationProvider({
         ? 'tts-dual'
         : activeVideoModelId;
 
+    // Filtro ESTRICTO: solo items de este modelo. Sin `|| !it.modelId` —
+    // ese fallback hacía que items sin model_id (backend viejo o mal
+    // configurado) aparecieran en TODOS los modelos, dando la sensación de
+    // que uno "infiere" del otro. Ahora cada modelo ve SOLO lo suyo.
     const filtered = currentModelId
-      ? slice.filter(it => it.modelId === currentModelId || !it.modelId)
+      ? slice.filter(it => it.modelId === currentModelId)
       : slice;
 
     const urlForItem = (item: SessionItem): string | null => {
@@ -1095,13 +1119,7 @@ export function GenerationProvider({
       if (cancelled) return;
       setHistoryForCap('image', prev => {
         if (items.length === 0 && prev.length > 0) return prev;
-        // Preservar TODO item de prev que el backend aún no conoce: items
-        // recién agregados localmente (aún generándose), items de otros
-        // modelos, items de sesiones anteriores que el backend ya no
-        // recuerda. El backend solo conoce SU historial reciente.
-        const backendIds = new Set(items.map(it => it.id));
-        const preserved = prev.filter(it => !backendIds.has(it.id));
-        return [...items, ...preserved].filter(it => !isItemDeleted(it, deletedIdsRef.current));
+        return reconcileWithBackend(items, prev, (id) => isItemDeleted({ id } as SessionItem, deletedIdsRef.current));
       });
     })();
     return () => { cancelled = true; };
@@ -1154,16 +1172,11 @@ export function GenerationProvider({
   // Cada polling preserva el skeleton local (isGenerating:true con id msg-*)
   // que todavía no aparece en el backend.
   const mergeWithOrphans = (items: SessionItem[], prev: SessionItem[], _activeModel: string | null) => {
-    const backendIds = new Set(items.map(b => b.id));
-    // Preservar TODO item de prev cuyo id no esté en el backend. Cubre:
-    //   - items recién agregados localmente (aún generándose)
-    //   - items de otros modelos que el backend actual no conoce
-    //   - items huérfanos de sesiones anteriores
-    // El backend solo conoce SU historial reciente; lo que no está allí
-    // sigue siendo válido en el state local.
-    const preserved = prev.filter(it => !backendIds.has(it.id));
-    if (preserved.length === 0) return items;
-    return [...items, ...preserved];
+    // Reconciliación: si el backend ya conoce este item (mismo modelId +
+    // prompt), se prefiere la versión del backend y se descarta la copia
+    // local. Esto es lo que evita las "2 generaciones" cuando el backend
+    // reporta el item que el frontend ya había creado optimistic.
+    return reconcileWithBackend(items, prev, (id) => isItemDeleted({ id } as SessionItem, deletedIdsRef.current));
   };
 
   const hasGeneratingImage = sessionHistoryByCapability.image.some(it => it.isGenerating);
