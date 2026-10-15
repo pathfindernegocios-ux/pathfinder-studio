@@ -28,7 +28,13 @@ import {
 const STATIC_IMAGE_MODELS = IMAGE_MODELS;
 
 const QWEN_TASKS = ['Crear', 'Editar y Refs', 'Inpaint'];
-const QWEN_MODES = ['Turbo HQ', 'Turbo Fast'];
+const QWEN_MODES = ['Turbo HQ', 'Turbo Fast', 'Quality'];
+const QWEN_QUALITY_DEFAULT_STEPS = 40;
+const QWEN_QUALITY_DEFAULT_GUIDANCE = 4.0;
+const QWEN_QUALITY_MIN_STEPS = 10;
+const QWEN_QUALITY_MAX_STEPS = 40;
+const QWEN_QUALITY_MIN_GUIDANCE = 1.0;
+const QWEN_QUALITY_MAX_GUIDANCE = 4.0;
 const QWEN_RESOLUTIONS = ['768px (fastest)', '1024px (recommended)'];
 const QWEN_ASPECT_RATIOS = ['Match input', '1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait', '2:3 Poster'];
 const QWEN_STYLES = ['None', 'Cinematic', 'Photographic', 'Anime', 'Cyberpunk', 'Fantasy'];
@@ -196,7 +202,7 @@ const FLUX_PERSIST_KEYS: (keyof FluxParams)[] = [
 const QWEN_PERSIST_KEYS: (keyof QwenParams)[] = [
   'task', 'mode', 'stylePreset', 'transparent', 'negativePrompt',
   'resolution', 'aspectRatio', 'seed', 'numImages', 'strength',
-  'enhanceMode',
+  'enhanceMode', 'steps', 'guidance',
 ];
 const TTS_PERSIST_KEYS: (keyof TtsParams)[] = [
   'voiceMode', 'voiceInstruction', 'emotionInstruction', 'language', 'duration',
@@ -382,6 +388,8 @@ interface QwenParams {
   editMaskFile: File | null;
   strength: number;
   enhanceMode: 'off' | 'on' | 'text';
+  steps: number;
+  guidance: number;
 }
 
 interface TtsParams {
@@ -822,6 +830,8 @@ const FloatingCommandCenter: React.FC = () => {
       editMaskFile: null,
       strength: 1.0,
       enhanceMode: 'off',
+      steps: QWEN_QUALITY_DEFAULT_STEPS,
+      guidance: QWEN_QUALITY_DEFAULT_GUIDANCE,
     }, loadPersistedStudioSelection()?.params?.qwen)
   );
 
@@ -1968,6 +1978,8 @@ const FloatingCommandCenter: React.FC = () => {
             qwenEditMask: qwenParams.editMaskFile,
             qwenStrength: qwenParams.strength,
             enhanceMode: qwenParams.enhanceMode,
+            qwenSteps: qwenParams.steps,
+            qwenGuidance: qwenParams.guidance,
           });
         } else if (isFluxActive) {
           await handleGenerate({ 
@@ -3710,6 +3722,37 @@ const FloatingCommandCenter: React.FC = () => {
                   onChange={(v: string) => setQwenParams(prev => ({ ...prev, enhanceMode: (v as 'off' | 'on' | 'text') }))}
                   formatOption={KREA_ENHANCE_FORMAT}
                 />
+
+                {qwenParams.mode === 'Quality' && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', background: 'var(--pf-bg-secondary)', border: '1px solid var(--pf-border-default)', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Steps</span>
+                      <input
+                        type="range"
+                        min={QWEN_QUALITY_MIN_STEPS}
+                        max={QWEN_QUALITY_MAX_STEPS}
+                        step={1}
+                        value={qwenParams.steps}
+                        onChange={(e) => setQwenParams(prev => ({ ...prev, steps: parseInt(e.target.value, 10) }))}
+                        style={{ width: '90px', accentColor: 'var(--pf-accent-primary)' }}
+                      />
+                      <span style={{ fontSize: '11px', fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)', color: 'var(--pf-text-secondary)', fontVariantNumeric: 'tabular-nums', minWidth: '22px', textAlign: 'right' }}>{qwenParams.steps}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', background: 'var(--pf-bg-secondary)', border: '1px solid var(--pf-border-default)', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Guidance</span>
+                      <input
+                        type="range"
+                        min={QWEN_QUALITY_MIN_GUIDANCE}
+                        max={QWEN_QUALITY_MAX_GUIDANCE}
+                        step={0.5}
+                        value={qwenParams.guidance}
+                        onChange={(e) => setQwenParams(prev => ({ ...prev, guidance: parseFloat(e.target.value) }))}
+                        style={{ width: '90px', accentColor: 'var(--pf-accent-primary)' }}
+                      />
+                      <span style={{ fontSize: '11px', fontFamily: 'var(--pf-font-mono, ui-monospace, monospace)', color: 'var(--pf-text-secondary)', fontVariantNumeric: 'tabular-nums', minWidth: '22px', textAlign: 'right' }}>{qwenParams.guidance.toFixed(1)}</span>
+                    </div>
+                  </>
+                )}
 
                 <div style={{ position: 'relative' }}>
                   <details style={{ display: 'inline-block' }}>
