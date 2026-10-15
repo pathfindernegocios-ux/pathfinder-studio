@@ -154,6 +154,8 @@ interface GenerateParams {
   qwenEditImage?: File | null;
   qwenEditMask?: File | null;
   qwenStrength?: number;
+  qwenSteps?: number;
+  qwenGuidance?: number;
   // ── Krea 2 Turbo — Prompt Enhancer ──
   enhanceMode?: 'off' | 'on' | 'text';
 }
@@ -503,48 +505,81 @@ export function GenerationProvider({
     }
   }, [sessionHistoryByCapability]);
 
-  // Aislamiento visual: el slice de historial es por capability (image/
-  // video/audio). Krea y Qwen son ambos 'image' y comparten el array.
-  // Para que no se mezclen en la vista, filtramos por el modelId activo.
-  // La persistencia no cambia: el array sigue guardando todo.
-  const activeModelId = capability === 'image'
-    ? activeImageModelId
-    : capability === 'audio'
-      ? 'tts-dual'
-      : activeVideoModelId;
-
   // Derivado: la slice de la capability activa. Todos los consumidores
   // (StudioPage, FCM) siguen leyendo `sessionHistory` como antes.
   // Deuda 4: recombinamos la base de las URLs de media con el gradioUrl
   // activo. Cuando el túnel rota (Cloudflare -> Gradio share o viceversa),
   // este useMemo se re-ejecuta y las URLs guardadas apuntan al túnel vivo.
   // Solo se toca el path /gradio_api/...; el resto se deja tal cual.
+  // Multi-runtime: mapa modelId → gradioUrl propio. Cada runtime de image
+  // vivo expone su túnel. Se usa para rebasear las URLs de cada item con
+  // SU PROPIO host, no con el del modelo activo en la UI. Sin esto, cuando
+  // Qwen termina mientras Krea está activo, las URLs de Qwen se reescriben
+  // con el host de Krea y dan 404 (placeholder roto en StudioPage).
+  const urlByModelId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of imageModels) {
+      const url = (r.gradio_urls && r.gradio_urls.length > 0)
+        ? r.gradio_urls[0]
+        : r.gradio_url;
+      if (url && r.model_id) m.set(r.model_id, url);
+    }
+    return m;
+  }, [imageModels]);
+
   const sessionHistory = useMemo(() => {
     const slice = sessionHistoryByCapability[capability];
-    // Filtrar por el modelo activo. Los items sin modelId se incluyen
-    // (compat con items viejos que no tenian el campo).
-    const filtered = activeModelId
-      ? slice.filter(it => it.modelId === activeModelId || !it.modelId)
+
+    // Chat por modelo: cada modelo tiene su propia conversación. El
+    // dropdown (Qwen / Krea / Flux) es el selector de "chat activo" — al
+    // cambiar de modelo, ves SOLO los items de ese modelo. Es el patrón
+    // de cualquier app con múltiples motores: cada motor es su propio
+    // hilo de conversación.
+    //
+    // Filtro incondicional por modelo activo. Sin excepciones por
+    // multi-runtime, sin atarlo a `imageModels.length` (dato volátil que
+    // rompía la vista cuando un heartbeat se atrasaba). Si el item no
+    // tiene modelId (legacy), se incluye para no perder historial viejo.
+    const currentModelId = capability === 'image'
+      ? activeImageModelId
+      : capability === 'audio'
+        ? 'tts-dual'
+        : activeVideoModelId;
+
+    const filtered = currentModelId
+      ? slice.filter(it => it.modelId === currentModelId || !it.modelId)
       : slice;
-    if (!gradioUrl) return filtered;
-    return filtered.map((item) => ({
-      ...item,
-      mediaUrls: item.mediaUrls.map((u) => rebaseMediaUrl(u, gradioUrl)),
-      startImageUrl: item.startImageUrl
-        ? rebaseMediaUrl(item.startImageUrl, gradioUrl)
-        : undefined,
-      endImageUrl: item.endImageUrl
-        ? rebaseMediaUrl(item.endImageUrl, gradioUrl)
-        : undefined,
-      audioUrl: item.audioUrl ? rebaseMediaUrl(item.audioUrl, gradioUrl) : undefined,
-      sceneUrls: item.sceneUrls
-        ? item.sceneUrls.map((u) => rebaseMediaUrl(u, gradioUrl))
-        : undefined,
-      refUrls: item.refUrls
-        ? item.refUrls.map((u) => rebaseMediaUrl(u, gradioUrl))
-        : undefined,
-    }));
-  }, [sessionHistoryByCapability, capability, gradioUrl, activeModelId]);
+
+    const urlForItem = (item: SessionItem): string | null => {
+      if (capability === 'image' && item.modelId) {
+        const own = urlByModelId.get(item.modelId);
+        if (own) return own;
+      }
+      return gradioUrl;
+    };
+
+    return filtered.map((item) => {
+      const url = urlForItem(item);
+      if (!url) return item;
+      return {
+        ...item,
+        mediaUrls: item.mediaUrls.map((u) => rebaseMediaUrl(u, url)),
+        startImageUrl: item.startImageUrl
+          ? rebaseMediaUrl(item.startImageUrl, url)
+          : undefined,
+        endImageUrl: item.endImageUrl
+          ? rebaseMediaUrl(item.endImageUrl, url)
+          : undefined,
+        audioUrl: item.audioUrl ? rebaseMediaUrl(item.audioUrl, url) : undefined,
+        sceneUrls: item.sceneUrls
+          ? item.sceneUrls.map((u) => rebaseMediaUrl(u, url))
+          : undefined,
+        refUrls: item.refUrls
+          ? item.refUrls.map((u) => rebaseMediaUrl(u, url))
+          : undefined,
+      };
+    });
+  }, [sessionHistoryByCapability, capability, gradioUrl, activeImageModelId, activeVideoModelId, imageModels, urlByModelId]);
 
   // Wrapper compatible con la API previa: acepta valor directo o updater,
   // y escribe siempre sobre la slice de la capability activa. Esto permite
@@ -666,9 +701,25 @@ export function GenerationProvider({
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
     let cancelled = false;
-    const ORPHAN_POLL_THRESHOLD = 3;
+    const ORPHAN_POLL_THRESHOLD = 6;
+    // Ventana mínima desde el inicio de la generación antes de declarar orphan.
+    // Cubre: cold start del transformer, Prompt Enhancer (~20s en T4), KV cache
+    // building, setup de LoRAs. Cualquier modelo puede tardar este tiempo sin
+    // que eso signifique que el servidor murió — solo que aún no refleja nada
+    // en /generation_status.
+    const ORPHAN_MIN_AGE_MS = 90_000;
+
+    const withinOrphanGrace = () =>
+      generationStartRef.current > 0 &&
+      Date.now() - generationStartRef.current * 1000 < ORPHAN_MIN_AGE_MS;
+
 
     const markOrphan = () => {
+      // Durante la ventana de gracia no declaramos orphan. Cubre la fase en la
+      // que el backend aún no escribió nada en /generation_status: swap de
+      // VRAM para el enhancer, encode de texto (VL-8B INT8), primer step del
+      // transformer. Antes esto tumbaba la UI a los ~6s de arrancar.
+      if (withinOrphanGrace()) return;
       const errMsg = "La generación se interrumpió. El servidor dejó de responder.";
       setHistoryForCapRef.current(capability, prev => prev.map(it =>
         it.isGenerating
@@ -721,6 +772,12 @@ export function GenerationProvider({
         }
       } catch (err) {
         if (cancelled) return;
+        // Durante la ventana de gracia, errores de red/timeout NO son evidencia
+        // de muerte del servidor: el backend puede estar 100% ocupado con el
+        // enhancer, el encode de texto o la KV cache y no contestar
+        // /generation_status a tiempo. Sin esto, tres timeouts seguidos
+        // mataban la generación visualmente.
+        if (withinOrphanGrace()) return;
         pollIdleCountRef.current += 1;
         if (pollIdleCountRef.current >= ORPHAN_POLL_THRESHOLD) markOrphan();
       }
@@ -1038,15 +1095,13 @@ export function GenerationProvider({
       if (cancelled) return;
       setHistoryForCap('image', prev => {
         if (items.length === 0 && prev.length > 0) return prev;
-        if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
-        // Preservar items de OTROS modelos que ya estaban en el slice.
-        // El backend del notebook activo solo conoce SUS items. Si
-        // reemplazaramos, perderiamos el historial del otro modelo.
+        // Preservar TODO item de prev que el backend aún no conoce: items
+        // recién agregados localmente (aún generándose), items de otros
+        // modelos, items de sesiones anteriores que el backend ya no
+        // recuerda. El backend solo conoce SU historial reciente.
         const backendIds = new Set(items.map(it => it.id));
-        const otherModels = prev.filter(
-          it => it.modelId && it.modelId !== activeImageModelId && !backendIds.has(it.id)
-        );
-        return [...items, ...otherModels].filter(it => !isItemDeleted(it, deletedIdsRef.current));
+        const preserved = prev.filter(it => !backendIds.has(it.id));
+        return [...items, ...preserved].filter(it => !isItemDeleted(it, deletedIdsRef.current));
       });
     })();
     return () => { cancelled = true; };
@@ -1098,24 +1153,17 @@ export function GenerationProvider({
   // Corta solo cuando su slice deja de tener items isGenerating.
   // Cada polling preserva el skeleton local (isGenerating:true con id msg-*)
   // que todavía no aparece en el backend.
-  const mergeWithOrphans = (items: SessionItem[], prev: SessionItem[], activeModel: string | null) => {
+  const mergeWithOrphans = (items: SessionItem[], prev: SessionItem[], _activeModel: string | null) => {
     const backendIds = new Set(items.map(b => b.id));
-    const backendGeneratingPrompts = new Set(
-      items.filter(b => b.isGenerating).map(b => b.prompt)
-    );
-    // Preservar items de OTROS modelos que ya estaban en el slice.
-    const otherModels = activeModel
-      ? prev.filter(it => it.modelId && it.modelId !== activeModel && !backendIds.has(it.id))
-      : [];
-    const localOrphans = prev.filter(p =>
-      p.isGenerating &&
-      p.id.startsWith('msg-') &&
-      !backendIds.has(p.id) &&
-      !backendGeneratingPrompts.has(p.prompt) &&
-      (!activeModel || !p.modelId || p.modelId === activeModel)
-    );
-    if (localOrphans.length === 0 && otherModels.length === 0) return items;
-    return [...items, ...localOrphans, ...otherModels];
+    // Preservar TODO item de prev cuyo id no esté en el backend. Cubre:
+    //   - items recién agregados localmente (aún generándose)
+    //   - items de otros modelos que el backend actual no conoce
+    //   - items huérfanos de sesiones anteriores
+    // El backend solo conoce SU historial reciente; lo que no está allí
+    // sigue siendo válido en el state local.
+    const preserved = prev.filter(it => !backendIds.has(it.id));
+    if (preserved.length === 0) return items;
+    return [...items, ...preserved];
   };
 
   const hasGeneratingImage = sessionHistoryByCapability.image.some(it => it.isGenerating);
@@ -1331,7 +1379,7 @@ export function GenerationProvider({
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
             setHistoryForCap(cap, prev => prev.map(item => {
-              if (item.isGenerating) {
+              if (item.id === userItemId) {
                 return {
                   ...item,
                   mediaUrls: [tempUrl],
@@ -1394,7 +1442,7 @@ export function GenerationProvider({
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
             setHistoryForCap(cap, prev => prev.map(item => {
-              if (item.isGenerating) {
+              if (item.id === userItemId) {
                 return {
                   ...item,
                   mediaUrls: [tempUrl],
@@ -1435,7 +1483,7 @@ export function GenerationProvider({
             sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
             setHistoryForCap(cap, prev => prev.map(item => {
-              if (item.isGenerating) {
+              if (item.id === userItemId) {
                 return {
                   ...item,
                   mediaUrls: [tempUrl],
@@ -1477,6 +1525,8 @@ export function GenerationProvider({
               params.qwenStrength ?? 1.0,
               token,
               params.enhanceMode || 'off',
+              params.qwenSteps ?? 40,
+              params.qwenGuidance ?? 4.0,
             ]);
 
             const data = result.data as unknown[];
@@ -1568,7 +1618,7 @@ export function GenerationProvider({
           if (absoluteUrls.length > 0) {
             setImageSrcs(absoluteUrls);
             setHistoryForCap(cap, prev => prev.map(item => {
-              if (item.isGenerating) {
+              if (item.id === userItemId) {
                 return {
                   ...item,
                   mediaUrls: absoluteUrls,
@@ -1619,7 +1669,7 @@ export function GenerationProvider({
 
           if (absoluteUrls.length > 0) {
             setHistoryForCap(cap, prev => prev.map(item => {
-              if (item.isGenerating) {
+              if (item.id === userItemId) {
                 return {
                   ...item,
                   mediaUrls: absoluteUrls,
@@ -1762,7 +1812,7 @@ export function GenerationProvider({
           setVideoSrc(tempUrl);
           sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
           setHistoryForCap('video', prev => prev.map(item => {
-            if (item.isGenerating) {
+            if (item.id === userItemId) {
               return {
                 ...item,
                 mediaUrls: [tempUrl!],

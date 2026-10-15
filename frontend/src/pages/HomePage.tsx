@@ -14,6 +14,7 @@ import MarketingLayout from "../components/marketing/MarketingLayout";
 import SpaceWarp from "../components/marketing/SpaceWarp";
 import { useAuth } from "../hooks/useAuth";
 import { fadeInUp, staggerContainer } from "../design/motion";
+import { LANDING_MEDIA } from "../config/marketing-assets";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HERO SLIDER
@@ -22,17 +23,17 @@ const HERO_SLIDES = [
   {
     id: "images",
     text: "Crea imágenes con referencias",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&q=80",
+    image: LANDING_MEDIA.hero.image,
   },
   {
     id: "videos",
     text: "Crea videos con audio",
-    image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=1200&q=80",
+    image: LANDING_MEDIA.hero.video,
   },
   {
     id: "voice",
     text: "Clona voces",
-    image: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1200&q=80",
+    image: LANDING_MEDIA.hero.voice,
   },
 ];
 
@@ -150,8 +151,8 @@ const CAPABILITIES: Capability[] = [
     label: "IMAGEN",
     title: "Crea imágenes con referencias",
     body: "Sube hasta 3 imágenes de referencia y describe qué quieres cambiar. El sujeto se mantiene consistente entre generaciones, sin perder detalle.",
-    image: "https://images.unsplash.com/photo-1618556450994-a6a128ef0d9d?w=1400&q=80",
-    aspectRatio: "4 / 3",
+    image: LANDING_MEDIA.capability.image,
+    aspectRatio: "16 / 9",
     reversed: false,
   },
   {
@@ -159,7 +160,7 @@ const CAPABILITIES: Capability[] = [
     label: "VIDEO",
     title: "Crea videos con audio",
     body: "Encadena hasta 5 escenas visualmente. El End Frame de una escena es el Start Frame de la siguiente. Audio sincronizado en cada toma.",
-    image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1400&q=80",
+    image: LANDING_MEDIA.capability.video,
     aspectRatio: "16 / 9",
     reversed: true,
   },
@@ -168,7 +169,7 @@ const CAPABILITIES: Capability[] = [
     label: "AUDIO",
     title: "Clona voces y crea diálogos",
     body: "Con 10 segundos de audio limpio produces todo tu contenido en tu propia voz. Control de emoción, 13 idiomas, diálogos entre personajes.",
-    image: "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=1400&q=80",
+    image: LANDING_MEDIA.capability.audio,
     aspectRatio: "1 / 1",
     reversed: false,
   },
