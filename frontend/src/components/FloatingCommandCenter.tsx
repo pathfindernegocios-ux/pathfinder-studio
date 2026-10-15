@@ -187,7 +187,7 @@ const LTX25_PERSIST_KEYS: (keyof Ltx25Params)[] = [
 ];
 const KREA_PERSIST_KEYS: (keyof KreaParams)[] = [
   'negativePrompt', 'steps', 'resolution', 'aspectRatio', 'seed',
-  'numImages', 'stylePreset',
+  'numImages', 'stylePreset', 'enhanceMode',
 ];
 const FLUX_PERSIST_KEYS: (keyof FluxParams)[] = [
   'negativePrompt', 'steps', 'resolution', 'aspectRatio', 'seed', 'numImages',
@@ -196,6 +196,7 @@ const FLUX_PERSIST_KEYS: (keyof FluxParams)[] = [
 const QWEN_PERSIST_KEYS: (keyof QwenParams)[] = [
   'task', 'mode', 'stylePreset', 'transparent', 'negativePrompt',
   'resolution', 'aspectRatio', 'seed', 'numImages', 'strength',
+  'enhanceMode',
 ];
 const TTS_PERSIST_KEYS: (keyof TtsParams)[] = [
   'voiceMode', 'voiceInstruction', 'emotionInstruction', 'language', 'duration',
@@ -235,6 +236,12 @@ function loadLtx25Loras(): { name: string; mult: string; enabled: boolean }[] {
 }
 
 const KREA_STYLES = ['None', 'Cinematic', 'Anime', 'Photorealistic', '3D Render'];
+const KREA_ENHANCE_MODES = ['off', 'on', 'text'];
+const KREA_ENHANCE_FORMAT = (v: string): string =>
+  v === 'off' ? 'Sin mejora' :
+  v === 'on' ? 'Mejora visual' :
+  v === 'text' ? 'Texto en imagen' :
+  v;
 const KREA_RESOLUTIONS = ['1024px (Standard)', '1536px (High)', '2048px (2K Ultra)'];
 const KREA_ASPECT_RATIOS = ['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait'];
 
@@ -342,6 +349,7 @@ interface KreaParams {
   seed: number;
   numImages: number;
   stylePreset: string;
+  enhanceMode: 'off' | 'on' | 'text';
 }
 
 interface FluxParams {
@@ -373,6 +381,7 @@ interface QwenParams {
   editImageFile: File | null;
   editMaskFile: File | null;
   strength: number;
+  enhanceMode: 'off' | 'on' | 'text';
 }
 
 interface TtsParams {
@@ -776,6 +785,7 @@ const FloatingCommandCenter: React.FC = () => {
       seed: -1,
       numImages: 1,
       stylePreset: 'None',
+      enhanceMode: 'off',
     }, loadPersistedStudioSelection()?.params?.krea)
   );
 
@@ -811,6 +821,7 @@ const FloatingCommandCenter: React.FC = () => {
       editImageFile: null,
       editMaskFile: null,
       strength: 1.0,
+      enhanceMode: 'off',
     }, loadPersistedStudioSelection()?.params?.qwen)
   );
 
@@ -1262,6 +1273,9 @@ const FloatingCommandCenter: React.FC = () => {
           seed: num(p.seed, prev.seed),
           numImages: num(p.numImages, prev.numImages),
           stylePreset: str(p.stylePreset, prev.stylePreset),
+          enhanceMode: (p.enhanceMode === 'on' || p.enhanceMode === 'text' || p.enhanceMode === 'off')
+            ? p.enhanceMode
+            : prev.enhanceMode,
         }));
       } else if (isWan) {
         const aspectOpt = findAspect(WAN_ASPECTS);
@@ -1953,6 +1967,7 @@ const FloatingCommandCenter: React.FC = () => {
             qwenEditImage: qwenParams.editImageFile,
             qwenEditMask: qwenParams.editMaskFile,
             qwenStrength: qwenParams.strength,
+            enhanceMode: qwenParams.enhanceMode,
           });
         } else if (isFluxActive) {
           await handleGenerate({ 
@@ -1980,6 +1995,7 @@ const FloatingCommandCenter: React.FC = () => {
             seed: kreaParams.seed,
             numImages: kreaParams.numImages,
             stylePreset: kreaParams.stylePreset,
+            enhanceMode: kreaParams.enhanceMode,
           });
         }
       } else if (activeTab === 'audio') {
@@ -3611,6 +3627,12 @@ const FloatingCommandCenter: React.FC = () => {
                 <DropdownButton options={KREA_ASPECT_RATIOS} value={kreaParams.aspectRatio} onChange={(v: string) => setKreaParams({...kreaParams, aspectRatio: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <NumberInput label="Steps" value={kreaParams.steps} onChange={(v: number) => setKreaParams({...kreaParams, steps: v})} min={1} max={50} />
                 <NumberInput label="Imágenes" value={kreaParams.numImages} onChange={(v: number) => setKreaParams({...kreaParams, numImages: v})} min={1} max={4} />
+                <DropdownButton
+                  options={KREA_ENHANCE_MODES}
+                  value={kreaParams.enhanceMode}
+                  onChange={(v: string) => setKreaParams(prev => ({ ...prev, enhanceMode: (v as 'off' | 'on' | 'text') }))}
+                  formatOption={KREA_ENHANCE_FORMAT}
+                />
               </div>
             )}
 
@@ -3682,6 +3704,12 @@ const FloatingCommandCenter: React.FC = () => {
                 />
                 <NumberInput label="Seed" value={qwenParams.seed} onChange={(v: number) => setQwenParams({...qwenParams, seed: v})} min={-1} max={2147483647} step={1} />
                 <NumberInput label="Imágenes" value={qwenParams.numImages} onChange={(v: number) => setQwenParams({...qwenParams, numImages: v})} min={1} max={4} />
+                <DropdownButton
+                  options={KREA_ENHANCE_MODES}
+                  value={qwenParams.enhanceMode}
+                  onChange={(v: string) => setQwenParams(prev => ({ ...prev, enhanceMode: (v as 'off' | 'on' | 'text') }))}
+                  formatOption={KREA_ENHANCE_FORMAT}
+                />
 
                 <div style={{ position: 'relative' }}>
                   <details style={{ display: 'inline-block' }}>
