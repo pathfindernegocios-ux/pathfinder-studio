@@ -3,19 +3,17 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  Warning,
-  Info,
-  Lightbulb,
-  CheckCircle,
-  PlayCircle,
-  ArrowRight,
-  ShieldCheck,
-  ArrowsClockwise,
-  Package,
-  Headset,
-  Fire,
-} from "@phosphor-icons/react";
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { Lightbulb } from '@phosphor-icons/react/dist/csr/Lightbulb';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { PlayCircle } from '@phosphor-icons/react/dist/csr/PlayCircle';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { Package } from '@phosphor-icons/react/dist/csr/Package';
+import { Headset } from '@phosphor-icons/react/dist/csr/Headset';
+import { Fire } from '@phosphor-icons/react/dist/csr/Fire';
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import VideoPlayer from "../components/VideoPlayer";
 import { useAuth } from "../hooks/useAuth";

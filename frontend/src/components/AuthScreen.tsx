@@ -4,7 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-import { FilmStrip, Image as ImageIcon, MusicNotes } from '@phosphor-icons/react';
+import { FilmStrip } from '@phosphor-icons/react/dist/csr/FilmStrip';
+import { Image as ImageIcon } from '@phosphor-icons/react/dist/csr/Image';
+import { MusicNotes } from '@phosphor-icons/react/dist/csr/MusicNotes';
 import SpaceWarp from './marketing/SpaceWarp';
 import PathfinderLogo from './PathfinderLogo';
 

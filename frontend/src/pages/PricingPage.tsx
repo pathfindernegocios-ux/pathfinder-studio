@@ -3,21 +3,19 @@
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
-import {
-  MagnifyingGlass,
-  Flask,
-  Gauge,
-  ArrowsClockwise,
-  Fire,
-  ShieldCheck,
-  ArrowCounterClockwise,
-  XCircle,
-  Stack,
-  Clock,
-  Package,
-  Check,
-  Minus,
-} from "@phosphor-icons/react";
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Flask } from '@phosphor-icons/react/dist/csr/Flask';
+import { Gauge } from '@phosphor-icons/react/dist/csr/Gauge';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { Fire } from '@phosphor-icons/react/dist/csr/Fire';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
+import { ArrowCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Package } from '@phosphor-icons/react/dist/csr/Package';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Minus } from '@phosphor-icons/react/dist/csr/Minus';
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import SpaceWarp from "../components/marketing/SpaceWarp";
 import { useAuth } from "../hooks/useAuth";

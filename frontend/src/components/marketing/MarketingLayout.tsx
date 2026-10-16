@@ -5,7 +5,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabaseClient";
-import { CaretDown, SignOut, UserCircle, Gear } from "@phosphor-icons/react";
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
 import PathfinderLogo from "../PathfinderLogo";
 
 interface MarketingLayoutProps {

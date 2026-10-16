@@ -3,12 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  GoogleLogo,
-  Lightning,
-  Stack,
-  Broadcast,
-} from "@phosphor-icons/react";
+import { GoogleLogo } from '@phosphor-icons/react/dist/csr/GoogleLogo';
+import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Broadcast } from '@phosphor-icons/react/dist/csr/Broadcast';
 import { ArrowRight } from "iconoir-react";
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import SpaceWarp from "../components/marketing/SpaceWarp";

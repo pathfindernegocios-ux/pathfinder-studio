@@ -2,7 +2,8 @@
 // Lo que has creado — archivo personal con atmósfera y secciones por capability.
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Warning, ArrowRight } from '@phosphor-icons/react';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { useCreations } from '../hooks/useCreations';
 import type { Creation } from '../types';
 import { CreationThumbnail } from '../components/CreationThumbnail';

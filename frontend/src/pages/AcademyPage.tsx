@@ -3,11 +3,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  Lock,
-  ArrowRight,
-  Fire,
-} from "@phosphor-icons/react";
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { Fire } from '@phosphor-icons/react/dist/csr/Fire';
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import { useAuth } from "../hooks/useAuth";
 import { fadeInUp, staggerContainer } from "../design/motion";
