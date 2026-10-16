@@ -1223,7 +1223,7 @@ const StudioPage: React.FC = () => {
                             boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                           }}>
                             {item.mediaType === 'video' ? (
-                              <VideoPlayer src={currentUrl} />
+                              <VideoPlayer src={currentUrl} autoPlay={false} />
                             ) : (
                               <img
                                 src={currentUrl}
