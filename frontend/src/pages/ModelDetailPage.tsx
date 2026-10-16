@@ -4,36 +4,34 @@
 import React from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
-import {
-  ArrowRight,
-  ArrowLeft,
-  Lock,
-  Warning,
-  Lightning,
-  Image as ImageIcon,
-  Palette,
-  Lightbulb,
-  ShoppingBag,
-  User,
-  MagicWand,
-  Scissors,
-  Megaphone,
-  FilmSlate,
-  DeviceMobile,
-  FilmStrip,
-  MusicNotes,
-  Microphone,
-  Layout,
-  Users,
-  BookOpen,
-  Globe,
-  MaskHappy,
-  Sparkle,
-  Package,
-  Camera,
-  PencilSimple,
-  Cpu,
-} from "@phosphor-icons/react";
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
+import { Image as ImageIcon } from '@phosphor-icons/react/dist/csr/Image';
+import { Palette } from '@phosphor-icons/react/dist/csr/Palette';
+import { Lightbulb } from '@phosphor-icons/react/dist/csr/Lightbulb';
+import { ShoppingBag } from '@phosphor-icons/react/dist/csr/ShoppingBag';
+import { User } from '@phosphor-icons/react/dist/csr/User';
+import { MagicWand } from '@phosphor-icons/react/dist/csr/MagicWand';
+import { Scissors } from '@phosphor-icons/react/dist/csr/Scissors';
+import { Megaphone } from '@phosphor-icons/react/dist/csr/Megaphone';
+import { FilmSlate } from '@phosphor-icons/react/dist/csr/FilmSlate';
+import { DeviceMobile } from '@phosphor-icons/react/dist/csr/DeviceMobile';
+import { FilmStrip } from '@phosphor-icons/react/dist/csr/FilmStrip';
+import { MusicNotes } from '@phosphor-icons/react/dist/csr/MusicNotes';
+import { Microphone } from '@phosphor-icons/react/dist/csr/Microphone';
+import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
+import { Users } from '@phosphor-icons/react/dist/csr/Users';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { MaskHappy } from '@phosphor-icons/react/dist/csr/MaskHappy';
+import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
+import { Package } from '@phosphor-icons/react/dist/csr/Package';
+import { Camera } from '@phosphor-icons/react/dist/csr/Camera';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Cpu } from '@phosphor-icons/react/dist/csr/Cpu';
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import { useAuth } from "../hooks/useAuth";
 import { fadeInUp, staggerContainer } from "../design/motion";

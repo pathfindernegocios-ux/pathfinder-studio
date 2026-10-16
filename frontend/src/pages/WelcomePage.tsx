@@ -3,12 +3,10 @@
 // SpaceWarp interactivo + StationCore (ISS + Interstellar) + copy original.
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  SealCheck,
-  Play,
-  ArrowDown,
-  ArrowRight,
-} from "@phosphor-icons/react";
+import { SealCheck } from '@phosphor-icons/react/dist/csr/SealCheck';
+import { Play } from '@phosphor-icons/react/dist/csr/Play';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { motion, useScroll, useMotionValueEvent } from "motion/react";
 import SpaceWarp from "../components/marketing/SpaceWarp";
 import VideoPlayer from "../components/VideoPlayer";

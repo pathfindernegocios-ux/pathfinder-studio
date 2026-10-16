@@ -3,7 +3,12 @@
 // Hairline + hover lift + metadata mono + expiry pill.
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { DownloadSimple, Trash, Archive, Warning, Play, Pause } from '@phosphor-icons/react';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { Archive } from '@phosphor-icons/react/dist/csr/Archive';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { Play } from '@phosphor-icons/react/dist/csr/Play';
+import { Pause } from '@phosphor-icons/react/dist/csr/Pause';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import { useCreations } from '../hooks/useCreations';
 import ConfirmDialog from './ConfirmDialog';

@@ -2,11 +2,19 @@
 // Detalle de una pieza — media + panel de metadatos editorial.
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft, Clock, Cpu, FilmSlate, SmileyXEyes, Image as ImageIcon,
-  MusicNotes, ArrowsOut, Trash, X, DownloadSimple, CalendarBlank,
-  Warning,
-} from '@phosphor-icons/react';
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Cpu } from '@phosphor-icons/react/dist/csr/Cpu';
+import { FilmSlate } from '@phosphor-icons/react/dist/csr/FilmSlate';
+import { SmileyXEyes } from '@phosphor-icons/react/dist/csr/SmileyXEyes';
+import { Image as ImageIcon } from '@phosphor-icons/react/dist/csr/Image';
+import { MusicNotes } from '@phosphor-icons/react/dist/csr/MusicNotes';
+import { ArrowsOut } from '@phosphor-icons/react/dist/csr/ArrowsOut';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { X } from '@phosphor-icons/react/dist/csr/X';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
+import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { useCreations } from '../hooks/useCreations';
 import { useSignedUrl } from '../hooks/useSignedUrl';
 import type { Creation } from '../types';

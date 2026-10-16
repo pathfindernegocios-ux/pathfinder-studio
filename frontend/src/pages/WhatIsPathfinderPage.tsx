@@ -2,19 +2,17 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import {
-  Palette,
-  Stack,
-  Cloud,
-  Power,
-  Cpu,
-  Desktop,
-  Image as ImageIcon,
-  VideoCamera,
-  MusicNotes,
-  CheckCircle,
-  Lightning,
-} from "@phosphor-icons/react";
+import { Palette } from '@phosphor-icons/react/dist/csr/Palette';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Cloud } from '@phosphor-icons/react/dist/csr/Cloud';
+import { Power } from '@phosphor-icons/react/dist/csr/Power';
+import { Cpu } from '@phosphor-icons/react/dist/csr/Cpu';
+import { Desktop } from '@phosphor-icons/react/dist/csr/Desktop';
+import { Image as ImageIcon } from '@phosphor-icons/react/dist/csr/Image';
+import { VideoCamera } from '@phosphor-icons/react/dist/csr/VideoCamera';
+import { MusicNotes } from '@phosphor-icons/react/dist/csr/MusicNotes';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
 import { ArrowRight } from "iconoir-react";
 import MarketingLayout from "../components/marketing/MarketingLayout";
 import SpaceWarp from "../components/marketing/SpaceWarp";

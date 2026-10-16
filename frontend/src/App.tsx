@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -20,38 +20,38 @@ import type { Profile } from "./types";
 
 // Componentes
 import Sidebar from "./components/Sidebar";
-import AuthScreen from "./components/AuthScreen";
+const AuthScreen = lazy(() => import("./components/AuthScreen"));
 
-// Páginas públicas
-import HomePage from "./pages/HomePage";
-import PricingPage from "./pages/PricingPage";
-import AuthCallbackPage from "./pages/AuthCallbackPage";
+// Páginas públicas (lazy)
+const HomePage = lazy(() => import("./pages/HomePage"));
+const PricingPage = lazy(() => import("./pages/PricingPage"));
+const AuthCallbackPage = lazy(() => import("./pages/AuthCallbackPage"));
 
-// Onboarding / estados de cuenta
-import OnboardingUsernamePage from "./pages/OnboardingUsernamePage";
-import AccountRestorePage from "./pages/AccountRestorePage";
-import AccountSuspendedPage from "./pages/AccountSuspendedPage";
+// Onboarding / estados de cuenta (lazy)
+const OnboardingUsernamePage = lazy(() => import("./pages/OnboardingUsernamePage"));
+const AccountRestorePage = lazy(() => import("./pages/AccountRestorePage"));
+const AccountSuspendedPage = lazy(() => import("./pages/AccountSuspendedPage"));
 
-// App protegida
-import StudioPage from "./pages/StudioPage";
-import CreationsPage from "./pages/CreationsPage";
-import CreationDetailPage from "./pages/CreationDetailPage";
-import StationPage from "./pages/StationPage";
-import AccountSettingsPage from "./pages/AccountSettingsPage";
+// App protegida (lazy)
+const StudioPage = lazy(() => import("./pages/StudioPage"));
+const CreationsPage = lazy(() => import("./pages/CreationsPage"));
+const CreationDetailPage = lazy(() => import("./pages/CreationDetailPage"));
+const StationPage = lazy(() => import("./pages/StationPage"));
+const AccountSettingsPage = lazy(() => import("./pages/AccountSettingsPage"));
 
-// Placeholders
-import { ProjectsPage } from "./pages/placeholders/ProjectsPage";
-import { AssetsPage } from "./pages/placeholders/AssetsPage";
+// Placeholders (lazy, named exports)
+const ProjectsPage = lazy(() => import("./pages/placeholders/ProjectsPage").then(m => ({ default: m.ProjectsPage })));
+const AssetsPage = lazy(() => import("./pages/placeholders/AssetsPage").then(m => ({ default: m.AssetsPage })));
 
 
-// Legal
-import TermsPage from "./pages/legal/TermsPage";
-import HowItWorksPage from "./pages/HowItWorksPage";
-import WhatIsPathfinderPage from "./pages/WhatIsPathfinderPage";
-import WelcomePage from "./pages/WelcomePage";
-import AcademyPage from "./pages/AcademyPage";
-import ModelDetailPage from "./pages/ModelDetailPage";
-import PrivacyPage from "./pages/legal/PrivacyPage";
+// Legal + resto (lazy)
+const TermsPage = lazy(() => import("./pages/legal/TermsPage"));
+const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage"));
+const WhatIsPathfinderPage = lazy(() => import("./pages/WhatIsPathfinderPage"));
+const WelcomePage = lazy(() => import("./pages/WelcomePage"));
+const AcademyPage = lazy(() => import("./pages/AcademyPage"));
+const ModelDetailPage = lazy(() => import("./pages/ModelDetailPage"));
+const PrivacyPage = lazy(() => import("./pages/legal/PrivacyPage"));
 
 // ---------------------------------------------------------------------------
 // SessionExpiredBridge — P4-b
@@ -321,6 +321,7 @@ function App() {
         <style>{`html, body, #root { height: 100%; margin: 0; overflow: hidden; }`}</style>
       <BrowserRouter>
         <SessionExpiredBridge />
+        <Suspense fallback={<LoadingScreen />}>
         <Routes>
           {/* ============================================================
               PÚBLICAS
@@ -432,6 +433,7 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
         </BrowserRouter>
       </GenerationProvider>
   );
