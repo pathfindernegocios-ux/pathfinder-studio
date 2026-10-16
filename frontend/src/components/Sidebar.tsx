@@ -137,11 +137,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapsed }) => {
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
               <span
                 style={{
-                  fontFamily: 'var(--pf-font-display, system-ui)', 
-                  fontSize: '1.25rem', 
-                  fontWeight: 800, 
-                  color: '#8B5CF6', 
-                  letterSpacing: '-0.03em',
+                  fontFamily: "'Satoshi', var(--pf-font-display-alt), system-ui, sans-serif",
+                  fontSize: '1.25rem',
+                  fontWeight: 800,
+                  color: studioTheme === 'light' ? '#0A0A0A' : '#F5F5F7',
+                  letterSpacing: '-0.02em',
                   whiteSpace: 'nowrap'
                 }}
               >

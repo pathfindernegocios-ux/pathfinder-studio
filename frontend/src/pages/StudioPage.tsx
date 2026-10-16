@@ -19,6 +19,7 @@ import { fetchAudioBlob } from '../lib/audioBlobCache';
 import { AtmosphereLayer } from '../components/marketing/Atmosphere';
 import { SkeletonImage, SkeletonVideo, SkeletonAudio, SkeletonStyles } from '../components/studio/Skeletons';
 import { useUIStore } from '../stores/useUIStore';
+import PathfinderLogo from '../components/PathfinderLogo';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -419,7 +420,7 @@ const StudioPage: React.FC = () => {
           : isStale
           ? '#F59E0B'
           : isBooting || isDetecting
-          ? '#22D3EE'
+          ? (studioTheme === 'light' ? '#0891B2' : '#22D3EE')
           : isReady
           ? 'var(--pf-success)'
           : 'var(--pf-text-muted)';
@@ -904,50 +905,15 @@ const StudioPage: React.FC = () => {
                 paddingBottom: '40px',
               }}
             >
-              {/* Hexágono Pathfinder con glow */}
               <div
                 aria-hidden
                 style={{
-                  position: 'relative',
-                  width: 72,
-                  height: 72,
-                  marginBottom: 32,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  filter: 'drop-shadow(0 0 32px rgba(139,92,246,0.55))',
-                  animation: 'pfEmptyPulse 3s ease-in-out infinite',
+                  marginBottom: 20,
+                  filter: 'drop-shadow(0 0 24px var(--pf-accent-primary))',
+                  opacity: 0.9,
                 }}
               >
-                <svg
-                  width="72"
-                  height="72"
-                  viewBox="0 0 100 100"
-                  fill="none"
-                >
-                  <defs>
-                    <linearGradient id="pf-empty-hex-stroke" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#A78BFA" />
-                      <stop offset="100%" stopColor="#8B5CF6" />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d="M50 6 L88 28 L88 72 L50 94 L12 72 L12 28 Z"
-                    stroke="url(#pf-empty-hex-stroke)"
-                    strokeWidth="2.5"
-                    strokeLinejoin="round"
-                    fill="rgba(139,92,246,0.06)"
-                  />
-                  <path
-                    d="M50 30 L68 41 L68 59 L50 70 L32 59 L32 41 Z"
-                    stroke="url(#pf-empty-hex-stroke)"
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
-                    fill="none"
-                    opacity="0.55"
-                  />
-                  <circle cx="50" cy="50" r="3" fill="#A78BFA" />
-                </svg>
+                <PathfinderLogo size={56} />
               </div>
 
               <h2
