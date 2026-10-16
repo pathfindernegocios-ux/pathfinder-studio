@@ -1164,7 +1164,7 @@ const StudioPage: React.FC = () => {
                             {item.sceneUrls.map((u, i) => (
                               <div key={i} style={{ borderRadius: '10px', overflow: 'hidden',
                                                     border: '1px solid rgba(139,92,246,0.25)' }}>
-                                <video src={u} muted autoPlay loop playsInline
+                                <video src={u} muted loop playsInline controls
                                        style={{ width: '100%', display: 'block' }} />
                               </div>
                             ))}
@@ -1414,7 +1414,7 @@ const StudioPage: React.FC = () => {
         <div onClick={() => setSelectedMedia(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)', animation: 'fadeIn 0.2s', cursor: 'zoom-out' }}>
           <button onClick={(e) => { e.stopPropagation(); setSelectedMedia(null); }} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', fontSize: '2rem', width: '50px', height: '50px', borderRadius: '50%', cursor: 'pointer' }}>×</button>
           {selectedMedia.type === 'video' ? (
-            <video src={selectedMedia.url} controls autoPlay style={{ maxWidth: '90%', maxHeight: '90vh' }} onClick={e => e.stopPropagation()} />
+            <video src={selectedMedia.url} controls style={{ maxWidth: '90%', maxHeight: '90vh' }} onClick={e => e.stopPropagation()} />
           ) : (
             <img src={selectedMedia.url} alt="Vista completa" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain' }} />
           )}
@@ -1427,10 +1427,10 @@ const StudioPage: React.FC = () => {
           to="/how-it-works"
           title="¿Cómo funciona Pathfinder?"
           style={{
-            position: 'absolute',
+            position: 'fixed',
             bottom: '24px',
             right: '24px',
-            zIndex: 45,
+            zIndex: 9998,
             width: '40px',
             height: '40px',
             borderRadius: '50%',

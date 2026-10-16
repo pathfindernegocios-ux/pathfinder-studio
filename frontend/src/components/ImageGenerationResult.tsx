@@ -119,7 +119,6 @@ const GenerationResult: React.FC<GenerationResultProps> = ({ creation }) => {
             <video
               src={mediaUrl}
               controls
-              autoPlay
               loop
               muted
               style={{
