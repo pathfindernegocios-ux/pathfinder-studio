@@ -43,7 +43,7 @@ const HeroSlider: React.FC = () => {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setIndex((prev) => (prev + 1) % HERO_SLIDES.length);
-    }, 4000);
+    }, 15000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -536,6 +536,25 @@ const HomePage: React.FC = () => {
           }}
         />
 
+        {/* Aurora focal — bloom violeta→cyan detrás del titular. Da
+            profundidad sin competir con el SpaceWarp. Confinada al
+            cuadrante del texto, blur alto, opacidad baja. */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: "6%",
+            left: "-10%",
+            width: "64%",
+            height: "82%",
+            background:
+              "radial-gradient(ellipse at 32% 42%, rgba(139,92,246,0.16) 0%, rgba(139,92,246,0.05) 38%, rgba(34,211,238,0.04) 62%, transparent 82%)",
+            filter: "blur(72px)",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+
         <motion.div
           initial="hidden"
           animate="visible"
@@ -555,12 +574,32 @@ const HomePage: React.FC = () => {
             <motion.h1
               variants={fadeInUp}
               className="pf-h1"
-              style={{ marginBottom: 32 }}
+              style={{
+                marginBottom: 18,
+                background: "linear-gradient(180deg, #FFFFFF 0%, #D4CEE6 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
             >
               Tu estación creativa de IA
               <br />
               para imagen, video y audio.
             </motion.h1>
+
+            {/* Hairline editorial — gradiente violeta→cyan que se apaga.
+                Marca el corte entre titular y lead sin sumar peso. */}
+            <motion.div
+              variants={fadeInUp}
+              aria-hidden
+              style={{
+                width: 84,
+                height: 1,
+                marginBottom: 30,
+                background:
+                  "linear-gradient(90deg, rgba(167,139,250,0.75) 0%, rgba(34,211,238,0.45) 55%, rgba(34,211,238,0) 100%)",
+              }}
+            />
 
             <motion.p
               variants={fadeInUp}
@@ -695,47 +734,139 @@ const HomePage: React.FC = () => {
               de creación con IA.
             </motion.h2>
 
-            {/* Quote indentada a la derecha — Satoshi italic */}
-            <motion.div
-              variants={fadeInUp}
+            {/* Grid 2 columnas: bloque MiniMax (izq) + quote/párrafos (der) */}
+            <div
+              className="pf-what-is-split"
               style={{
-                marginLeft: "auto",
-                marginRight: 0,
-                maxWidth: 640,
-                paddingLeft: 40,
-                borderLeft: "2px solid rgba(139,92,246,0.4)",
-                marginBottom: 32,
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: "'Satoshi', var(--pf-font-display-alt), system-ui, sans-serif",
-                  fontSize: "clamp(1.5rem, 2.5vw, 2rem)",
-                  fontWeight: 500,
-                  fontStyle: "italic",
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1.3,
-                  color: "#F5F5F7",
-                  margin: 0,
-                }}
-              >
-                Diez modelos curados para imagen, video y audio.
-              </p>
-            </motion.div>
-
-            {/* Párrafos indentados */}
-            <motion.div
-              variants={fadeInUp}
-              style={{
-                marginLeft: "auto",
-                marginRight: 0,
-                maxWidth: 640,
-                display: "flex",
-                flexDirection: "column",
-                gap: 20,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 80,
+                alignItems: "start",
                 marginBottom: 80,
               }}
             >
+              {/* ── COLUMNA IZQUIERDA — Anuncio MiniMax H3 ── */}
+              <motion.div
+                variants={fadeInUp}
+                style={{
+                  position: "relative",
+                  padding: "28px 28px 26px",
+                  background:
+                    "linear-gradient(135deg, rgba(122,39,255,0.10) 0%, rgba(27,164,255,0.05) 100%)",
+                  border: "1px solid rgba(122,39,255,0.30)",
+                  borderRadius: 14,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
+              >
+                {/* Chip mono */}
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    fontFamily: "var(--pf-font-mono)",
+                    fontSize: "0.6875rem",
+                    fontWeight: 600,
+                    letterSpacing: "0.14em",
+                    color: "#A36AFF",
+                    padding: "4px 10px",
+                    border: "1px solid rgba(163,106,255,0.40)",
+                    borderRadius: 9999,
+                    background: "rgba(122,39,255,0.12)",
+                  }}
+                >
+                  PRÓXIMAMENTE
+                </span>
+
+                {/* Título */}
+                <h3
+                  style={{
+                    fontFamily: "var(--pf-font-display-alt)",
+                    fontSize: "clamp(1.75rem, 2.8vw, 2.25rem)",
+                    fontWeight: 600,
+                    letterSpacing: "-0.025em",
+                    lineHeight: 1.05,
+                    color: "#F5F5F7",
+                    margin: 0,
+                  }}
+                >
+                  MiniMax H3
+                </h3>
+
+                {/* Subtítulo */}
+                <p
+                  style={{
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.9375rem",
+                    lineHeight: 1.6,
+                    color: "rgba(255,255,255,0.55)",
+                    margin: 0,
+                  }}
+                >
+                  El siguiente motor que se suma al catálogo. Disponible
+                  en las próximas semanas.
+                </p>
+
+                {/* CTA al catálogo */}
+                <Link
+                  to="/academy"
+                  style={{
+                    marginTop: 8,
+                    alignSelf: "flex-start",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontFamily: "var(--pf-font-ui)",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    color: "#F5F5F7",
+                    textDecoration: "none",
+                    padding: "10px 0",
+                    transition: "color 150ms",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#A36AFF")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#F5F5F7")}
+                >
+                  Conoce nuestros modelos
+                  <ArrowRight width={16} height={16} strokeWidth={2} />
+                </Link>
+              </motion.div>
+
+              {/* ── COLUMNA DERECHA — Quote + párrafos ── */}
+              <div>
+                <motion.div
+                  variants={fadeInUp}
+                  style={{
+                    paddingLeft: 40,
+                    borderLeft: "2px solid rgba(139,92,246,0.4)",
+                    marginBottom: 32,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: "'Satoshi', var(--pf-font-display-alt), system-ui, sans-serif",
+                      fontSize: "clamp(1.5rem, 2.5vw, 2rem)",
+                      fontWeight: 500,
+                      fontStyle: "italic",
+                      letterSpacing: "-0.02em",
+                      lineHeight: 1.3,
+                      color: "#F5F5F7",
+                      margin: 0,
+                    }}
+                  >
+                    Diez modelos curados para imagen, video y audio.
+                  </p>
+                </motion.div>
+
+                {/* Párrafos */}
+                <motion.div
+                  variants={fadeInUp}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 20,
+                  }}
+                >
               <p
                 style={{
                   fontFamily: "var(--pf-font-ui)",
@@ -776,7 +907,9 @@ const HomePage: React.FC = () => {
                 toda la infraestructura — para que tú solo tengas que abrir
                 el Studio y crear.
               </p>
-            </motion.div>
+                </motion.div>
+              </div>
+            </div>
 
             {/* Fila de datos mono */}
             <motion.div

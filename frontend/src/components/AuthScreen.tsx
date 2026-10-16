@@ -8,44 +8,6 @@ import { FilmStrip, Image as ImageIcon, MusicNotes } from '@phosphor-icons/react
 import SpaceWarp from './marketing/SpaceWarp';
 import PathfinderLogo from './PathfinderLogo';
 
-// ---------------------------------------------------------------------------
-// Pool de imágenes para el panel izquierdo.
-// ---------------------------------------------------------------------------
-const AUTH_IMAGE_POOL = Array.from({ length: 56 }, (_, i) => `auth-pool-${i + 1}`);
-const AUTH_SEED_STORAGE_KEY = "pf_auth_hero_seed";
-const AUTH_SEED_TTL_MS = 24 * 60 * 60 * 1000;
-const AUTH_USE_SESSION_STORAGE = false;
-
-function pickAuthSeed(): string {
-  if (typeof window === "undefined") return AUTH_IMAGE_POOL[0];
-  try {
-    const storage = AUTH_USE_SESSION_STORAGE ? sessionStorage : localStorage;
-    const raw = storage.getItem(AUTH_SEED_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (
-        !AUTH_USE_SESSION_STORAGE &&
-        parsed.seed &&
-        typeof parsed.ts === "number" &&
-        Date.now() - parsed.ts < AUTH_SEED_TTL_MS
-      ) {
-        return parsed.seed;
-      }
-      if (AUTH_USE_SESSION_STORAGE && parsed.seed) {
-        return parsed.seed;
-      }
-    }
-    const seed = AUTH_IMAGE_POOL[Math.floor(Math.random() * AUTH_IMAGE_POOL.length)];
-    storage.setItem(
-      AUTH_SEED_STORAGE_KEY,
-      JSON.stringify({ seed, ts: Date.now() }),
-    );
-    return seed;
-  } catch (e) {
-    return AUTH_IMAGE_POOL[Math.floor(Math.random() * AUTH_IMAGE_POOL.length)];
-  }
-}
-
 const GoogleIcon: React.FC = () => (
   <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -109,9 +71,6 @@ const AuthScreen: React.FC = () => {
 
   const { session, accountStatus, isOnboarded, isProfileLoading } = useAuth();
   const navigate = useNavigate();
-
-  const [heroSeed] = useState(() => pickAuthSeed());
-  const heroUrl = `https://picsum.photos/seed/${heroSeed}/1200/1600`;
 
   useEffect(() => {
     if (!session || isProfileLoading) return;
@@ -190,32 +149,6 @@ const AuthScreen: React.FC = () => {
           zIndex: 2,
         }}
       >
-        {/* Imagen de fondo */}
-        <img
-          src={heroUrl}
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-        />
-
-        {/* Overlay violeta v3 */}
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(135deg, rgba(139,92,246,0.35) 0%, rgba(0,0,0,0.75) 50%, rgba(139,92,246,0.25) 100%)',
-          }}
-        />
-
         {/* Contenido */}
         <div
           style={{
