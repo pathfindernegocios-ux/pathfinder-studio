@@ -8,6 +8,20 @@ import { Client } from "@gradio/client";
 const CONNECT_TIMEOUT_MS = 5000;
 const COLD_TTL_MS = 30_000;
 
+// Timeouts por endpoint. Sin esto, un predict sobre un túnel muerto se cuelga
+// indefinidamente (gradio-client no rechaza cuando el SSE queda zombi) y el
+// Proxy nunca detecta el fallo → la URL muerta queda cacheada para siempre.
+// /generate y /generate_storyboard quedan SIN timeout: pueden tardar minutos
+// legitimamente mientras el callback de progreso mantiene el SSE vivo.
+const PREDICT_TIMEOUTS: Record<string, number> = {
+  "/status":            8_000,
+  "/logs":              8_000,
+  "/generation_status": 8_000,
+  "/session_history":  10_000,
+  "/cancel":            5_000,
+  "/shutdown":          5_000,
+};
+
 interface ClientEntry {
   realClient: Client;
 }
@@ -64,10 +78,19 @@ export function useGradioClient(gradioUrls: string[] | null) {
       get(target, prop, receiver) {
         if (prop === "predict") {
           return async (endpoint: string, args?: unknown[]) => {
+            const timeoutMs = PREDICT_TIMEOUTS[endpoint];
             try {
               // @ts-ignore — firma genérica del Client
-              return await (target as any).predict(endpoint, args);
+              const promise = (target as any).predict(endpoint, args);
+              if (timeoutMs) {
+                return await withTimeout(promise, timeoutMs, `${endpoint} @ ${url}`);
+              }
+              return await promise;
             } catch (err) {
+              // Timeout o rechazo real: la URL está muerta. Marcar cold,
+              // cerrar el client (aborta el fetch colgado) y propagar.
+              // El próximo getClient() va a rotar al siguiente URL del array
+              // (dual-tunnel: Cloudflare → Gradio share).
               markUrlFailed(url);
               throw err;
             }
