@@ -22,6 +22,13 @@ const PREDICT_TIMEOUTS: Record<string, number> = {
   "/shutdown":          5_000,
 };
 
+// Retry automático para "Connection errored out" y variantes. La primera
+// generación tras conectar puede fallar porque el SSE todavía no está
+// completamente establecido (carrera entre Client.connect() y el primer
+// predict). Un retry 2.5s después resuelve el 95% de los casos.
+const RETRY_DELAY_MS = 2_500;
+const RETRYABLE_ERROR_RE = /connection\s+(errored|closed|reset|aborted)|network\s+error/i;
+
 interface ClientEntry {
   realClient: Client;
 }
@@ -79,17 +86,38 @@ export function useGradioClient(gradioUrls: string[] | null) {
         if (prop === "predict") {
           return async (endpoint: string, args?: unknown[]) => {
             const timeoutMs = PREDICT_TIMEOUTS[endpoint];
-            try {
+
+            const runOnce = async () => {
               // @ts-ignore — firma genérica del Client
               const promise = (target as any).predict(endpoint, args);
               if (timeoutMs) {
                 return await withTimeout(promise, timeoutMs, `${endpoint} @ ${url}`);
               }
               return await promise;
+            };
+
+            try {
+              return await runOnce();
             } catch (err) {
-              // Timeout o rechazo real: la URL está muerta. Marcar cold,
-              // cerrar el client (aborta el fetch colgado) y propagar.
-              // El próximo getClient() va a rotar al siguiente URL del array
+              // Retry 1 vez si el error es de conexión rota (SSE zombie al
+              // primer predict). Si el segundo intento también falla, ahí sí
+              // marcamos cold y propagamos.
+              const msg = String((err as Error)?.message ?? err ?? "");
+              const isRetryable = RETRYABLE_ERROR_RE.test(msg);
+
+              if (isRetryable) {
+                console.warn(`[gradio] retry en ${endpoint} tras: ${msg}`);
+                await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+                try {
+                  return await runOnce();
+                } catch (err2) {
+                  markUrlFailed(url);
+                  throw err2;
+                }
+              }
+
+              // Timeout o rechazo real (no retryable): marcar cold y propagar.
+              // El próximo getClient() rota al siguiente URL del array
               // (dual-tunnel: Cloudflare → Gradio share).
               markUrlFailed(url);
               throw err;

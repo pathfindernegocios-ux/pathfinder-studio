@@ -551,6 +551,11 @@ const NumberInput = ({ label, value, onChange, min, max, step = 1 }: {
   </div>
 );
 
+// Flag temporal para el lanzamiento: oculta el bloque de LoRAs adicionales
+// en los 3 modelos de video (LTX 2.3, Wan, LTX 2.5 MSR). Las filas inferiores
+// (duración, resolución, aspect, seed, sampler) siguen visibles.
+const HIDE_LORAS_VIDEO = true;
+
 const FloatingCommandCenter: React.FC = () => {
   const isMobile = useIsMobile();
   const isFirstRenderRef = useRef(true);
@@ -2961,7 +2966,7 @@ const FloatingCommandCenter: React.FC = () => {
 
           <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--pf-border-subtle)' }}>
             {/* Video LTX — fila inferior */}
-            {false && activeTab === 'video' && isVideoLtx && (
+            {activeTab === 'video' && isVideoLtx && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <DropdownButton options={VIDEO_DURATIONS} value={videoParams.duration} onChange={(v: string) => setVideoParams({...videoParams, duration: v})} formatOption={(opt) => opt.split(' ')[0] + 's'} />
                 <DropdownButton options={VIDEO_RESOLUTIONS} value={videoParams.resolution} onChange={(v: string) => setVideoParams({...videoParams, resolution: v})} />
@@ -3006,7 +3011,7 @@ const FloatingCommandCenter: React.FC = () => {
                       width: isMobile ? 'auto' : '280px',
                       maxWidth: 'calc(100vw - 24px)'
                     }}>
-                      <div style={{ borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
+                      <div style={{ display: HIDE_LORAS_VIDEO ? 'none' : undefined, borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
                         <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
                           LoRAs adicionales
                         </div>
@@ -3159,7 +3164,7 @@ const FloatingCommandCenter: React.FC = () => {
             )}
 
             {/* Wan I2V/T2V — fila inferior */}
-            {false && activeTab === 'video' && isVideoWan && (
+            {activeTab === 'video' && isVideoWan && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <DropdownButton options={WAN_DURATIONS} value={wanParams.duration} onChange={(v: string) => setWanParams({...wanParams, duration: v})} formatOption={(opt) => opt.split(' ')[0]} />
                 <DropdownButton options={WAN_RESOLUTIONS} value={wanParams.resolution} onChange={(v: string) => setWanParams({...wanParams, resolution: v})} />
@@ -3212,7 +3217,7 @@ const FloatingCommandCenter: React.FC = () => {
                       <div>
                         <DropdownButton options={WAN_SAMPLERS} value={wanParams.sampler} onChange={(v: string) => setWanParams({...wanParams, sampler: v})} />
                       </div>
-                      <div style={{ borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
+                      <div style={{ display: HIDE_LORAS_VIDEO ? 'none' : undefined, borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
                         <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
                           LoRAs adicionales
                         </div>
@@ -3365,7 +3370,7 @@ const FloatingCommandCenter: React.FC = () => {
             )}
 
             {/* LTX 2.5 MSR — fila inferior */}
-            {false && activeTab === 'video' && isVideoLtx25Msr && (
+            {activeTab === 'video' && isVideoLtx25Msr && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <DropdownButton
                   options={LTX25_DURATIONS}
@@ -3459,7 +3464,7 @@ const FloatingCommandCenter: React.FC = () => {
                           step={0.5}
                         />
                       </div>
-                      <div style={{ borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
+                      <div style={{ display: HIDE_LORAS_VIDEO ? 'none' : undefined, borderTop: '1px solid var(--pf-border-subtle)', paddingTop: '10px', marginTop: '4px' }}>
                         <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--pf-text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
                           LoRAs
                         </div>
