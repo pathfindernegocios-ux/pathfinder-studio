@@ -1,11 +1,13 @@
 // src/pages/StudioPage.tsx
 import React, { useEffect, useState, useRef } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import { Link } from 'react-router-dom';
 import FloatingCommandCenter from '../components/FloatingCommandCenter';
 import AudioPlayer from '../components/AudioPlayer';
 import { useCreations } from '../hooks/useCreations';
 import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
+import { useR2SignedUrl } from '../hooks/useR2SignedUrl';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { Download, Trash2, RefreshCw, Save, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
@@ -15,7 +17,6 @@ import SceneChip from '../components/SceneChip';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { getRuntimeLabel } from '../config/models';
-import { fetchAudioBlob } from '../lib/audioBlobCache';
 import { AtmosphereLayer } from '../components/marketing/Atmosphere';
 import { SkeletonImage, SkeletonVideo, SkeletonAudio, SkeletonStyles } from '../components/studio/Skeletons';
 import { useUIStore } from '../stores/useUIStore';
@@ -75,6 +76,34 @@ function getGenerationProgress(
   return Math.min(target, 1 - Math.exp(-elapsed / 90));
 }
 
+function MediaLightbox({ selectedMedia, onClose }: { selectedMedia: { item: SessionItem; index: number; type: 'image' | 'video' }; onClose: () => void }) {
+  const { item, index, type } = selectedMedia;
+  const r2Key = item.r2Keys?.[index] || null;
+  const { url: r2Url, loading } = useR2SignedUrl(r2Key);
+
+  const fallbackUrl = item.mediaUrls[index] || item.mediaUrls[0];
+  const finalUrl = r2Url || (loading ? null : fallbackUrl);
+
+  if (!finalUrl) {
+    return (
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)', cursor: 'zoom-out' }}>
+        <div style={{ color: 'white', fontSize: '1.2rem', opacity: 0.7 }}>Cargando...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)', animation: 'fadeIn 0.2s', cursor: 'zoom-out' }}>
+      <button onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', fontSize: '2rem', width: '50px', height: '50px', borderRadius: '50%', cursor: 'pointer' }}>×</button>
+      {type === 'video' ? (
+        <video src={finalUrl} controls style={{ maxWidth: '90%', maxHeight: '90vh' }} onClick={e => e.stopPropagation()} />
+      ) : (
+        <img src={finalUrl} alt="Vista completa" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain' }} />
+      )}
+    </div>
+  );
+}
+
 const StudioPage: React.FC = () => {
   const { saveCreation, saveError } = useCreations();
   const isMobile = useIsMobile();
@@ -91,6 +120,7 @@ const StudioPage: React.FC = () => {
   ).toUpperCase();
   const {
     sessionHistory,
+    getResolvedUrl,
     isLoading,
     updateSessionItem,
     removeSessionItem,
@@ -113,8 +143,8 @@ const StudioPage: React.FC = () => {
     : false;
 
   // Boot state del notebook (Fase 2 — reporte en vivo desde Supabase)
-  const { stationId } = useGenerationContext();
-  const boot = useStationBoot(stationId, currentModelId);
+  const { stationId, stationRuntimesMap, stationStatusLoading } = useGenerationContext();
+  const boot = useStationBoot(stationId, currentModelId, stationRuntimesMap, stationStatusLoading);
 
   // Popover de arranque (Fase 2)
   const [bootPopoverOpen, setBootPopoverOpen] = useState(false);
@@ -138,7 +168,7 @@ const StudioPage: React.FC = () => {
     };
   }, [bootPopoverOpen]);
 
-  const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ item: SessionItem; index: number; type: 'image' | 'video' } | null>(null);
   // Índice de la imagen seleccionada por item (para el stack cuando hay >1)
   const [selectedImageIndexByItem, setSelectedImageIndexByItem] = useState<Record<string, number>>({});
 
@@ -257,7 +287,7 @@ const StudioPage: React.FC = () => {
     if (item.status === 'saved' || item.mediaUrls.length === 0) return;
 
     const currentIdx = getSelectedIndex(item.id, item.mediaUrls.length);
-    const currentUrl = item.mediaUrls[currentIdx] || item.mediaUrls[0];
+    const currentUrl = getResolvedUrl(item, currentIdx);
     if (!currentUrl) return;
 
     try {
@@ -299,24 +329,41 @@ const StudioPage: React.FC = () => {
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const handleDownload = async (url: string, filename: string, itemId: string) => {
-    if (downloadingId) return; // guard contra clicks multiples
-    setDownloadingId(itemId);
+  const handleDownload = async (item: SessionItem, index: number) => {
+    if (downloadingId) return;
+    setDownloadingId(item.id);
     try {
-      const isAudio = filename.endsWith('.wav') || filename.endsWith('.mp3');
-      const blob = isAudio
-        ? await fetchAudioBlob(url, { timeoutMs: 120000 })
-        : await (await fetch(url)).blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+      const ext = item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'wav' : 'png';
+      const filename = `pathfinder-${item.id.slice(-6)}.${ext}`;
+      const r2Key = item.r2Keys?.[index];
+      
+      let downloadUrl = '';
+      
+      if (r2Key) {
+        // Pedir a la Edge Function una URL que fuerce la descarga (Content-Disposition)
+        const { data, error } = await supabase.functions.invoke('r2-sign-download', {
+          body: { r2_key: r2Key, filename, download: true }
+        });
+        if (error) throw error;
+        downloadUrl = data.url;
+      } else {
+        // Fallback para túnel (items viejos)
+        downloadUrl = getResolvedUrl(item, index);
+      }
+
+      if (!downloadUrl) throw new Error("No URL");
+
+      // Usar link nativo (evita CORS y funciona para todos los tipos de archivo)
       const link = document.createElement('a');
-      link.href = blobUrl;
+      link.href = downloadUrl;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+      
     } catch (error) {
-      alert('No se pudo descargar el audio. Intenta de nuevo.');
+      console.error('[Download] Error:', error);
+      alert('No se pudo descargar el archivo. Intenta de nuevo.');
     } finally {
       setDownloadingId(null);
     }
@@ -364,9 +411,7 @@ const StudioPage: React.FC = () => {
   };
 
   const openLightbox = (item: SessionItem, index: number = 0) => {
-    const url = item.mediaUrls[index] || item.mediaUrls[0];
-    if (!url) return;
-    setSelectedMedia({ url, type: item.mediaType === 'video' ? 'video' : 'image' });
+    setSelectedMedia({ item, index, type: item.mediaType === 'video' ? 'video' : 'image' });
   };
 
   return (
@@ -954,7 +999,7 @@ const StudioPage: React.FC = () => {
           {sessionHistory.map((item) => {
             const frameWidth = frameWidthStyle(item.aspectRatio || '1/1');
             const currentIdx = getSelectedIndex(item.id, item.mediaUrls.length);
-            const currentUrl = item.mediaUrls[currentIdx] || item.mediaUrls[0];
+            const currentUrl = getResolvedUrl(item, currentIdx);
             const hasMultiple = item.mediaUrls.length > 1;
 
             return (
@@ -1312,7 +1357,7 @@ const StudioPage: React.FC = () => {
                         )}
                         {item.mediaUrls.length > 0 && (
                           <ActionButton
-  onClick={() => handleDownload(item.mediaUrls[0], `pathfinder-${item.id.slice(-6)}.${item.mediaType === 'video' ? 'mp4' : item.mediaType === 'audio' ? 'wav' : 'png'}`, item.id)}
+  onClick={() => handleDownload(item, currentIdx)}
   icon={downloadingId === item.id ? <Loader2 size={14} className="pf-spin" /> : <Download size={14} />}
   label={downloadingId === item.id ? 'Descargando...' : 'Descargar'}
   disabled={downloadingId !== null && downloadingId !== item.id}
@@ -1411,14 +1456,7 @@ const StudioPage: React.FC = () => {
 
       {/* LIGHTBOX */}
       {selectedMedia && (
-        <div onClick={() => setSelectedMedia(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)', animation: 'fadeIn 0.2s', cursor: 'zoom-out' }}>
-          <button onClick={(e) => { e.stopPropagation(); setSelectedMedia(null); }} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', fontSize: '2rem', width: '50px', height: '50px', borderRadius: '50%', cursor: 'pointer' }}>×</button>
-          {selectedMedia.type === 'video' ? (
-            <video src={selectedMedia.url} controls style={{ maxWidth: '90%', maxHeight: '90vh' }} onClick={e => e.stopPropagation()} />
-          ) : (
-            <img src={selectedMedia.url} alt="Vista completa" style={{ maxWidth: '90%', maxHeight: '90vh', objectFit: 'contain' }} />
-          )}
-        </div>
+        <MediaLightbox selectedMedia={selectedMedia} onClose={() => setSelectedMedia(null)} />
       )}
 
       {/* BOTÓN FLOTANTE — Cómo funciona (oculto en móvil para no solaparse con el FCM) */}

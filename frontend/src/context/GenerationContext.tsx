@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, us
 import type { ReactNode } from "react";
 import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
-import { readLiveCache, writeLiveCache } from "../lib/liveCache";
+import * as sessionStore from "../lib/sessionStore";
 import { rebaseMediaUrl } from "../lib/mediaUrl";
 import { getChatLabel, getRuntimeId } from "../config/models";
 import { useRuntime } from "../hooks/useRuntime";
@@ -88,6 +88,8 @@ export interface SessionItem {
   elapsedSeconds?: number;
   /** Mensaje de error si la generación falló. Solo presente cuando el backend reportó status error/failed. */
   errorMessage?: string;
+  /** Keys de R2 para las imágenes/videos/audios generados. */
+  r2Keys?: string[];
 }
 
 interface GenerateParams {
@@ -215,7 +217,10 @@ interface GenerationContextValue {
   stationBootingIds: string[];
   stationStatusLoading: boolean;
   refreshStationStatus: () => Promise<void>;
+  stationRuntimesMap: Record<string, any>;
   getClient: () => Promise<any>;
+  /** Devuelve la URL firmada de R2 si está cacheada, o el fallback del túnel. */
+  getResolvedUrl: (item: SessionItem, idx: number) => string;
 }
 
 const GenerationContext = createContext<GenerationContextValue | null>(null);
@@ -362,13 +367,12 @@ function reconcileWithBackend(
   isDeleted: (id: string) => boolean,
 ): SessionItem[] {
   const backendIds = new Set(backendItems.map((b) => b.id));
-  const backendKeys = new Set(backendItems.map((b) => `${b.modelId}::${b.prompt}`));
-  const preserved = prev.filter((it) => {
-    if (backendIds.has(it.id)) return false;
-    if (backendKeys.has(`${it.modelId}::${it.prompt}`)) return false;
-    return true;
-  });
+  const preserved = prev.filter((it) => !backendIds.has(it.id));
   return [...backendItems, ...preserved].filter((it) => !isDeleted(it.id));
+}
+
+function hashItem(it: SessionItem): string {
+  return [it.status, it.isGenerating ? '1' : '0', it.mediaUrls.join('|'), it.errorMessage ?? '', it.creationId ?? '', it.modelId].join('||');
 }
 
 function mapBackendItem(raw: any): SessionItem {
@@ -407,6 +411,7 @@ function mapBackendItem(raw: any): SessionItem {
       const val = fromMeta ?? fromTimestamps;
       return (typeof val === 'number' && val > 0) ? val : undefined;
     })(),
+    r2Keys: Array.isArray(raw.r2_keys) ? raw.r2_keys.map(String) : undefined,
     storyboardMeta: raw.storyboard_meta ? {
       totalScenes: Number(raw.storyboard_meta.total_scenes ?? 0),
       currentScene: Number(raw.storyboard_meta.current_scene ?? 1),
@@ -471,6 +476,7 @@ export function GenerationProvider({
     statusMap: stationStatusMap,
     modelTypeMap: stationModelTypeMap,
     bootingIds: stationBootingIds,
+    runtimesMap: stationRuntimesMap,
     loading: stationStatusLoading,
     refresh: refreshStationStatus,
   } = useStationStatus(stationId);
@@ -482,48 +488,76 @@ export function GenerationProvider({
   // Historial por capability. Cada notebook (imagen / video / audio)
   // mantiene su propia slice. Cambiar de capability sólo cambia la vista,
   // no pisa items de las otras.
-  const [sessionHistoryByCapability, setSessionHistoryByCapability] = useState<Record<CapabilityId, SessionItem[]>>(() => {
-    const cached = readLiveCache<Record<CapabilityId, SessionItem[]>>('studio_history', 5 * 60 * 1000);
-    if (cached) {
-      return {
-        image: (cached.image || []).slice(-5),
-        video: (cached.video || []).slice(-5),
-        audio: (cached.audio || []).slice(-5),
-      };
-    }
-    return { image: [], video: [], audio: [] };
+  const [sessionHistoryByCapability, setSessionHistoryByCapability] = useState<Record<CapabilityId, SessionItem[]>>({
+    image: [], video: [], audio: [],
   });
 
-  // Persistir slice completo (truncado a 5 por cap) para hidratar en F5.
-  useEffect(() => {
-    // Truncar 5 por MODELO (no 5 por capability) para no perder items
-    // de un modelo cuando otro modelo agrega items al mismo slice.
-    const truncateByModel = (items: SessionItem[]): SessionItem[] => {
-      const byModel = new Map<string, SessionItem[]>();
-      for (const it of items) {
-        const key = it.modelId || '__unknown__';
-        const arr = byModel.get(key) ?? [];
-        arr.push(it);
-        byModel.set(key, arr);
-      }
-      const out: SessionItem[] = [];
-      for (const arr of byModel.values()) {
-        out.push(...arr.slice(-5));
-      }
-      // Reordenar por createdAt ascendente (mismo orden que antes)
-      out.sort((a, b) => a.createdAt - b.createdAt);
-      return out;
-    };
+  const [sessionHydrated, setSessionHydrated] = useState(false);
+  const lastPersistedRef = useRef<Map<string, string>>(new Map());
 
-    const truncated: Record<CapabilityId, SessionItem[]> = {
-      image: truncateByModel(sessionHistoryByCapability.image),
-      video: truncateByModel(sessionHistoryByCapability.video),
-      audio: truncateByModel(sessionHistoryByCapability.audio),
-    };
-    if (truncated.image.length || truncated.video.length || truncated.audio.length) {
-      writeLiveCache('studio_history', truncated);
+  // Limpieza de versiones anteriores (localStorage/sessionStorage).
+  // Al migrar a IndexedDB, dejamos basura atrás que causaba skeletons fantasma.
+  useEffect(() => {
+    try {
+      localStorage.removeItem("pf_deleted_items_v1"); // ID viejo
+      // Limpiar liveCache viejo (si quedó algo)
+      Object.keys(sessionStorage).forEach(k => {
+        if (k.startsWith("pf_live_") || k.startsWith("gen_video_")) {
+          sessionStorage.removeItem(k);
+        }
+      });
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const items = await sessionStore.getAllItems<SessionItem>();
+      if (cancelled) return;
+      if (items.length > 0) {
+        const byCap: Record<CapabilityId, SessionItem[]> = { image: [], video: [], audio: [] };
+        for (const it of items) {
+          const cap: CapabilityId = it.mediaType === 'video' ? 'video' : it.mediaType === 'audio' ? 'audio' : 'image';
+          byCap[cap].push(it);
+        }
+        for (const cap of ['image', 'video', 'audio'] as const) {
+          byCap[cap].sort((a, b) => a.createdAt - b.createdAt);
+        }
+        setSessionHistoryByCapability(prev => {
+          const hasAny = prev.image.length + prev.video.length + prev.audio.length > 0;
+          if (hasAny) return prev;
+          const m = new Map<string, string>();
+          for (const it of items) m.set(it.id, hashItem(it));
+          lastPersistedRef.current = m;
+          return byCap;
+        });
+      }
+      setSessionHydrated(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionHydrated) return;
+    const now = new Map<string, string>();
+    const changed: SessionItem[] = [];
+    for (const cap of ['image', 'video', 'audio'] as const) {
+      for (const it of sessionHistoryByCapability[cap]) {
+        const h = hashItem(it);
+        now.set(it.id, h);
+        if (lastPersistedRef.current.get(it.id) !== h) {
+          changed.push(it);
+        }
+      }
     }
-  }, [sessionHistoryByCapability]);
+    const deleted: string[] = [];
+    for (const id of lastPersistedRef.current.keys()) {
+      if (!now.has(id)) deleted.push(id);
+    }
+    if (changed.length > 0) void sessionStore.putItems(changed);
+    for (const id of deleted) void sessionStore.deleteItem(id);
+    lastPersistedRef.current = now;
+  }, [sessionHydrated, sessionHistoryByCapability]);
 
   // Derivado: la slice de la capability activa. Todos los consumidores
   // (StudioPage, FCM) siguen leyendo `sessionHistory` como antes.
@@ -573,6 +607,10 @@ export function GenerationProvider({
     const filtered = currentModelId
       ? slice.filter(it => it.modelId === currentModelId)
       : slice;
+
+    // Orden estricto por createdAt (más viejo arriba, más nuevo abajo).
+    // Evita que los items de error o los que vienen del backend se mezclen.
+    filtered.sort((a, b) => a.createdAt - b.createdAt);
 
     const urlForItem = (item: SessionItem): string | null => {
       if (capability === 'image' && item.modelId) {
@@ -640,7 +678,7 @@ export function GenerationProvider({
   useEffect(() => { activeImageModelIdRef.current = activeImageModelId; }, [activeImageModelId]);
   useEffect(() => { activeVideoModelIdRef.current = activeVideoModelId; }, [activeVideoModelId]);
 
-  const [isLoading, setIsLoading] = useState(false);
+  // isLoading se calcula con useMemo (abajo) a partir del historial.
   const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
@@ -697,6 +735,24 @@ export function GenerationProvider({
   const pollIdleCountRef = useRef<number>(0);
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
+  // Multi-notebook: isLoading refleja si el MODELO ACTIVO en la capability
+  // activa tiene una generación corriendo. Si el user cambia de tab o de
+  // modelo (dentro del mismo tab), y el nuevo modelo no tiene generaciones
+  // activas, el botón Generar se desbloquea sin frenar al otro modelo.
+  // Derivado síncrono: isLoading refleja la generación del modelo activo
+  // en la capability activa. Calculado con useMemo para que cambie en el
+  // mismo render que 'capability', sin lag de 1 frame.
+  const isLoading = useMemo(() => {
+    const activeRuntimeId = capability === 'image'
+      ? activeImageModelId
+      : capability === 'audio'
+        ? 'tts-dual'
+        : activeVideoModelId;
+    return sessionHistoryByCapability[capability].some(
+      it => it.isGenerating && (it.modelId === activeRuntimeId || !it.modelId)
+    );
+  }, [capability, activeImageModelId, activeVideoModelId, sessionHistoryByCapability]);
+
   useEffect(() => {
     if (!isLoading) return;
     // 3s en lugar de 1s: reduce 3x los re-renders del contexto durante la
@@ -704,23 +760,6 @@ export function GenerationProvider({
     const interval = window.setInterval(() => setNowTick(Date.now()), 3000);
     return () => window.clearInterval(interval);
   }, [isLoading]);
-
-  // Multi-notebook: isLoading refleja si el MODELO ACTIVO en la capability
-  // activa tiene una generación corriendo. Si el user cambia de tab o de
-  // modelo (dentro del mismo tab), y el nuevo modelo no tiene generaciones
-  // activas, el botón Generar se desbloquea sin frenar al otro modelo.
-  useEffect(() => {
-    const activeRuntimeId = capability === 'image'
-      ? activeImageModelId
-      : capability === 'audio'
-        ? 'tts-dual'
-        : activeVideoModelId;
-
-    const activeModelIsGenerating = sessionHistoryByCapability[capability].some(
-      it => it.isGenerating && (it.modelId === activeRuntimeId || !it.modelId)
-    );
-    setIsLoading(activeModelIsGenerating);
-  }, [capability, activeImageModelId, activeVideoModelId, sessionHistoryByCapability]);
 
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
@@ -751,7 +790,7 @@ export function GenerationProvider({
           : it
       ));
       setErrorMsg(errMsg);
-      setIsLoading(false);
+      // setIsLoading(false); // now derived
       pollIdleCountRef.current = 0;
     };
 
@@ -787,7 +826,7 @@ export function GenerationProvider({
           setGenerationInfo(info ?? null);
           if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
             pollIdleCountRef.current = 0;
-            setIsLoading(false);
+            // setIsLoading(false); // now derived
             if (info.status === "complete" && capability === "video") {
               const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
               if (storedUrl) setVideoSrc(storedUrl);
@@ -860,16 +899,12 @@ export function GenerationProvider({
           if (info && info.status && info.status !== "idle") {
             setGenerationInfo(info);
             if (info.status === "preparing" || info.status === "running") {
-              setIsLoading(true);
+              // setIsLoading(true); // now derived
               generationStartRef.current = info.started_at ?? Date.now() / 1000;
               setRecoveryState("active");
             } else {
               setRecoveryState("idle");
-              setIsLoading(false);
-              if (info.status === "complete" && capability === "video") {
-                const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
-                if (storedUrl) setVideoSrc(storedUrl);
-              }
+              // setIsLoading(false); // now derived
             }
           } else {
             setRecoveryState("idle");
@@ -1086,7 +1121,14 @@ export function GenerationProvider({
       const raw = Array.isArray(result.data) ? result.data[0] : result.data;
       if (!Array.isArray(raw)) return [];
       return raw
-        .filter((it: any) => it && (it.status === "complete" || it.status === "preparing" || it.status === "running"))
+        .filter((it: any) => it && (
+          it.status === "complete" ||
+          it.status === "preparing" ||
+          it.status === "running" ||
+          it.status === "error" ||
+          it.status === "failed" ||
+          it.status === "cancelled"
+        ))
         .map(mapBackendItem);
     } catch (err) {
       void 0;
@@ -1105,6 +1147,8 @@ export function GenerationProvider({
   useEffect(() => {
     if (!stationId) {
       setSessionHistoryByCapability({ image: [], video: [], audio: [] });
+      void sessionStore.clearAll();
+      lastPersistedRef.current = new Map();
     }
   }, [stationId]);
 
@@ -1272,7 +1316,7 @@ export function GenerationProvider({
       generationStartRef.current = localStart;
       pollIdleCountRef.current = 0;
 
-      setIsLoading(true);
+      // setIsLoading(true); // now derived
       setErrorMsg(null);
       setVideoSrc(null);
       setImageSrcs(null);
@@ -1286,7 +1330,7 @@ export function GenerationProvider({
       const _m = rawAspect.match(/(\d+)\s*:\s*(\d+)/);
       const aspectRatioCss = _m ? `${_m[1]}/${_m[2]}` : "1/1";
 
-      const userItemId = `msg-${Date.now()}`;
+      const userItemId = crypto.randomUUID();
       setHistoryForCap(cap, prev => [...prev, {
         id: userItemId,
         prompt: params.prompt,
@@ -1373,6 +1417,7 @@ export function GenerationProvider({
             params.steps ?? 8,
             params.extraLoras || [],
             params.loraMults || "",
+            userItemId,
             token,
           ]);
 
@@ -1389,7 +1434,6 @@ export function GenerationProvider({
 
           if (tempUrl) {
             setVideoSrc(tempUrl);
-            sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
             setHistoryForCap(cap, prev => prev.map(item => {
               if (item.id === userItemId) {
@@ -1436,6 +1480,7 @@ export function GenerationProvider({
             0, 0,
             params.extraLoras || [],
             params.loraMults || "",
+            userItemId,
             token,
           ]);
 
@@ -1452,7 +1497,6 @@ export function GenerationProvider({
 
           if (tempUrl) {
             setVideoSrc(tempUrl);
-            sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
             setHistoryForCap(cap, prev => prev.map(item => {
               if (item.id === userItemId) {
@@ -1477,6 +1521,7 @@ export function GenerationProvider({
             params.audioFile || undefined, params.seed, params.duration, params.resolution,
             params.aspectRatio, params.guideScale, params.matchAudioDur,
             params.extraLoras || [], params.loraMults || "",
+            userItemId,
             token,
           ]);
 
@@ -1493,7 +1538,6 @@ export function GenerationProvider({
 
           if (tempUrl) {
             setVideoSrc(tempUrl);
-            sessionStorage.setItem(`gen_video_${localStart}`, tempUrl);
 
             setHistoryForCap(cap, prev => prev.map(item => {
               if (item.id === userItemId) {
@@ -1536,6 +1580,7 @@ export function GenerationProvider({
               params.qwenEditImage || null,
               params.qwenEditMask || null,
               params.qwenStrength ?? 1.0,
+              userItemId,
               token,
               params.enhanceMode || 'off',
               params.qwenSteps ?? 40,
@@ -1600,6 +1645,7 @@ export function GenerationProvider({
               params.embeddedGuidance ?? 1.0,
               params.seed,
               params.numImages ?? 1,
+              userItemId,
               token,
             ]);
 
@@ -1620,6 +1666,7 @@ export function GenerationProvider({
               params.resolution || "1024px (Standard)",
               params.seed,
               params.numImages || 1,
+              userItemId,
               token,
               params.enhanceMode || 'off',
             ]);
@@ -1670,6 +1717,7 @@ export function GenerationProvider({
             params.language || "spanish",
             params.durationLabel || "Custom (auto)",
             params.seed,
+            userItemId,
             token,
           ]);
 
@@ -1716,19 +1764,23 @@ export function GenerationProvider({
           }
         }
       } catch (err) {
-        void 0;
-        const errMsg = err instanceof Error ? err.message : "Error al generar.";
-        setErrorMsg(errMsg);
-        // Marcar el item local como error para liberar el boton Generar y no
-        // dejarlo pegado en "Detener" cuando client.predict falla.
-        setHistoryForCap(cap, prev => prev.map(item =>
-          item.id === userItemId
-            ? { ...item, isGenerating: false, status: 'temporary' as const, errorMessage: errMsg }
-            : item
-        ));
-        setGenerationInfo(prev => ({ ...prev, status: "error", finished_at: Date.now() / 1000 }));
+        // Los túneles (Cloudflare/Gradio) caen frecuentemente en generaciones
+        // largas. El backend (notebook) sigue vivo y terminando el trabajo.
+        // No marcamos error inmediato: dejamos que el poll de /session_history
+        // o el orphan guard resuelvan el estado real.
+        console.warn("[Túnel] client.predict falló, esperando al poll:", err);
+        
+        // Solo si el error es claramente de autenticación o de cliente, marcamos error.
+        const msg = err instanceof Error ? err.message : "";
+        if (msg.includes("Unauthorized") || msg.includes("Session not found")) {
+          setErrorMsg("La sesión expiró o no es válida.");
+          setHistoryForCap(cap, prev => prev.map(item =>
+            item.id === userItemId ? { ...item, isGenerating: false, errorMessage: "Sesión expirada." } : item
+          ));
+        }
+        // En cualquier otro caso, el poll se encarga.
       } finally {
-        setIsLoading(false);
+        // setIsLoading(false); // now derived
         const deadline = Date.now() + 3000;
         while (Date.now() < deadline) {
           try {
@@ -1754,7 +1806,7 @@ export function GenerationProvider({
       generationStartRef.current = localStart;
       pollIdleCountRef.current = 0;
 
-      setIsLoading(true);
+      // setIsLoading(true); // now derived
       setErrorMsg(null);
       setVideoSrc(null);
       setLogs([]);
@@ -1807,7 +1859,7 @@ export function GenerationProvider({
         const client = await getClient();
         if (!client) { setErrorMsg('No se pudo conectar con el runtime.'); return; }
 
-        const payloadWithJwt = { ...payload, jwt_token: token };
+        const payloadWithJwt = { ...payload, jwt_token: token, client_request_id: userItemId };
         const result = await client.predict('/generate_storyboard', [JSON.stringify(payloadWithJwt)]);
 
         const data = result.data as unknown[];
@@ -1854,7 +1906,7 @@ export function GenerationProvider({
           finished_at: Date.now() / 1000,
         }));
       } finally {
-        setIsLoading(false);
+        // setIsLoading(false); // now derived
       }
     },
     [gradioUrl, getClient]
@@ -1876,6 +1928,68 @@ export function GenerationProvider({
     }
   }, [gradioUrl, getClient, isCancelling]);
 
+  // ── Caché de URLs firmadas de R2 ──
+  // Cuando un item tiene r2Keys, pedimos la URL firmada a la Edge Function
+  // para servirlo desde R2 (rápido, seguro) en lugar del túnel (lento, frágil).
+  // El fallback al túnel se mantiene para items viejos sin r2Keys.
+  const [r2UrlCache, setR2UrlCache] = useState<Map<string, { url: string; ts: number }>>(new Map());
+  const r2FetchInflightRef = useRef<Set<string>>(new Set());
+  const r2FetchFailedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const now = Date.now();
+    const toFetch: string[] = [];
+    const seen = new Set<string>();
+    for (const cap of ['image', 'video', 'audio'] as const) {
+      for (const item of sessionHistoryByCapability[cap]) {
+        for (const key of item.r2Keys ?? []) {
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const cached = r2UrlCache.get(key);
+          if (cached && now - cached.ts < 240_000) continue;
+          if (r2FetchInflightRef.current.has(key)) continue;
+          if (r2FetchFailedRef.current.has(key)) continue;
+          toFetch.push(key);
+        }
+      }
+    }
+    if (toFetch.length === 0) return;
+
+    (async () => {
+      const updates = new Map(r2UrlCache);
+      const batch = toFetch.slice(0, 5);
+      await Promise.all(batch.map(async (key) => {
+        r2FetchInflightRef.current.add(key);
+        try {
+          const { data, error } = await supabase.functions.invoke('r2-sign-download', {
+            body: { r2_key: key },
+          });
+          if (!error && data?.url) {
+            updates.set(key, { url: data.url, ts: Date.now() });
+          } else {
+            r2FetchFailedRef.current.add(key);
+          }
+        } catch {
+          r2FetchFailedRef.current.add(key);
+        } finally {
+          r2FetchInflightRef.current.delete(key);
+        }
+      }));
+      if (updates.size !== r2UrlCache.size) {
+        setR2UrlCache(updates);
+      }
+    })();
+  }, [sessionHistoryByCapability, r2UrlCache]);
+
+  const getResolvedUrl = useCallback((item: SessionItem, idx: number): string => {
+    const r2Key = item.r2Keys?.[idx];
+    if (r2Key) {
+      const cached = r2UrlCache.get(r2Key);
+      if (cached) return cached.url;
+    }
+    return item.mediaUrls[idx] || item.mediaUrls[0] || '';
+  }, [r2UrlCache]);
+
   const nowSec = nowTick / 1000;
   const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
   const liveElapsedSec = isLoading && generationInfo?.started_at ? Math.max(0, nowSec - generationInfo.started_at) : null;
@@ -1895,8 +2009,9 @@ export function GenerationProvider({
     activeVideoModelId, setActiveVideoModelId,
     sessionHistory, appendSessionItem, updateSessionItem, removeSessionItem, discardSessionItem, clearSessionHistory,
     stationStatusMap, stationModelTypeMap, stationBootingIds,
-    stationStatusLoading, refreshStationStatus,
+    stationStatusLoading, refreshStationStatus, stationRuntimesMap,
     getClient,
+    getResolvedUrl,
   };
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;
