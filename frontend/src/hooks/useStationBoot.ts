@@ -1,263 +1,82 @@
-import { useEffect, useState, useRef } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { readLiveCache, writeLiveCache } from '../lib/liveCache';
+import { useEffect, useState, useMemo } from 'react';
 
-// Estados del ciclo de arranque de una estación (notebook de Kaggle)
-export type BootState =
-  | 'detecting'   // primer fetch todavía no llegó
-  | 'idle'        // no hay fila en Supabase para este modelo
-  | 'INSTALLING'
-  | 'CONNECTING'
-  | 'READY'
-  | 'BUSY'
-  | 'ERROR'
-  | 'STALE';
-
-// P2: estado de conexion derivado del heartbeat del notebook.
-//   alive       -> last_heartbeat_at < 30s
-//   reconnecting-> 30s <= last_heartbeat_at < 90s
-//   offline     -> last_heartbeat_at >= 90s
-//   unknown     -> sin latido todavia (notebook booteando o fila vieja)
+export type BootState = 'detecting' | 'idle' | 'INSTALLING' | 'CONNECTING' | 'READY' | 'BUSY' | 'ERROR' | 'STALE';
 export type ConnectionState = 'alive' | 'reconnecting' | 'offline' | 'unknown';
 
 export interface BootInfo {
   state: BootState;
-  progress: number;            // 0.0 – 1.0
-  stepMessage: string | null;  // mensaje narrativo del paso actual
+  progress: number;
+  stepMessage: string | null;
   updatedAt: string | null;
   gradioUrl: string | null;
-  lastHeartbeatAt: string | null;  // P2: ultimo latido del notebook
-  connectionState: ConnectionState; // P2: derivado de lastHeartbeatAt
-  isBooting: boolean;          // INSTALLING o CONNECTING (y sin stale)
-  isReady: boolean;            // READY o BUSY
+  lastHeartbeatAt: string | null;
+  connectionState: ConnectionState;
+  isBooting: boolean;
+  isReady: boolean;
   isError: boolean;
   isStale: boolean;
-  detecting: boolean;          // primer fetch pendiente
+  detecting: boolean;
 }
 
-// Tick del interval (el "reloj" que decide cada cuánto mirar el estado).
-// El intervalo mínimo real se calcula en cada tick según el estado actual.
-const TICK_MS = 5000;
-// Intervalos por estado (ms).
-const POLL_INTERVAL: Record<string, number> = {
-  INSTALLING: 5000,
-  CONNECTING: 5000,
-  READY: 15000,
-  BUSY: 15000,
-  ERROR: 30000,
-  STALE: 30000,
-  idle: 30000,
-  detecting: 5000,
-};
 const STALE_THRESHOLD_MS = 4 * 60 * 1000;
-// Si una fila con state ERROR/STALE no se actualizó en este tiempo,
-// se considera huérfana (el notebook murió sin limpiar su fila).
-// El frontend la ignora y muestra IDLE en lugar del error viejo.
 const ORPHAN_ERROR_THRESHOLD_MS = 30 * 60 * 1000;
-// Fila huérfana de boot: INSTALLING/CONNECTING sin updates en >25 min.
-// El notebook murió a mitad del arranque sin limpiar su fila. Sin este filtro,
-// el auto-select de boot elige el modelo fantasma y pisa al modelo activo.
 const ORPHAN_BOOTING_THRESHOLD_MS = 25 * 60 * 1000;
-// P2: umbrales del heartbeat.
-const HEARTBEAT_ALIVE_MS = 30 * 1000;
-const HEARTBEAT_RECONNECTING_MS = 90 * 1000;
+const HEARTBEAT_ALIVE_MS = 60 * 1000;
+const HEARTBEAT_RECONNECTING_MS = 120 * 1000;
 
-const LIVE_CACHE_KEY = 'station_boot';
-const LIVE_CACHE_TTL_MS = 5 * 60 * 1000;
-type StationBootCache = Record<string, BootInfo>;
-
-const DETECTING: BootInfo = {
-  state: 'detecting',
-  progress: 0,
-  stepMessage: null,
-  updatedAt: null,
-  gradioUrl: null,
-  lastHeartbeatAt: null,
-  connectionState: 'unknown',
-  isBooting: false,
-  isReady: false,
-  isError: false,
-  isStale: false,
-  detecting: true,
-};
-
-const IDLE: BootInfo = {
-  state: 'idle',
-  progress: 0,
-  stepMessage: null,
-  updatedAt: null,
-  gradioUrl: null,
-  lastHeartbeatAt: null,
-  connectionState: 'unknown',
-  isBooting: false,
-  isReady: false,
-  isError: false,
-  isStale: false,
-  detecting: false,
-};
+const DETECTING: BootInfo = { state: 'detecting', progress: 0, stepMessage: null, updatedAt: null, gradioUrl: null, lastHeartbeatAt: null, connectionState: 'unknown', isBooting: false, isReady: false, isError: false, isStale: false, detecting: true };
+const IDLE: BootInfo = { state: 'idle', progress: 0, stepMessage: null, updatedAt: null, gradioUrl: null, lastHeartbeatAt: null, connectionState: 'unknown', isBooting: false, isReady: false, isError: false, isStale: false, detecting: false };
 
 export function useStationBoot(
   stationId: string | null,
-  modelId: string | null
+  modelId: string | null,
+  runtimesMap: Record<string, any>,
+  loading: boolean
 ): BootInfo {
-  const _bootCacheKey = (stationId && modelId) ? `${stationId}:${modelId}` : null;
-  const _bootCached = _bootCacheKey
-    ? readLiveCache<StationBootCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS)?.[_bootCacheKey] ?? null
-    : null;
-  const [boot, setBoot] = useState<BootInfo>(() => _bootCached ?? DETECTING);
-  const hasFetchedOnce = useRef(false);
-  const bootStateRef = useRef<BootState>('detecting');
-  const bootConnStateRef = useRef<ConnectionState>('unknown');
-  const lastFetchRef = useRef<number>(0);
-
-  // Mantener los refs sincronizados con el último estado conocido
+  const [, setTick] = useState(0);
   useEffect(() => {
-    bootStateRef.current = boot.state;
-  }, [boot.state]);
+    const t = setInterval(() => setTick((x) => x + 1), 5000);
+    return () => clearInterval(t);
+  }, []);
 
-  useEffect(() => {
-    bootConnStateRef.current = boot.connectionState;
-  }, [boot.connectionState]);
+  return useMemo(() => {
+    if (loading) return DETECTING;
+    if (!stationId || !modelId) return IDLE;
+    const row = runtimesMap[modelId];
+    if (!row) return IDLE;
 
-  // Persistir a cache por (stationId, modelId) para hidratar al próximo mount.
-  // NO persistimos estados transitorios (BUSY/INSTALLING/CONNECTING): si el
-  // notebook ya termino, el cache miente al siguiente mount y bloquea el
-  // flujo de Generar. El poll los reconstruye en <=15s.
-  useEffect(() => {
-    if (!_bootCacheKey) return;
-    if (boot.detecting) return;
-    if (boot.state === 'BUSY' || boot.state === 'INSTALLING' || boot.state === 'CONNECTING') return;
-    const existing = readLiveCache<StationBootCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS) ?? {};
-    existing[_bootCacheKey] = boot;
-    writeLiveCache<StationBootCache>(LIVE_CACHE_KEY, existing);
-  }, [boot, _bootCacheKey]);
+    const state = (row.state || 'idle') as BootState;
+    const progress = Number(row.progress) || 0;
+    const updatedAt = row.updated_at;
+    const ageMs = updatedAt ? Date.now() - new Date(updatedAt).getTime() : Infinity;
 
-  useEffect(() => {
-    if (!stationId || !modelId) {
-      setBoot(IDLE);
-      return;
+    if ((state === 'ERROR' || state === 'STALE') && ageMs > ORPHAN_ERROR_THRESHOLD_MS) return IDLE;
+    if ((state === 'INSTALLING' || state === 'CONNECTING') && ageMs > ORPHAN_BOOTING_THRESHOLD_MS) return IDLE;
+
+    const isStale = (state === 'INSTALLING' || state === 'CONNECTING') && ageMs > STALE_THRESHOLD_MS;
+    const lastHeartbeatAt = row.last_heartbeat_at;
+    const hbAgeMs = lastHeartbeatAt ? Date.now() - new Date(lastHeartbeatAt).getTime() : Infinity;
+
+    let connectionState: ConnectionState = 'unknown';
+    if (lastHeartbeatAt) {
+      if (hbAgeMs < HEARTBEAT_ALIVE_MS) connectionState = 'alive';
+      else if (hbAgeMs < HEARTBEAT_RECONNECTING_MS) connectionState = 'reconnecting';
+      else connectionState = 'offline';
     }
 
-    hasFetchedOnce.current = false;
-    setBoot(DETECTING);
-
-    let cancelled = false;
-
-    const fetchBoot = async () => {
-      // Skip interno: si el último fetch fue hace menos que el intervalo
-      // mínimo para el estado actual, no hagas la query.
-      const now = Date.now();
-      // Si el heartbeat está offline o reconnecting, pollear rápido: el
-      // notebook puede volver en cualquier momento y queremos detectarlo
-      // en pocos segundos. Sin esto, con state=ERROR el poll era 30s y la
-      // reconexión tardaba hasta medio minuto en reflejarse.
-      const cs = bootConnStateRef.current;
-      const minInterval =
-        (cs === 'offline' || cs === 'reconnecting')
-          ? 5000
-          : (POLL_INTERVAL[bootStateRef.current] ?? 5000);
-      if (now - lastFetchRef.current < minInterval - 500) return;
-      lastFetchRef.current = now;
-
-      try {
-        const { data, error } = await supabase
-          .from('runtimes')
-          .select('state, progress, step_message, updated_at, gradio_url, last_heartbeat_at')
-          .eq('station_id', stationId)
-          .eq('model_id', modelId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (cancelled) return;
-        hasFetchedOnce.current = true;
-
-        if (error || !data) {
-          setBoot(IDLE);
-          return;
-        }
-
-        const row = data as {
-          state: string | null;
-          progress: number | null;
-          step_message: string | null;
-          updated_at: string | null;
-          gradio_url: string | null;
-          last_heartbeat_at: string | null;
-        };
-
-        const state = (row.state || 'idle') as BootState;
-        const progress = typeof row.progress === 'number' ? row.progress : 0;
-        const updatedAt = row.updated_at;
-
-        const ageMs = updatedAt ? Date.now() - new Date(updatedAt).getTime() : Infinity;
-
-        // Fila huérfana: state ERROR/STALE sin updates en >30 min.
-        // El notebook murió sin limpiar su fila. Tratar como si no existiera.
-        if ((state === 'ERROR' || state === 'STALE') && ageMs > ORPHAN_ERROR_THRESHOLD_MS) {
-          if (!cancelled) setBoot(IDLE);
-          return;
-        }
-
-        if ((state === 'INSTALLING' || state === 'CONNECTING') && ageMs > ORPHAN_BOOTING_THRESHOLD_MS) {
-          if (!cancelled) setBoot(IDLE);
-          return;
-        }
-
-        const isStale =
-          (state === 'INSTALLING' || state === 'CONNECTING') &&
-          ageMs > STALE_THRESHOLD_MS;
-
-        // P2: derivar connectionState del ultimo latido.
-        const lastHeartbeatAt = row.last_heartbeat_at;
-        const hbAgeMs = lastHeartbeatAt
-          ? Date.now() - new Date(lastHeartbeatAt).getTime()
-          : Infinity;
-        let connectionState: ConnectionState;
-        if (!lastHeartbeatAt) {
-          connectionState = 'unknown';
-        } else if (hbAgeMs < HEARTBEAT_ALIVE_MS) {
-          connectionState = 'alive';
-        } else if (hbAgeMs < HEARTBEAT_RECONNECTING_MS) {
-          connectionState = 'reconnecting';
-        } else {
-          connectionState = 'offline';
-        }
-
-        const info: BootInfo = {
-          state: isStale ? 'STALE' : state,
-          progress,
-          stepMessage: row.step_message,
-          updatedAt,
-          gradioUrl: row.gradio_url,
-          lastHeartbeatAt,
-          connectionState,
-          isBooting:
-            (state === 'INSTALLING' || state === 'CONNECTING') && !isStale,
-          isReady: state === 'READY' || state === 'BUSY',
-          isError: state === 'ERROR',
-          isStale,
-          detecting: false,
-        };
-
-        if (!cancelled) setBoot(info);
-      } catch {
-        // Silencioso — el siguiente poll reintenta
-        if (!cancelled && !hasFetchedOnce.current) {
-          hasFetchedOnce.current = true;
-          setBoot(IDLE);
-        }
-      }
+    return {
+      state: isStale ? 'STALE' : state,
+      progress,
+      stepMessage: row.step_message,
+      updatedAt,
+      gradioUrl: row.gradio_url,
+      lastHeartbeatAt,
+      connectionState,
+      isBooting: (state === 'INSTALLING' || state === 'CONNECTING') && !isStale,
+      isReady: state === 'READY' || state === 'BUSY',
+      isError: state === 'ERROR',
+      isStale,
+      detecting: false,
     };
-
-    lastFetchRef.current = 0; // forzar primer fetch
-    fetchBoot();
-    const interval = window.setInterval(fetchBoot, TICK_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [stationId, modelId]);
-
-  return boot;
+  }, [stationId, modelId, runtimesMap, loading]);
 }

@@ -11,6 +11,8 @@ interface RuntimeRow {
   gradio_url: string | null;
   gradio_urls: string[] | null;
   state: string;
+  progress: number | null;
+  step_message: string | null;
   model_type: string | null;
   created_at: string;
   updated_at: string;
@@ -23,6 +25,7 @@ interface UseStationStatusResult {
   modelTypeMap: Record<string, 'image' | 'video' | 'audio'>;
   /** runtimeIds cuyo `state` es INSTALLING o CONNECTING (boot en curso). */
   bootingIds: string[];
+  runtimesMap: Record<string, RuntimeRow>;
   loading: boolean;
   refresh: () => Promise<void>;
 }
@@ -35,16 +38,11 @@ interface StationStatusCache {
   statusMap: Record<string, StationStatus>;
   modelTypeMap: Record<string, 'image' | 'video' | 'audio'>;
   bootingIds: string[];
+  runtimesMap: Record<string, RuntimeRow>;
 }
 // Mismo umbral que useStationBoot: evita alimentar bootingIds con filas
 // INSTALLING/CONNECTING muertas.
 const ORPHAN_BOOTING_THRESHOLD_MS = 25 * 60 * 1000;
-const POLL_MS_DESKTOP = 30_000;
-const POLL_MS_MOBILE = 60_000;
-const POLL_MS =
-  typeof window !== 'undefined' && window.innerWidth < 768
-    ? POLL_MS_MOBILE
-    : POLL_MS_DESKTOP;
 const TIMEOUT_MS = 10_000;
 // Mismo TTL que useGradioClient: si una URL falla, se salta por 30s para
 // no reintentar en cada poll (que es cada 30-60s).
@@ -62,6 +60,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
   const [statusMap, setStatusMap] = useState<Record<string, StationStatus>>(() => _cached?.statusMap ?? {});
   const [modelTypeMap, setModelTypeMap] = useState<Record<string, 'image' | 'video' | 'audio'>>(() => _cached?.modelTypeMap ?? {});
   const [bootingIds, setBootingIds] = useState<string[]>(() => _cached?.bootingIds ?? []);
+  const [runtimesMap, setRuntimesMap] = useState<Record<string, RuntimeRow>>(() => _cached?.runtimesMap ?? {});
   const [loading, setLoading] = useState<boolean>(() => _cached === null);
 
   // Ref con el último statusMap: se usa DENTRO de fetchAndCheck para preservar
@@ -76,6 +75,8 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
   // Deuda 3: URLs frías. Map url -> timestamp de expiración del frío.
   // Evita reintentar contra la misma URL muerta en cada poll.
   const coldRef = useRef<Map<string, number>>(new Map());
+  // Intervalo dinámico: 5s si hay boot/reconnecting, 15s si está READY, 30s si idle.
+  const nextPollMsRef = useRef<number>(15_000);
 
   const fetchAndCheck = useCallback(async () => {
     if (!stationId) {
@@ -90,7 +91,7 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       // 1. Traer todas las filas de runtimes del usuario
       const { data, error } = await supabase
         .from('runtimes')
-        .select('model_id, gradio_url, gradio_urls, state, model_type, created_at, updated_at, last_heartbeat_at')
+        .select('model_id, gradio_url, gradio_urls, state, progress, step_message, model_type, created_at, updated_at, last_heartbeat_at')
         .eq('station_id', stationId)
         .order('created_at', { ascending: false });
 
@@ -204,9 +205,33 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
         })
       );
 
+      const nextRuntimesMap: Record<string, RuntimeRow> = {};
+      for (const [modelId, row] of latestByModel.entries()) {
+        nextRuntimesMap[modelId] = row;
+      }
+
+      // Calcular el intervalo del próximo poll (Lógica restaurada de useStationBoot).
+      // 5s si está booteando o el heartbeat está offline/reconnecting (detección rápida).
+      // 15s si está READY/BUSY. 30s si está idle/ERROR/STALE.
+      let minInterval = 30_000;
+      for (const row of latestByModel.values()) {
+        const hbAt = row.last_heartbeat_at;
+        const hbAgeMs = hbAt ? Date.now() - new Date(hbAt).getTime() : Infinity;
+
+        if (row.state === 'INSTALLING' || row.state === 'CONNECTING' || hbAgeMs > 30_000) {
+          minInterval = 5_000;
+          break;
+        }
+        if (row.state === 'READY' || row.state === 'BUSY') {
+          minInterval = Math.min(minInterval, 15_000);
+        }
+      }
+      nextPollMsRef.current = minInterval;
+
       setStatusMap(results);
       setModelTypeMap(nextModelTypeMap);
       setBootingIds(nextBootingIds);
+      setRuntimesMap(nextRuntimesMap);
       setLoading(false);
     } catch (err) {
       void 0;
@@ -220,14 +245,24 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
       // Todavía no llegó el primer fetch real. No pisar el cache.
       return;
     }
-    writeLiveCache<StationStatusCache>(LIVE_CACHE_KEY, { statusMap, modelTypeMap, bootingIds });
+    writeLiveCache<StationStatusCache>(LIVE_CACHE_KEY, { statusMap, modelTypeMap, bootingIds, runtimesMap });
   }, [statusMap, modelTypeMap, bootingIds]);
 
   useEffect(() => {
-    fetchAndCheck();
-    const interval = window.setInterval(fetchAndCheck, POLL_MS);
-    return () => window.clearInterval(interval);
+    let cancelled = false;
+    let timeoutId: number;
+    const poll = async () => {
+      if (cancelled) return;
+      await fetchAndCheck();
+      if (cancelled) return;
+      timeoutId = window.setTimeout(poll, nextPollMsRef.current);
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [fetchAndCheck]);
 
-  return { statusMap, modelTypeMap, bootingIds, loading, refresh: fetchAndCheck };
+  return { statusMap, modelTypeMap, bootingIds, runtimesMap, loading, refresh: fetchAndCheck };
 }

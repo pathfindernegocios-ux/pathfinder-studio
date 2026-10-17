@@ -677,7 +677,8 @@ const FloatingCommandCenter: React.FC = () => {
         ? 'tts-dual'
         : null;
   // Boot en vivo (Fase 2): oculta el banner naranja desde que se detecta la estación
-  const boot = useStationBoot(stationId, currentStationModelId);
+  const { stationRuntimesMap, stationStatusLoading } = useGenerationContext();
+  const boot = useStationBoot(stationId, currentStationModelId, stationRuntimesMap, stationStatusLoading);
 
   // Callout de primera generación: aparece al primer click en Generar
   // después de que la estación pasó a READY en esta sesión de runtime.
@@ -914,6 +915,7 @@ const FloatingCommandCenter: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capability]);
+
 
   useEffect(() => {
     const handleSetPrompt = (e: Event) => {
@@ -1206,29 +1208,31 @@ const FloatingCommandCenter: React.FC = () => {
       const detail = custom.detail;
       if (!detail) return;
 
-      if (typeof detail.prompt === 'string') {
-        setPrompt(detail.prompt);
-      }
-
       const isFlux = detail.modelId.includes('flux');
       const isKrea = detail.modelId.includes('krea');
       const isVideo = detail.modelId.includes('ltx');
       const isWan = detail.modelId.includes('wan');
+      const isQwen = detail.modelId === 'qwen-image-2.1';
+      const isAudio = detail.modelId === 'tts-dual';
 
-      if (isVideo) {
-        setActiveTab('video');
+      // Determinar la pestaña objetivo ANTES de inyectar el prompt
+      let targetTab: TabType = 'image';
+      if (isVideo || isWan) targetTab = 'video';
+      else if (isAudio) targetTab = 'audio';
+
+      // Inyectar prompt en la pestaña correcta (no en la activa actual)
+      if (typeof detail.prompt === 'string') {
+        setPromptByCap(prev => ({ ...prev, [targetTab]: detail.prompt }));
+      }
+
+      // Cambiar pestaña y capability al instante
+      setActiveTab(targetTab);
+      setCapability(targetTab);
+
+      if (isVideo || isWan) {
         setSelectedVideoModelId(detail.modelId);
-        // Fix: también sincronizar el modelo activo en el contexto.
-        // Sin esto, si el runtimeId del backend no coincide con el
-        // selectedVideoModelId, useRuntime puede quedar apuntando al túnel
-        // del modelo equivocado (bug observado al alternar entre devices).
         setActiveVideoModelId(getRuntimeId(detail.modelId));
-      } else if (isWan) {
-        setActiveTab('video');
-        setSelectedVideoModelId(detail.modelId);
-        setActiveVideoModelId(getRuntimeId(detail.modelId));
-      } else if (isFlux || isKrea) {
-        setActiveTab('image');
+      } else if (isFlux || isKrea || isQwen) {
         setSelectedImageModelId(detail.modelId);
         if (setActiveImageModelId) setActiveImageModelId(detail.modelId);
       }
@@ -1291,6 +1295,24 @@ const FloatingCommandCenter: React.FC = () => {
           enhanceMode: (p.enhanceMode === 'on' || p.enhanceMode === 'text' || p.enhanceMode === 'off')
             ? p.enhanceMode
             : prev.enhanceMode,
+        }));
+      } else if (isQwen) {
+        const aspectOpt = findAspect(['1:1 Square', '16:9 Landscape', '9:16 Portrait', '4:3 Standard', '3:4 Portrait', '2:3 Poster']);
+        const resOpt = str(p.resolution, qwenParams.resolution);
+        setQwenParams(prev => ({
+          ...prev,
+          task: (p.task === 'Editar y Refs' || p.task === 'Inpaint') ? p.task : 'Crear',
+          mode: str(p.mode, prev.mode),
+          transparent: bool(p.transparent, prev.transparent),
+          resolution: resOpt,
+          aspectRatio: aspectOpt,
+          seed: num(p.seed, prev.seed),
+          numImages: num(p.numImages, prev.numImages),
+          strength: num(p.strength, prev.strength),
+          enhanceMode: (p.enhanceMode === 'on' || p.enhanceMode === 'text' || p.enhanceMode === 'off') ? p.enhanceMode : prev.enhanceMode,
+          steps: num(p.steps, prev.steps),
+          guidance: num(p.guidance, prev.guidance),
+          negativePrompt: str(p.negativePrompt, ''),
         }));
       } else if (isWan) {
         const aspectOpt = findAspect(WAN_ASPECTS);
