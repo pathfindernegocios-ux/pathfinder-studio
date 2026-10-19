@@ -1,13 +1,14 @@
 // src/context/GenerationContext.tsx
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { ReactNode } from "react";
-import type { CapabilityId, GenerationInfo, LogEntry, Status } from "../types";
+import type { CapabilityId, Creation, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
 import * as sessionStore from "../lib/sessionStore";
 import { rebaseMediaUrl } from "../lib/mediaUrl";
 import { getChatLabel, getRuntimeId } from "../config/models";
 import { useRuntime } from "../hooks/useRuntime";
 import { useStationStatus } from "../hooks/useStationStatus";
+import { fetchCreationsPage } from "../hooks/useCreations";
 
 type RecoveryState = "checking" | "idle" | "active";
 
@@ -90,6 +91,21 @@ export interface SessionItem {
   errorMessage?: string;
   /** Keys de R2 para las imágenes/videos/audios generados. */
   r2Keys?: string[];
+}
+
+// Clasificación de items para eviction policy de IndexedDB.
+// Tiers (menor = primer candidato a salir):
+//   0 garbage   : error sin respaldo
+//   1 ephemeral : temporary sin r2Keys
+//   2 partial   : temporary con r2Keys (respaldo R2)
+//   3 safe      : saved en Supabase + R2
+//   4 never     : in-flight (isGenerating o saving)
+function classifySessionItem(it: SessionItem): sessionStore.EvictionTier {
+  if (it.isGenerating || it.status === 'saving') return 4;
+  if (it.status === 'saved' || it.creationId) return 3;
+  if (it.errorMessage) return 0;
+  if (it.r2Keys && it.r2Keys.length > 0) return 2;
+  return 1;
 }
 
 interface GenerateParams {
@@ -221,6 +237,12 @@ interface GenerationContextValue {
   getClient: () => Promise<any>;
   /** Devuelve la URL firmada de R2 si está cacheada, o el fallback del túnel. */
   getResolvedUrl: (item: SessionItem, idx: number) => string;
+  /** true si hay más creaciones en Supabase; null si aún no verificado; false si agotado. */
+  hasMoreSupabase: boolean | null;
+  /** true mientras se está fetcheando la siguiente página de Supabase. */
+  isLoadingMoreSupabase: boolean;
+  /** Carga la siguiente página de creaciones (más antiguas) desde Supabase. */
+  loadMoreFromSupabase: () => Promise<void>;
 }
 
 const GenerationContext = createContext<GenerationContextValue | null>(null);
@@ -375,6 +397,49 @@ function hashItem(it: SessionItem): string {
   return [it.status, it.isGenerating ? '1' : '0', it.mediaUrls.join('|'), it.errorMessage ?? '', it.creationId ?? '', it.modelId].join('||');
 }
 
+// Mapper de fila `creations` (Supabase) → SessionItem.
+// Único caller: loadMoreFromSupabase, que filtra status='ready' y
+// expires_at > now() en el server, así que status: 'saved' es correcto.
+// Id: row.id (coincide con creationId). Deduplicación: creationId.
+function mapCreationToSessionItem(row: Creation): SessionItem {
+  const mediaType: 'image' | 'video' | 'audio' =
+    row.media_type === 'video' ? 'video' :
+    row.media_type === 'audio' ? 'audio' :
+    'image';
+
+  const createdAt = new Date(row.created_at).getTime();
+  const meta = (row.metadata && typeof row.metadata === 'object')
+    ? (row.metadata as Record<string, unknown>)
+    : {};
+
+  return {
+    id: row.id,
+    prompt: row.prompt,
+    mediaUrls: [],
+    mediaType,
+    modelId: row.model_id ?? row.model ?? "",
+    modelLabel: row.model ?? row.model_id ?? "",
+    aspectRatio: row.aspect_ratio ?? "1/1",
+    createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    status: 'saved',
+    isGenerating: false,
+    creationId: row.id,
+    params: {
+      seed: row.seed ?? undefined,
+      duration: row.duration ?? undefined,
+      resolution: row.resolution ?? undefined,
+      aspectRatio: row.aspect_ratio ?? undefined,
+      guideScale: row.guide_scale ?? undefined,
+      matchAudioDur: row.match_audio_dur ?? undefined,
+      ...meta,
+    },
+    r2Keys: row.storage_key ? [row.storage_key] : undefined,
+    elapsedSeconds: typeof meta.gen_elapsed_seconds === 'number'
+      ? meta.gen_elapsed_seconds
+      : undefined,
+  };
+}
+
 function mapBackendItem(raw: any): SessionItem {
   const status = raw.status as string;
   const isGenerating = status === "preparing" || status === "running";
@@ -494,6 +559,15 @@ export function GenerationProvider({
 
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const lastPersistedRef = useRef<Map<string, string>>(new Map());
+  const pruneTimerRef = useRef<number | null>(null);
+  const [hasMoreSupabaseByCap, setHasMoreSupabaseByCap] = useState<Record<CapabilityId, boolean | null>>({
+    image: null, video: null, audio: null,
+  });
+  const [isLoadingMoreSupabase, setIsLoadingMoreSupabase] = useState(false);
+  const supabaseCursorRef = useRef<Record<CapabilityId, string | null>>({
+    image: null, video: null, audio: null,
+  });
+  const loadMoreInFlightRef = useRef(false);
 
   // Limpieza de versiones anteriores (localStorage/sessionStorage).
   // Al migrar a IndexedDB, dejamos basura atrás que causaba skeletons fantasma.
@@ -512,6 +586,15 @@ export function GenerationProvider({
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Mount prune: libera items obsoletos ANTES de hidratar. Coherencia
+      // estado <-> disco desde el arranque. pruneItems nunca lanza (catch interno).
+      const pr = await sessionStore.pruneItems<SessionItem>({
+        classify: classifySessionItem,
+      });
+      if (pr.deleted > 0) {
+        console.info(`[GenerationContext] Mount prune: ${pr.deleted} evicted, ${pr.remaining} remaining`);
+      }
+      if (cancelled) return;
       const items = await sessionStore.getAllItems<SessionItem>();
       if (cancelled) return;
       if (items.length > 0) {
@@ -557,7 +640,33 @@ export function GenerationProvider({
     if (changed.length > 0) void sessionStore.putItems(changed);
     for (const id of deleted) void sessionStore.deleteItem(id);
     lastPersistedRef.current = now;
+
+    // Write prune: debounced 5s tras el último cambio. Coherencia
+    // disco <-> estado sin saturar IndexedDB en cada generación.
+    if (changed.length > 0) {
+      if (pruneTimerRef.current !== null) window.clearTimeout(pruneTimerRef.current);
+      pruneTimerRef.current = window.setTimeout(() => {
+        pruneTimerRef.current = null;
+        void sessionStore.pruneItems<SessionItem>({
+          classify: classifySessionItem,
+        }).then((r) => {
+          if (r.deleted > 0) {
+            console.info(`[GenerationContext] Write prune: ${r.deleted} evicted, ${r.remaining} remaining`);
+          }
+        });
+      }, 5000);
+    }
   }, [sessionHydrated, sessionHistoryByCapability]);
+
+  // Cleanup del timer de prune al desmontar.
+  useEffect(() => {
+    return () => {
+      if (pruneTimerRef.current !== null) {
+        window.clearTimeout(pruneTimerRef.current);
+        pruneTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Derivado: la slice de la capability activa. Todos los consumidores
   // (StudioPage, FCM) siguen leyendo `sessionHistory` como antes.
@@ -1990,6 +2099,57 @@ export function GenerationProvider({
     return item.mediaUrls[idx] || item.mediaUrls[0] || '';
   }, [r2UrlCache]);
 
+  // Carga la siguiente página de creaciones (más antiguas) desde Supabase.
+  // Deduplica contra items locales por creationId. El cursor se inicializa
+  // una vez desde el item local saved más antiguo (si existe) para evitar
+  // re-fetchear lo que ya está en cache; luego avanza con nextCursor del server.
+  const loadMoreFromSupabase = useCallback(async () => {
+    if (loadMoreInFlightRef.current) return;
+    loadMoreInFlightRef.current = true;
+    setIsLoadingMoreSupabase(true);
+    const cap = capability;
+    try {
+      let cursor = supabaseCursorRef.current[cap];
+      if (cursor === null) {
+        const locals = sessionHistoryByCapability[cap];
+        const savedLocals = locals.filter(it => !!it.creationId);
+        if (savedLocals.length > 0) {
+          const oldest = savedLocals.reduce((a, b) => a.createdAt < b.createdAt ? a : b);
+          cursor = new Date(oldest.createdAt).toISOString();
+          supabaseCursorRef.current[cap] = cursor;
+        }
+      }
+
+      const page = await fetchCreationsPage({
+        cursor: cursor ?? undefined,
+        limit: 50,
+        capability: cap,
+      });
+
+      const newItems = page.items.map(mapCreationToSessionItem);
+
+      setSessionHistoryByCapability(prev => {
+        const existingCreationIds = new Set(
+          prev[cap].map(it => it.creationId).filter((x): x is string => !!x)
+        );
+        const filtered = newItems.filter(it => it.creationId && !existingCreationIds.has(it.creationId));
+        if (filtered.length === 0) return prev;
+        const merged = [...filtered, ...prev[cap]];
+        merged.sort((a, b) => a.createdAt - b.createdAt);
+        return { ...prev, [cap]: merged };
+      });
+
+      supabaseCursorRef.current[cap] = page.nextCursor;
+      setHasMoreSupabaseByCap(prev => ({ ...prev, [cap]: page.hasMore }));
+    } catch (err) {
+      console.warn("[loadMoreFromSupabase] error:", err);
+      setHasMoreSupabaseByCap(prev => ({ ...prev, [cap]: false }));
+    } finally {
+      setIsLoadingMoreSupabase(false);
+      loadMoreInFlightRef.current = false;
+    }
+  }, [capability, sessionHistoryByCapability]);
+
   const nowSec = nowTick / 1000;
   const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
   const liveElapsedSec = isLoading && generationInfo?.started_at ? Math.max(0, nowSec - generationInfo.started_at) : null;
@@ -2012,6 +2172,9 @@ export function GenerationProvider({
     stationStatusLoading, refreshStationStatus, stationRuntimesMap,
     getClient,
     getResolvedUrl,
+    hasMoreSupabase: hasMoreSupabaseByCap[capability],
+    isLoadingMoreSupabase,
+    loadMoreFromSupabase,
   };
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;

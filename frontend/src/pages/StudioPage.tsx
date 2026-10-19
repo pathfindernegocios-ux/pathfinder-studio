@@ -129,7 +129,12 @@ const StudioPage: React.FC = () => {
     activeVideoModelId,
     stationStatusMap,
     generationInfo,
+    hasMoreSupabase,
+    isLoadingMoreSupabase,
+    loadMoreFromSupabase,
   } = useGenerationContext();
+
+  const [visibleItemsCount, setVisibleItemsCount] = useState(50);
 
   const currentModelId = capability === 'image'
     ? activeImageModelId
@@ -1042,7 +1047,41 @@ const StudioPage: React.FC = () => {
           )}
 
           {/* LISTA DE HISTORIAL */}
-          {sessionHistory.map((item) => {
+          {(sessionHistory.length > visibleItemsCount || hasMoreSupabase !== false) && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (sessionHistory.length > visibleItemsCount) {
+                  setVisibleItemsCount(c => c + 50);
+                } else if (hasMoreSupabase !== false) {
+                  await loadMoreFromSupabase();
+                  setVisibleItemsCount(c => c + 50);
+                }
+              }}
+              disabled={isLoadingMoreSupabase}
+              style={{
+                width: 'fit-content',
+                margin: '8px auto 14px',
+                display: 'block',
+                padding: '8px 18px',
+                background: 'rgba(139,92,246,0.10)',
+                border: '1px solid rgba(139,92,246,0.22)',
+                borderRadius: '999px',
+                color: 'var(--pf-text-primary)',
+                fontFamily: 'var(--pf-font-ui)',
+                fontSize: '0.8125rem',
+                cursor: isLoadingMoreSupabase ? 'wait' : 'pointer',
+                opacity: isLoadingMoreSupabase ? 0.6 : 1,
+              }}
+            >
+              {isLoadingMoreSupabase
+                ? 'Cargando...'
+                : sessionHistory.length > visibleItemsCount
+                  ? `Cargar más (${sessionHistory.length - visibleItemsCount})`
+                  : 'Cargar más (desde servidor)'}
+            </button>
+          )}
+          {sessionHistory.slice(-visibleItemsCount).map((item) => {
             const frameWidth = frameWidthStyle(item.aspectRatio || '1/1');
             const currentIdx = getSelectedIndex(item.id, item.mediaUrls.length);
             const currentUrl = getResolvedUrl(item, currentIdx);
