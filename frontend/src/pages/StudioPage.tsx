@@ -324,9 +324,17 @@ const StudioPage: React.FC = () => {
   const handleDiscard = (id: string) => setDiscardTargetId(id);
   const handleConfirmDiscard = async () => {
     if (discardTargetId) {
-      // Borrar de R2 y de la DB
-      await deleteCreation(discardTargetId);
-      // Borrar localmente
+      // Buscar el item en el historial para ver si ya se guardó en la DB.
+      // Los items 'temporary' o 'saving' aún no están en Supabase.
+      const item = sessionHistory.find(i => i.id === discardTargetId);
+
+      // Solo llamar a la Edge Function si ya está en la base de datos.
+      // Si es temporal, borrar de R2 fallaría (la Edge Function no lo encuentra).
+      if (item && item.status === 'saved') {
+        await deleteCreation(discardTargetId);
+      }
+
+      // Siempre borrar localmente del chat (IndexedDB)
       removeSessionItem(discardTargetId);
     }
     setDiscardTargetId(null);
