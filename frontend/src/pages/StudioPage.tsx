@@ -105,7 +105,7 @@ function MediaLightbox({ selectedMedia, onClose }: { selectedMedia: { item: Sess
 }
 
 const StudioPage: React.FC = () => {
-  const { saveCreation, saveError } = useCreations();
+  const { saveCreation, saveError , deleteCreation} = useCreations();
   const isMobile = useIsMobile();
   const { profile } = useAuth();
   const studioTheme = useUIStore((s) => s.studioTheme);
@@ -322,10 +322,48 @@ const StudioPage: React.FC = () => {
   // ── Confirmación de eliminación ──
   const [discardTargetId, setDiscardTargetId] = useState<string | null>(null);
   const handleDiscard = (id: string) => setDiscardTargetId(id);
-  const handleConfirmDiscard = () => {
-    if (discardTargetId) removeSessionItem(discardTargetId);
+  const handleConfirmDiscard = async () => {
+    if (discardTargetId) {
+      // Borrar de R2 y de la DB
+      await deleteCreation(discardTargetId);
+      // Borrar localmente
+      removeSessionItem(discardTargetId);
+    }
     setDiscardTargetId(null);
   };
+
+  // Auto-Guardado: detecta items completados con r2Keys que no se han guardado
+  useEffect(() => {
+    const processAutoSave = async () => {
+      for (const item of sessionHistory) {
+        if (!item.isGenerating && item.r2Keys && item.r2Keys.length > 0 && item.status === 'temporary') {
+          // Marcar como saving para no procesarlo dos veces
+          updateSessionItem(item.id, { status: 'saving' });
+          
+          try {
+            await saveCreation({
+              r2Key: item.r2Keys[0],
+              clientRequestId: item.id,
+              prompt: item.prompt || '',
+              seed: -1,
+              duration: item.mediaType === 'video' ? '5s' : '',
+              resolution: 'Standard',
+              aspectRatio: item.aspectRatio?.replace('/', ':') || '1:1',
+              guideScale: 0,
+              matchAudioDur: false,
+              mediaType: item.mediaType,
+              modelId: item.modelId,
+            });
+            updateSessionItem(item.id, { status: 'saved' });
+          } catch (e) {
+            console.error("Auto-save failed", e);
+            updateSessionItem(item.id, { status: 'temporary' }); // Reintentar en el siguiente render
+          }
+        }
+      }
+    };
+    processAutoSave();
+  }, [sessionHistory, saveCreation, updateSessionItem]);
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
