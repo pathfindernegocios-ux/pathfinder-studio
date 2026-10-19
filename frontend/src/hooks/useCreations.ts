@@ -3,7 +3,9 @@ import { supabase } from "../lib/supabaseClient";
 import type { Creation } from "../types";
 
 interface SaveCreationParams {
-  tempUrl: string;
+  tempUrl?: string;
+  r2Key?: string;
+  clientRequestId?: string;
   prompt: string;
   seed: number;
   duration: string;
@@ -20,7 +22,7 @@ export function useCreations() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const saveCreation = useCallback(async (params: SaveCreationParams) => {
+  const saveCreation = useCallback(async (params: SaveCreationParams & { r2Key?: string; clientRequestId?: string }) => {
     setIsSaving(true);
     setSaveError(null);
 
@@ -41,6 +43,18 @@ export function useCreations() {
         engine: "Wan2GP",
       };
 
+      // ── FLUJO NUEVO: Si tenemos r2Key, solo insertamos en la DB ──
+      if (params.r2Key) {
+        const { data, error } = await supabase.functions.invoke(
+          "save-creation",
+          { body: { metadata, r2_key: params.r2Key, client_request_id: params.clientRequestId } }
+        );
+        if (error) throw error;
+        setCreations((prev) => [data.creation, ...prev]);
+        return data.creation;
+      }
+
+      // ── FLUJO VIEJO: Presign y subida ──
       const { data: presignData, error: presignError } = await supabase.functions.invoke(
         "save-creation",
         { body: { metadata } }
@@ -53,6 +67,7 @@ export function useCreations() {
 
       const { creationId, uploadUrl, storageKey } = presignData;
 
+      if (!params.tempUrl) throw new Error('tempUrl es requerido para este flujo');
       const fileRes = await fetch(params.tempUrl);
       if (!fileRes.ok) {
         setSaveError("No se pudo descargar el archivo temporal.");
