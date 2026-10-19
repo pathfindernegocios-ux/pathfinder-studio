@@ -6,7 +6,7 @@ import FloatingCommandCenter from '../components/FloatingCommandCenter';
 import AudioPlayer from '../components/AudioPlayer';
 import { useCreations } from '../hooks/useCreations';
 import { useAuth } from '../hooks/useAuth';
-import { useGenerationContext, type SessionItem } from '../context/GenerationContext';
+import { useGenerationContext, hasRenderableMedia, getMediaCount, type SessionItem } from '../context/GenerationContext';
 import { useR2SignedUrl } from '../hooks/useR2SignedUrl';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -223,7 +223,7 @@ const StudioPage: React.FC = () => {
   // cuando está leyendo historial arriba).
   const lastItem = sessionHistory[sessionHistory.length - 1];
   const lastItemIsGenerating = lastItem?.isGenerating ?? false;
-  const lastItemMediaCount = lastItem?.mediaUrls.length ?? 0;
+  const lastItemMediaCount = lastItem ? getMediaCount(lastItem) : 0;
 
   useEffect(() => {
     if (!isAtBottomRef.current) return;
@@ -249,7 +249,7 @@ const StudioPage: React.FC = () => {
       if (!item.isGenerating) continue;
       if (orphanMarkedRef.current.has(item.id)) continue;
       if (now - item.createdAt < 60_000) continue;
-      if (item.mediaUrls.length > 0) continue;
+      if (hasRenderableMedia(item)) continue;
       if (item.sceneUrls && item.sceneUrls.length > 0) continue;
       orphanMarkedRef.current.add(item.id);
       updateSessionItem(item.id, {
@@ -267,7 +267,7 @@ const StudioPage: React.FC = () => {
     if (guardCalloutShownRef.current) return;
     if (localStorage.getItem('pf_guard_callout_seen') === '1') return;
     const hasTempWithMedia = sessionHistory.some(
-      it => it.status === 'temporary' && it.mediaUrls.length > 0
+      it => it.status === 'temporary' && hasRenderableMedia(it)
     );
     if (!hasTempWithMedia) return;
     guardCalloutShownRef.current = true;
@@ -283,15 +283,15 @@ const StudioPage: React.FC = () => {
   const lastTemporaryWithMediaId = (() => {
     for (let i = sessionHistory.length - 1; i >= 0; i--) {
       const it = sessionHistory[i];
-      if (it.status === 'temporary' && it.mediaUrls.length > 0) return it.id;
+      if (it.status === 'temporary' && hasRenderableMedia(it)) return it.id;
     }
     return null;
   })();
 
   const handleSave = async (item: SessionItem) => {
-    if (item.status === 'saved' || item.mediaUrls.length === 0) return;
+    if (item.status === 'saved' || !hasRenderableMedia(item)) return;
 
-    const currentIdx = getSelectedIndex(item.id, item.mediaUrls.length);
+    const currentIdx = getSelectedIndex(item.id, getMediaCount(item));
     const currentUrl = getResolvedUrl(item, currentIdx);
     if (!currentUrl) return;
 
@@ -421,7 +421,7 @@ const StudioPage: React.FC = () => {
   };
 
   const handleContinueFromVideo = async (item: SessionItem) => {
-    const url = item.mediaUrls[0];
+    const url = getResolvedUrl(item, 0);
     if (!url) return;
     try {
       const r = await fetch(url);
@@ -1083,9 +1083,9 @@ const StudioPage: React.FC = () => {
           )}
           {sessionHistory.slice(-visibleItemsCount).map((item) => {
             const frameWidth = frameWidthStyle(item.aspectRatio || '1/1');
-            const currentIdx = getSelectedIndex(item.id, item.mediaUrls.length);
+            const currentIdx = getSelectedIndex(item.id, getMediaCount(item));
             const currentUrl = getResolvedUrl(item, currentIdx);
-            const hasMultiple = item.mediaUrls.length > 1;
+            const hasMultiple = getMediaCount(item) > 1;
 
             return (
               <div
@@ -1249,7 +1249,7 @@ const StudioPage: React.FC = () => {
                       overflow: 'visible'
                     }}>
 
-                      {!item.isGenerating && item.mediaUrls.length === 0 && item.errorMessage && (
+                      {!item.isGenerating && !hasRenderableMedia(item) && item.errorMessage && (
                         <div style={{
                           width: frameWidth,
                           background: 'rgba(248,113,113,0.06)',
@@ -1342,7 +1342,7 @@ const StudioPage: React.FC = () => {
                         />
                       )}
 
-                      {!item.isGenerating && item.mediaUrls.length > 0 && item.mediaType !== 'audio' && (
+                      {!item.isGenerating && hasRenderableMedia(item) && item.mediaType !== 'audio' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <div style={{
                             position: 'relative',
@@ -1352,7 +1352,11 @@ const StudioPage: React.FC = () => {
                             overflow: 'hidden',
                             boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                           }}>
-                            {item.mediaType === 'video' ? (
+                            {!currentUrl ? (
+                              <div style={{ width: '100%', height: '100%', background: 'var(--pf-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pf-text-muted)', fontSize: '0.875rem' }}>
+                                Cargando...
+                              </div>
+                            ) : item.mediaType === 'video' ? (
                               <VideoPlayer src={currentUrl} autoPlay={false} />
                             ) : (
                               <img
@@ -1366,31 +1370,38 @@ const StudioPage: React.FC = () => {
 
                           {hasMultiple && (
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              {item.mediaUrls.map((url, idx) => (
-                                <div
-                                  key={idx}
-                                  onClick={() => setSelectedIndex(item.id, idx)}
-                                  style={{
-                                    width: '48px',
-                                    height: '48px',
-                                    borderRadius: '6px',
-                                    overflow: 'hidden',
-                                    cursor: 'pointer',
-                                    border: idx === currentIdx
-                                      ? '2px solid var(--pf-text-primary)'
-                                      : '2px solid var(--pf-border-subtle)',
-                                    opacity: idx === currentIdx ? 1 : 0.6,
-                                    transition: 'all 0.15s ease',
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <img
-                                    src={url}
-                                    alt={`${item.prompt} ${idx + 1}`}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                  />
-                                </div>
-                              ))}
+                              {Array.from({ length: getMediaCount(item) }, (_, idx) => {
+                                const thumbUrl = getResolvedUrl(item, idx);
+                                return (
+                                  <div
+                                    key={idx}
+                                    onClick={() => setSelectedIndex(item.id, idx)}
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      borderRadius: '6px',
+                                      overflow: 'hidden',
+                                      cursor: 'pointer',
+                                      border: idx === currentIdx
+                                        ? '2px solid var(--pf-text-primary)'
+                                        : '2px solid var(--pf-border-subtle)',
+                                      opacity: idx === currentIdx ? 1 : 0.6,
+                                      transition: 'all 0.15s ease',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {thumbUrl ? (
+                                      <img
+                                        src={thumbUrl}
+                                        alt={`${item.prompt} ${idx + 1}`}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                      />
+                                    ) : (
+                                      <div style={{ width: '100%', height: '100%', background: 'var(--pf-bg-tertiary)' }} />
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
 
@@ -1404,9 +1415,9 @@ const StudioPage: React.FC = () => {
                         </div>
                       )}
 
-                      {!item.isGenerating && item.mediaUrls.length > 0 && item.mediaType === 'audio' && (
+                      {!item.isGenerating && hasRenderableMedia(item) && item.mediaType === 'audio' && (
                         <div style={{ width: 'min(440px, 100%)' }}>
-                          <AudioPlayer src={item.mediaUrls[0]} bars={44} />
+                          <AudioPlayer src={currentUrl} bars={44} />
                         </div>
                       )}
                     </div>
@@ -1440,7 +1451,7 @@ const StudioPage: React.FC = () => {
                             label="Guardando..."
                           />
                         )}
-                        {item.mediaUrls.length > 0 && (
+                        {hasRenderableMedia(item) && (
                           <ActionButton
   onClick={() => handleDownload(item, currentIdx)}
   icon={downloadingId === item.id ? <Loader2 size={14} className="pf-spin" /> : <Download size={14} />}
@@ -1448,7 +1459,7 @@ const StudioPage: React.FC = () => {
   disabled={downloadingId !== null && downloadingId !== item.id}
 />
                         )}
-                        {item.mediaType === 'video' && item.modelId === 'ltx-2.3' && item.mediaUrls[0] && !item.storyboardMeta && (
+                        {item.mediaType === 'video' && item.modelId === 'ltx-2.3' && hasRenderableMedia(item) && !item.storyboardMeta && (
                           <ActionButton onClick={() => handleContinueFromVideo(item)} icon={<Play size={14} />} label="Continuar" />
                         )}
                         <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label={item.errorMessage ? "Reintentar" : "Variación"} />

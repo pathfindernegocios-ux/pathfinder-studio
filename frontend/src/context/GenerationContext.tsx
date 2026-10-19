@@ -62,6 +62,10 @@ export interface StoryboardPayload {
 export interface SessionItem {
   id: string;
   prompt: string;
+  /**
+   * @deprecated Legacy: URLs del túnel (efímeras). Para items nuevos usar `r2Keys`.
+   * Solo se mantiene como fallback para items generados antes de la migración a R2.
+   */
   mediaUrls: string[];
   mediaType: 'image' | 'video' | 'audio';
   modelId: string;
@@ -89,8 +93,33 @@ export interface SessionItem {
   elapsedSeconds?: number;
   /** Mensaje de error si la generación falló. Solo presente cuando el backend reportó status error/failed. */
   errorMessage?: string;
-  /** Keys de R2 para las imágenes/videos/audios generados. */
+  /** Keys de R2 para las imágenes/videos/audios generados. Fuente de verdad. */
   r2Keys?: string[];
+  /**
+   * Item legacy: generado antes de la migración a R2. No tiene r2Keys,
+   * solo tiene mediaUrls (URLs efímeras del túnel). El render debe usar
+   * el túnel como fallback o mostrar "Archivo temporal expirado".
+   */
+  legacy?: boolean;
+}
+
+/**
+ * Helper: ¿el item tiene media renderizable?
+ * Prioriza r2Keys (fuente de verdad nueva). Fallback a mediaUrls (legacy).
+ */
+export function hasRenderableMedia(item: SessionItem): boolean {
+  return getMediaCount(item) > 0;
+}
+
+/**
+ * Helper: cantidad de archivos multimedia en el item.
+ * r2Keys es la fuente de verdad para items nuevos.
+ * mediaUrls es fallback para items legacy.
+ */
+export function getMediaCount(item: SessionItem): number {
+  if (item.r2Keys && item.r2Keys.length > 0) return item.r2Keys.length;
+  if (item.mediaUrls && item.mediaUrls.length > 0) return item.mediaUrls.length;
+  return 0;
 }
 
 // Clasificación de items para eviction policy de IndexedDB.
@@ -394,7 +423,11 @@ function reconcileWithBackend(
 }
 
 function hashItem(it: SessionItem): string {
-  return [it.status, it.isGenerating ? '1' : '0', it.mediaUrls.join('|'), it.errorMessage ?? '', it.creationId ?? '', it.modelId].join('||');
+  // r2Keys es la fuente de verdad. mediaUrls es fallback legacy.
+  const mediaSig = (it.r2Keys && it.r2Keys.length > 0)
+    ? `r2:${it.r2Keys.join('|')}`
+    : `tunnel:${it.mediaUrls.join('|')}`;
+  return [it.status, it.isGenerating ? '1' : '0', mediaSig, it.errorMessage ?? '', it.creationId ?? '', it.modelId].join('||');
 }
 
 // Mapper de fila `creations` (Supabase) → SessionItem.
@@ -434,6 +467,7 @@ function mapCreationToSessionItem(row: Creation): SessionItem {
       ...meta,
     },
     r2Keys: row.storage_key ? [row.storage_key] : undefined,
+    legacy: !row.storage_key,
     elapsedSeconds: typeof meta.gen_elapsed_seconds === 'number'
       ? meta.gen_elapsed_seconds
       : undefined,
@@ -477,6 +511,7 @@ function mapBackendItem(raw: any): SessionItem {
       return (typeof val === 'number' && val > 0) ? val : undefined;
     })(),
     r2Keys: Array.isArray(raw.r2_keys) ? raw.r2_keys.map(String) : undefined,
+    legacy: !isGenerating && (!Array.isArray(raw.r2_keys) || raw.r2_keys.length === 0),
     storyboardMeta: raw.storyboard_meta ? {
       totalScenes: Number(raw.storyboard_meta.total_scenes ?? 0),
       currentScene: Number(raw.storyboard_meta.current_scene ?? 1),
@@ -560,13 +595,12 @@ export function GenerationProvider({
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const lastPersistedRef = useRef<Map<string, string>>(new Map());
   const pruneTimerRef = useRef<number | null>(null);
-  const [hasMoreSupabaseByCap, setHasMoreSupabaseByCap] = useState<Record<CapabilityId, boolean | null>>({
-    image: null, video: null, audio: null,
-  });
-  const [isLoadingMoreSupabase, setIsLoadingMoreSupabase] = useState(false);
-  const supabaseCursorRef = useRef<Record<CapabilityId, string | null>>({
-    image: null, video: null, audio: null,
-  });
+  // Paginación aislada por modelo. Cada modelo es su propio "hilo" de
+  // conversación: tiene su propio cursor, su propio "hasMore" y su propio
+  // "isLoading". Clave compuesta: `${capability}:${modelId}`.
+  const [hasMoreSupabaseByModel, setHasMoreSupabaseByModel] = useState<Record<string, boolean | null>>({});
+  const [isLoadingMoreSupabaseMap, setIsLoadingMoreSupabaseMap] = useState<Record<string, boolean>>({});
+  const supabaseCursorRef = useRef<Record<string, string | null>>({});
   const loadMoreInFlightRef = useRef(false);
 
   // Limpieza de versiones anteriores (localStorage/sessionStorage).
@@ -1896,7 +1930,7 @@ export function GenerationProvider({
             const items = await fetchSessionHistory();
             const anyPreparing = items.some(it => it.isGenerating);
             if (items.length > 0 && !anyPreparing) {
-              setSessionHistory(items);
+              setHistoryForCap(cap, items);
               break;
             }
           } catch {}
@@ -2103,20 +2137,43 @@ export function GenerationProvider({
   // Deduplica contra items locales por creationId. El cursor se inicializa
   // una vez desde el item local saved más antiguo (si existe) para evitar
   // re-fetchear lo que ya está en cache; luego avanza con nextCursor del server.
+  // Inicializar hasMoreSupabase en el primer mount (undefined => fetch inicial)
+  // Inicializar paginación por modelo al montar
+  const currentModelIdForPag = capability === 'image'
+    ? activeImageModelId
+    : capability === 'audio'
+      ? 'tts-dual'
+      : activeVideoModelId;
+  const currentModelKeyForPag = currentModelIdForPag ? `${capability}:${currentModelIdForPag}` : null;
+
   const loadMoreFromSupabase = useCallback(async () => {
     if (loadMoreInFlightRef.current) return;
     loadMoreInFlightRef.current = true;
-    setIsLoadingMoreSupabase(true);
+
     const cap = capability;
+    const currentModelId = cap === 'image'
+      ? activeImageModelId
+      : cap === 'audio'
+        ? 'tts-dual'
+        : activeVideoModelId;
+
+    if (!currentModelId) {
+      loadMoreInFlightRef.current = false;
+      return;
+    }
+
+    const modelKey = `${cap}:${currentModelId}`;
+    setIsLoadingMoreSupabaseMap(prev => ({ ...prev, [modelKey]: true }));
+
     try {
-      let cursor = supabaseCursorRef.current[cap];
-      if (cursor === null) {
-        const locals = sessionHistoryByCapability[cap];
+      let cursor = supabaseCursorRef.current[modelKey];
+      if (cursor === undefined || cursor === null) {
+        const locals = sessionHistoryByCapability[cap].filter(it => it.modelId === currentModelId);
         const savedLocals = locals.filter(it => !!it.creationId);
         if (savedLocals.length > 0) {
           const oldest = savedLocals.reduce((a, b) => a.createdAt < b.createdAt ? a : b);
           cursor = new Date(oldest.createdAt).toISOString();
-          supabaseCursorRef.current[cap] = cursor;
+          supabaseCursorRef.current[modelKey] = cursor;
         }
       }
 
@@ -2124,31 +2181,38 @@ export function GenerationProvider({
         cursor: cursor ?? undefined,
         limit: 50,
         capability: cap,
+        modelId: currentModelId,
       });
 
       const newItems = page.items.map(mapCreationToSessionItem);
 
       setSessionHistoryByCapability(prev => {
-        const existingCreationIds = new Set(
-          prev[cap].map(it => it.creationId).filter((x): x is string => !!x)
-        );
-        const filtered = newItems.filter(it => it.creationId && !existingCreationIds.has(it.creationId));
+        // Deduplicar por id. Si el item ya existe en el estado local
+        // (porque se generó en esta sesión), no lo insertamos de nuevo.
+        const existingIds = new Set(prev[cap].map(it => it.id));
+        const filtered = newItems.filter(it => !existingIds.has(it.id));
         if (filtered.length === 0) return prev;
         const merged = [...filtered, ...prev[cap]];
         merged.sort((a, b) => a.createdAt - b.createdAt);
         return { ...prev, [cap]: merged };
       });
 
-      supabaseCursorRef.current[cap] = page.nextCursor;
-      setHasMoreSupabaseByCap(prev => ({ ...prev, [cap]: page.hasMore }));
+      supabaseCursorRef.current[modelKey] = page.nextCursor;
+      setHasMoreSupabaseByModel(prev => ({ ...prev, [modelKey]: page.hasMore }));
     } catch (err) {
       console.warn("[loadMoreFromSupabase] error:", err);
-      setHasMoreSupabaseByCap(prev => ({ ...prev, [cap]: false }));
+      setHasMoreSupabaseByModel(prev => ({ ...prev, [modelKey]: false }));
     } finally {
-      setIsLoadingMoreSupabase(false);
+      setIsLoadingMoreSupabaseMap(prev => ({ ...prev, [modelKey]: false }));
       loadMoreInFlightRef.current = false;
     }
-  }, [capability, sessionHistoryByCapability]);
+  }, [capability, activeImageModelId, activeVideoModelId, sessionHistoryByCapability]);
+
+  useEffect(() => {
+    if (!sessionHydrated || !currentModelKeyForPag) return;
+    if (hasMoreSupabaseByModel[currentModelKeyForPag] !== undefined) return;
+    void loadMoreFromSupabase();
+  }, [sessionHydrated, currentModelKeyForPag, hasMoreSupabaseByModel, loadMoreFromSupabase]);
 
   const nowSec = nowTick / 1000;
   const progressFrac = Math.min(1, Math.max(0, generationInfo?.progress ?? 0));
@@ -2172,8 +2236,8 @@ export function GenerationProvider({
     stationStatusLoading, refreshStationStatus, stationRuntimesMap,
     getClient,
     getResolvedUrl,
-    hasMoreSupabase: hasMoreSupabaseByCap[capability],
-    isLoadingMoreSupabase,
+    hasMoreSupabase: currentModelKeyForPag ? (hasMoreSupabaseByModel[currentModelKeyForPag] ?? null) : null,
+    isLoadingMoreSupabase: currentModelKeyForPag ? (isLoadingMoreSupabaseMap[currentModelKeyForPag] ?? false) : false,
     loadMoreFromSupabase,
   };
 
