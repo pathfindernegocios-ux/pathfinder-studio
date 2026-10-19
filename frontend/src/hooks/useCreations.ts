@@ -24,11 +24,12 @@ interface SaveCreationParams {
 // Cursor: created_at del último item devuelto por la página anterior.
 // Retorna hasta `limit` items + flag hasMore (probe limit+1).
 export async function fetchCreationsPage(
-  opts?: { cursor?: string; limit?: number; capability?: "image" | "video" | "audio" }
+  opts?: { cursor?: string; limit?: number; capability?: "image" | "video" | "audio"; modelId?: string }
 ): Promise<{ items: Creation[]; hasMore: boolean; nextCursor: string | null }> {
   const limit = opts?.limit ?? 50;
   const cursor = opts?.cursor;
   const capability = opts?.capability;
+  const modelId = opts?.modelId;
 
   try {
     let query = supabase
@@ -40,6 +41,7 @@ export async function fetchCreationsPage(
       .limit(limit + 1);
 
     if (capability) query = query.eq("media_type", capability);
+    if (modelId) query = query.eq("model_id", modelId);
     if (cursor) query = query.lt("created_at", cursor);
 
     const { data, error } = await query;
