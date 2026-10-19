@@ -17,6 +17,45 @@ interface SaveCreationParams {
   modelId?: string;
 }
 
+// Fetch paginado de `creations` con cursor por created_at DESC.
+// Función pura (no hook) para permitir su uso desde GenerationContext
+// sin acoplar al estado del hook. Filtra server-side:
+//   status = 'ready' AND expires_at > now() AND media_type = capability (si se pasa)
+// Cursor: created_at del último item devuelto por la página anterior.
+// Retorna hasta `limit` items + flag hasMore (probe limit+1).
+export async function fetchCreationsPage(
+  opts?: { cursor?: string; limit?: number; capability?: "image" | "video" | "audio" }
+): Promise<{ items: Creation[]; hasMore: boolean; nextCursor: string | null }> {
+  const limit = opts?.limit ?? 50;
+  const cursor = opts?.cursor;
+  const capability = opts?.capability;
+
+  try {
+    let query = supabase
+      .from("creations")
+      .select("*")
+      .eq("status", "ready")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(limit + 1);
+
+    if (capability) query = query.eq("media_type", capability);
+    if (cursor) query = query.lt("created_at", cursor);
+
+    const { data, error } = await query;
+    if (error) return { items: [], hasMore: false, nextCursor: null };
+
+    const rows = (data as Creation[]) ?? [];
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = items.length > 0 ? items[items.length - 1].created_at : null;
+
+    return { items, hasMore, nextCursor };
+  } catch {
+    return { items: [], hasMore: false, nextCursor: null };
+  }
+}
+
 export function useCreations() {
   const [creations, setCreations] = useState<Creation[]>([]);
   const [isSaving, setIsSaving] = useState(false);
