@@ -328,6 +328,7 @@ const StudioPage: React.FC = () => {
 
       const result = await saveCreation({
         tempUrl: currentUrl,
+        clientRequestId: item.id,
         prompt: item.prompt || '',
         seed: -1,
         duration: item.mediaType === 'video' ? '5s' : '',
@@ -336,7 +337,7 @@ const StudioPage: React.FC = () => {
         guideScale: 0,
         matchAudioDur: false,
         mediaType: item.mediaType,
-        modelId: item.modelLabel.toLowerCase().replace(/\s/g, '-')
+        modelId: item.modelId
       });
 
       if (result) {
@@ -347,7 +348,7 @@ const StudioPage: React.FC = () => {
         updateSessionItem(item.id, { status: 'temporary' });
       }
     } catch (error) {
-      void 0;
+      console.error("Manual save failed:", error);
       updateSessionItem(item.id, { status: 'temporary' });
     }
   };
