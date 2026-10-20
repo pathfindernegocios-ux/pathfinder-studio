@@ -165,14 +165,12 @@ export function useStationStatus(stationId: string | null): UseStationStatusResu
           }
 
           // Bug B: el heartbeat es la fuente de verdad. Si el ultimo latido
-          // es viejo (>90s), el notebook esta muerto sin importar lo que
-          // diga /status o el estado previo. Marcar offline directo, sin
-          // intentar conectar. Sin esto, un predict que falla por timeout
-          // preservaba el estado previo INDEFINIDAMENTE y un notebook
-          // muerto podia quedar 'online' para siempre en el sidebar.
+          // es viejo, el notebook esta muerto o atascado. Aumentado a 180s
+          // (3 minutos) porque los notebooks en Kaggle/Colab pueden bloquear
+          // el hilo de Python durante generaciones pesadas (LTX, Qwen Quality).
           const hbAt = row.last_heartbeat_at;
           const hbAgeMs = hbAt ? Date.now() - new Date(hbAt).getTime() : Infinity;
-          if (hbAgeMs > 90_000) {
+          if (hbAgeMs > 180_000) {
             results[modelId] = 'offline';
             return;
           }
