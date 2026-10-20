@@ -875,7 +875,6 @@ export function GenerationProvider({
   // reporta idle durante N polls consecutivos mientras localmente hay un
   // item isGenerating, se marca como error. Cubre el caso "server muerto
   // o reiniciado a mitad de generación".
-  const pollIdleCountRef = useRef<number>(0);
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
   // WATCHDOG DE ESTADO: Si el runtime se marca como 'offline' en el heartbeat
@@ -936,51 +935,16 @@ export function GenerationProvider({
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
     let cancelled = false;
-    const ORPHAN_POLL_THRESHOLD = 6;
-    // Ventana mínima desde el inicio de la generación antes de declarar orphan.
-    // Cubre: cold start del transformer, Prompt Enhancer (~20s en T4), KV cache
-    // building, setup de LoRAs. Cualquier modelo puede tardar este tiempo sin
-    // que eso signifique que el servidor murió — solo que aún no refleja nada
-    // en /generation_status.
-    const ORPHAN_MIN_AGE_MS = 90_000;
-
-    const withinOrphanGrace = () =>
-      generationStartRef.current > 0 &&
-      Date.now() - generationStartRef.current * 1000 < ORPHAN_MIN_AGE_MS;
-
-
-    const markOrphan = () => {
-      // Durante la ventana de gracia no declaramos orphan. Cubre la fase en la
-      // que el backend aún no escribió nada en /generation_status: swap de
-      // VRAM para el enhancer, encode de texto (VL-8B INT8), primer step del
-      // transformer. Antes esto tumbaba la UI a los ~6s de arrancar.
-      if (withinOrphanGrace()) return;
-      const errMsg = "La generación se interrumpió. El servidor dejó de responder.";
-      setHistoryForCapRef.current(capability, prev => prev.map(it =>
-        it.isGenerating
-          ? { ...it, isGenerating: false, status: 'temporary' as const, errorMessage: errMsg }
-          : it
-      ));
-      setErrorMsg(errMsg);
-      // setIsLoading(false); // now derived
-      pollIdleCountRef.current = 0;
-    };
 
     const poll = async () => {
       try {
         const client = await getClient();
         if (cancelled) return;
 
-        // FIX: Si no hay cliente, es porque los túneles están caídos.
-        // Contar como idle para disparar el orphan guard y liberar la UI.
-        if (!client) {
-          if (withinOrphanGrace()) return;
-          pollIdleCountRef.current += 1;
-          if (pollIdleCountRef.current >= ORPHAN_POLL_THRESHOLD) {
-            markOrphan();
-          }
-          return;
-        }
+        // Si no hay cliente, el túnel está caído o congestionado. El WATCHDOG
+        // DE ESTADO (useEffect de stationStatusMap) se encargará de matar la
+        // generación si el notebook realmente se apagó. Aquí solo esperamos.
+        if (!client) return;
 
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
@@ -994,23 +958,9 @@ export function GenerationProvider({
 
         if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) return;
 
-        const isActive = info?.status === "preparing" || info?.status === "running";
-        if (isActive) pollIdleCountRef.current = 0;
-
-        const isIdleOrMissing = !info || info.status === "idle";
-        if (isIdleOrMissing && !cancelled) {
-          pollIdleCountRef.current += 1;
-          if (pollIdleCountRef.current >= ORPHAN_POLL_THRESHOLD) {
-            markOrphan();
-            return;
-          }
-        }
-
         if (!cancelled) {
           setGenerationInfo(info ?? null);
           if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
-            pollIdleCountRef.current = 0;
-            // setIsLoading(false); // now derived
             if (info.status === "complete" && capability === "video") {
               const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
               if (storedUrl) setVideoSrc(storedUrl);
@@ -1018,15 +968,10 @@ export function GenerationProvider({
           }
         }
       } catch (err) {
+        // Si el poll falla por timeout o red, es probable que el notebook
+        // esté al 100% de GPU. El heartbeat (stationStatusMap) es la única
+        // fuente de verdad para saber si el notebook murió. No matamos nada.
         if (cancelled) return;
-        // Durante la ventana de gracia, errores de red/timeout NO son evidencia
-        // de muerte del servidor: el backend puede estar 100% ocupado con el
-        // enhancer, el encode de texto o la KV cache y no contestar
-        // /generation_status a tiempo. Sin esto, tres timeouts seguidos
-        // mataban la generación visualmente.
-        if (withinOrphanGrace()) return;
-        pollIdleCountRef.current += 1;
-        if (pollIdleCountRef.current >= ORPHAN_POLL_THRESHOLD) markOrphan();
       }
     };
     poll();
@@ -1499,7 +1444,6 @@ export function GenerationProvider({
 
       const localStart = Date.now() / 1000;
       generationStartRef.current = localStart;
-      pollIdleCountRef.current = 0;
 
       // setIsLoading(true); // now derived
       setErrorMsg(null);
@@ -1989,7 +1933,6 @@ export function GenerationProvider({
 
       const localStart = Date.now() / 1000;
       generationStartRef.current = localStart;
-      pollIdleCountRef.current = 0;
 
       // setIsLoading(true); // now derived
       setErrorMsg(null);
