@@ -1,5 +1,5 @@
 // src/pages/StudioPage.tsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Link } from 'react-router-dom';
 import FloatingCommandCenter from '../components/FloatingCommandCenter';
@@ -177,9 +177,10 @@ const StudioPage: React.FC = () => {
   // Índice de la imagen seleccionada por item (para el stack cuando hay >1)
   const [selectedImageIndexByItem, setSelectedImageIndexByItem] = useState<Record<string, number>>({});
 
-  const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const scrollPositionsRef = useRef<Record<string, number>>({});
 
   // Banner de error de guardado — se auto-limpia a los 8s
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -190,23 +191,6 @@ const StudioPage: React.FC = () => {
     const t = window.setTimeout(() => setBannerError(null), 8000);
     return () => window.clearTimeout(t);
   }, [saveError]);
-
-  // Alto real y dinámico del FloatingCommandCenter, para que el padding-bottom
-  // del canvas nunca tape la última entrega, sea cual sea el tamaño del panel.
-  const panelWrapperRef = useRef<HTMLDivElement>(null);
-  const [panelHeight, setPanelHeight] = useState(280);
-
-  useEffect(() => {
-    const el = panelWrapperRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setPanelHeight(entry.contentRect.height);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   // Helpers para el stack de imágenes
   const getSelectedIndex = (itemId: string, total: number): number => {
@@ -225,17 +209,61 @@ const StudioPage: React.FC = () => {
   const lastItemIsGenerating = lastItem?.isGenerating ?? false;
   const lastItemMediaCount = lastItem ? getMediaCount(lastItem) : 0;
 
+  // Restaurar scroll al cambiar de pestaña/capability o al recargar (F5)
+  useLayoutEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    
+    // Si hay una generación activa en esta pestaña, siempre ir al fondo
+    const hasActiveGeneration = sessionHistory.some(it => it.isGenerating);
+    if (hasActiveGeneration) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
+      isAtBottomRef.current = true;
+      return;
+    }
+
+    // Intentar restaurar desde sessionStorage (sobrevive F5)
+    const savedStr = sessionStorage.getItem(`pf_scroll_${capability}`);
+    const saved = savedStr !== null ? parseInt(savedStr, 10) : scrollPositionsRef.current[capability];
+    
+    if (saved !== undefined && !isNaN(saved)) {
+      el.scrollTo({ top: saved, behavior: 'instant' });
+      isAtBottomRef.current = saved >= el.scrollHeight - el.clientHeight - 150;
+    } else {
+      // Si es la primera vez en esta pestaña, ir al fondo
+      el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
+      isAtBottomRef.current = true;
+    }
+    // Sincronizar el botón flotante con la posición restaurada
+    setShowScrollToBottom(!isAtBottomRef.current);
+  }, [capability]);
+
+  // 1. Autoscroll suave cuando llegan mensajes nuevos o termina una generación
   useEffect(() => {
     if (!isAtBottomRef.current) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
 
-    // Doble rAF: esperar a que el DOM tenga la altura final del skeleton
-    // o del resultado antes de scrollear.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
       });
     });
   }, [sessionHistory.length, lastItemIsGenerating, lastItemMediaCount]);
+
+  // 2. Mantener el fondo si el FCM cambia de tamaño (ej. abrir ajustes avanzados)
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    
+    const ro = new ResizeObserver(() => {
+      if (isAtBottomRef.current) {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Fallback de huérfanos: si un item lleva >60s en isGenerating Y la estación
   // está en isError/isStale, lo marcamos como fallido. Cubre el caso real de
@@ -472,7 +500,7 @@ const StudioPage: React.FC = () => {
     // le da el <main> de App.tsx (que a su vez mide exactamente el viewport).
     // No crece con el contenido (los hijos de abajo son position:absolute),
     // así que el panel flotante nunca se desincroniza del borde real.
-    <div style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ATMÓSFERA — solo visible en tema Space */}
       {studioTheme === 'space' && <AtmosphereLayer />}
@@ -960,23 +988,27 @@ const StudioPage: React.FC = () => {
         onScroll={() => {
           const el = scrollContainerRef.current;
           if (!el) return;
-          // "Al final" si está a menos de 80px del fondo (tolerancia)
+          // "Al final" si está a menos de 150px del fondo (tolerancia para skeletons)
           const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-          isAtBottomRef.current = distanceFromBottom < 80;
+          isAtBottomRef.current = distanceFromBottom < 150;
+          setShowScrollToBottom(distanceFromBottom >= 150);
+          
+          // Persistir en memoria y en sessionStorage (sobrevive F5)
+          scrollPositionsRef.current[capability] = el.scrollTop;
+          try {
+            sessionStorage.setItem(`pf_scroll_${capability}`, el.scrollTop.toString());
+          } catch (e) {
+            // Ignorar errores de quota
+          }
         }}
         style={{
-          position: 'absolute',
-          inset: 0,
+          flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           scrollBehavior: 'smooth',
-          // paddingBottom dinámico = alto real del panel + margen. Este es el
-          // límite duro: el scroll físicamente no llega más abajo que esto,
-          // así que nada puede quedar detrás del panel flotante.
           paddingTop: isMobile ? '64px' : '40px',
-          paddingBottom: `${panelHeight + (isMobile ? 20 : 40)}px`,
           paddingLeft: isMobile ? '12px' : '20px',
           paddingRight: isMobile ? '12px' : '20px',
-          transition: 'padding-bottom 0.2s ease',
         }}
       >
         <div style={{
@@ -1474,7 +1506,6 @@ const StudioPage: React.FC = () => {
             );
           })}
 
-          <div ref={bottomRef} style={{ height: '1px', width: '100%' }} />
         </div>
       </div>
 
@@ -1535,18 +1566,54 @@ const StudioPage: React.FC = () => {
           real de esta página sin necesitar saber nada sobre el ancho del
           sidebar (eso lo resuelve App.tsx solo con el flexbox). */}
       <div
-        ref={panelWrapperRef}
         style={{
-          position: 'absolute',
-          bottom: isMobile ? '16px' : '32px',
-          left: 0,
-          right: 0,
+          flex: 'none',
           display: 'flex',
           justifyContent: 'center',
-          padding: isMobile ? '0 10px' : '0 16px',
+          padding: isMobile ? '0 10px 16px 10px' : '0 16px 32px 16px',
           zIndex: 50,
+          position: 'relative',
         }}
       >
+        {/* BOTÓN FLOTANTE "IR AL FINAL" */}
+        {showScrollToBottom && (
+          <button
+            onClick={() => {
+              const el = scrollContainerRef.current;
+              if (el) {
+                el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                isAtBottomRef.current = true;
+                setShowScrollToBottom(false);
+              }
+            }}
+            style={{
+              position: 'absolute',
+              top: '-60px',
+              right: isMobile ? '16px' : '24px',
+              zIndex: 100,
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              background: 'var(--pf-bg-elevated)',
+              border: '1px solid var(--pf-border-default)',
+              boxShadow: '0 8px 20px -4px rgba(0,0,0,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--pf-text-primary)',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.background = 'var(--pf-bg-tertiary)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.background = 'var(--pf-bg-elevated)'; }}
+            title="Ir al final"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <polyline points="19 12 12 19 5 12"></polyline>
+            </svg>
+          </button>
+        )}
         <div style={{ width: '100%', maxWidth: '800px' }}>
           <FloatingCommandCenter />
         </div>
