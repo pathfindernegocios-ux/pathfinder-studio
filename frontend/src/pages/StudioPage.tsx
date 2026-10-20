@@ -327,22 +327,24 @@ const StudioPage: React.FC = () => {
   // ── Confirmación de eliminación ──
   const [discardTargetId, setDiscardTargetId] = useState<string | null>(null);
   const handleDiscard = (id: string) => setDiscardTargetId(id);
-  const handleConfirmDiscard = async () => {
+  const handleConfirmDiscard = () => {
     if (discardTargetId) {
-      // Buscar el item en el historial para ver si ya se guardó en la DB.
-      // Los items 'temporary' o 'saving' aún no están en Supabase.
-      const item = sessionHistory.find(i => i.id === discardTargetId);
+      const idToDelete = discardTargetId;
+      
+      // 1. Cerrar modal y borrar de la UI INMEDIATAMENTE (Optimistic UI)
+      // Esto evita que React intente renderizar un item que ya se está borrando.
+      setDiscardTargetId(null);
+      removeSessionItem(idToDelete);
 
-      // Solo llamar a la Edge Function si ya está en la base de datos.
-      // Si es temporal, borrar de R2 fallaría (la Edge Function no lo encuentra).
+      // 2. Borrar del backend y R2 en segundo plano (fire-and-forget)
+      // No bloqueamos la UI esperando a que termine.
+      const item = sessionHistory.find(i => i.id === idToDelete);
       if (item && item.status === 'saved') {
-        await deleteCreation(discardTargetId);
+        void deleteCreation(idToDelete).catch(err => {
+          console.warn(`[delete] fallo al borrar ${idToDelete} de Supabase/R2:`, err);
+        });
       }
-
-      // Siempre borrar localmente del chat (IndexedDB)
-      removeSessionItem(discardTargetId);
     }
-    setDiscardTargetId(null);
   };
 
   // Auto-Guardado: detecta items completados con r2Keys que no se han guardado
@@ -1302,7 +1304,7 @@ const StudioPage: React.FC = () => {
                               aspectRatio={item.aspectRatio || '1/1'}
                               modelLabel={item.modelLabel}
                               progress={getGenerationProgress(item, boot, generationInfo)}
-                              stepMessage={boot.stepMessage || undefined}
+                              stepMessage={generationInfo?.stage || boot.stepMessage || undefined}
                               totalScenes={item.storyboardMeta?.totalScenes || 1}
                               currentScene={item.storyboardMeta?.currentScene || 1}
                               startedAt={item.createdAt}
@@ -1314,7 +1316,7 @@ const StudioPage: React.FC = () => {
                               aspectRatio={item.aspectRatio || '16/9'}
                               modelLabel={item.modelLabel}
                               progress={getGenerationProgress(item, boot, generationInfo)}
-                              stepMessage={boot.stepMessage || undefined}
+                              stepMessage={generationInfo?.stage || boot.stepMessage || undefined}
                               totalScenes={item.storyboardMeta?.totalScenes || 1}
                               currentScene={item.storyboardMeta?.currentScene || 1}
                               startedAt={item.createdAt}
@@ -1326,7 +1328,7 @@ const StudioPage: React.FC = () => {
                               aspectRatio={item.aspectRatio || '1/1'}
                               modelLabel={item.modelLabel}
                               progress={getGenerationProgress(item, boot, generationInfo)}
-                              stepMessage={boot.stepMessage || undefined}
+                              stepMessage={generationInfo?.stage || boot.stepMessage || undefined}
                               startedAt={item.createdAt}
                             />
                           </div>

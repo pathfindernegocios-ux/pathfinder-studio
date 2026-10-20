@@ -170,13 +170,24 @@ export function useCreations() {
       return [];
     }
 
-    // Filtro client-side: solo filas con status 'ready' y expiración futura.
-    // - 'ready' descarta processing/failed/expired/deleted.
-    // - expiración futura descarta las que el cron todavía no limpió.
-    // Cierra la ventana donde R2 ya borró el objeto pero la fila sigue viva.
+    // FIX: Guardar contra filas inválidas. Puede venir un `null` si
+    // Supabase devuelve una fila con error de mapeo, o si el query
+    // devuelve `[null]`. Sin este guard, `c.id` explota en deleteCreation.
+    if (!Array.isArray(data)) {
+      setCreations([]);
+      return [];
+    }
+
+    // Filtro client-side: solo filas válidas con status 'ready' y expiración futura.
     const now = Date.now();
     const list = (data as Creation[]).filter(
-      (c) => c.status === 'ready' && new Date(c.expires_at).getTime() > now
+      (c): c is Creation =>
+        !!c &&
+        typeof c === 'object' &&
+        typeof c.id === 'string' &&
+        c.status === 'ready' &&
+        !!c.expires_at &&
+        new Date(c.expires_at).getTime() > now
     );
     setCreations(list);
     return list;
@@ -192,7 +203,8 @@ export function useCreations() {
       return false;
     }
 
-    setCreations((prev) => prev.filter((c) => c.id !== creationId));
+    // FIX: Blindar contra items undefined en el state.
+    setCreations((prev) => prev.filter((c) => c && c.id !== creationId));
     return true;
   }, []);
 

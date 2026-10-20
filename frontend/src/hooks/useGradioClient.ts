@@ -99,11 +99,24 @@ export function useGradioClient(gradioUrls: string[] | null) {
             try {
               return await runOnce();
             } catch (err) {
-              // Retry 1 vez si el error es de conexión rota (SSE zombie al
-              // primer predict). Si el segundo intento también falla, ahí sí
-              // marcamos cold y propagamos.
               const msg = String((err as Error)?.message ?? err ?? "");
               const isRetryable = RETRYABLE_ERROR_RE.test(msg);
+
+              // FIX CRÍTICO: Los endpoints de polling (status, logs, etc.) NO
+              // deben destruir el cliente compartido. Un fallo en un poller de
+              // fondo no significa que el túnel esté muerto; solo significa que
+              // ese request falló. Dejamos que el poller lo maneje y reintente.
+              const isPollingEndpoint =
+                endpoint === "/status" ||
+                endpoint === "/logs" ||
+                endpoint === "/generation_status" ||
+                endpoint === "/session_history";
+
+              if (isPollingEndpoint) {
+                // No marcar cold, no cerrar el cliente. Solo propagar el error
+                // para que el poller lo ignore y reintente en el siguiente ciclo.
+                throw err;
+              }
 
               if (isRetryable) {
                 console.warn(`[gradio] retry en ${endpoint} tras: ${msg}`);
@@ -116,9 +129,8 @@ export function useGradioClient(gradioUrls: string[] | null) {
                 }
               }
 
-              // Timeout o rechazo real (no retryable): marcar cold y propagar.
-              // El próximo getClient() rota al siguiente URL del array
-              // (dual-tunnel: Cloudflare → Gradio share).
+              // Para /generate u otros endpoints críticos, sí marcamos cold
+              // para forzar la rotación al siguiente túnel.
               markUrlFailed(url);
               throw err;
             }
