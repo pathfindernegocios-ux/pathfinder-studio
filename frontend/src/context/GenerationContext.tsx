@@ -415,11 +415,11 @@ function persistDeletedItems(records: DeletedItemRecord[]) {
 function reconcileWithBackend(
   backendItems: SessionItem[],
   prev: SessionItem[],
-  isDeleted: (id: string) => boolean,
+  isDeleted: (item: SessionItem) => boolean,
 ): SessionItem[] {
   const backendIds = new Set(backendItems.map((b) => b.id));
   const preserved = prev.filter((it) => !backendIds.has(it.id));
-  return [...backendItems, ...preserved].filter((it) => !isDeleted(it.id));
+  return [...backendItems, ...preserved].filter((it) => !isDeleted(it));
 }
 
 function hashItem(it: SessionItem): string {
@@ -878,6 +878,35 @@ export function GenerationProvider({
   const pollIdleCountRef = useRef<number>(0);
   const [nowTick, setNowTick] = useState<number>(Date.now());
 
+  // WATCHDOG DE ESTADO: Si el runtime se marca como 'offline' en el heartbeat
+  // (Colab kill, OOM, límite de horas), matamos inmediatamente cualquier
+  // generación en vuelo de ese modelo. El backend es la única fuente de verdad.
+  useEffect(() => {
+    setSessionHistoryByCapability(prev => {
+      let changed = false;
+      const next = { ...prev };
+      
+      for (const cap of ['image', 'video', 'audio'] as const) {
+        next[cap] = prev[cap].map(it => {
+          if (it.isGenerating) {
+            const modelStatus = stationStatusMap[it.modelId];
+            if (modelStatus === 'offline') {
+              changed = true;
+              return {
+                ...it,
+                isGenerating: false,
+                status: 'temporary' as const,
+                errorMessage: 'La estación se desconectó o el notebook se apagó.'
+              };
+            }
+          }
+          return it;
+        });
+      }
+      return changed ? next : prev;
+    });
+  }, [stationStatusMap]);
+
   // Multi-notebook: isLoading refleja si el MODELO ACTIVO en la capability
   // activa tiene una generación corriendo. Si el user cambia de tab o de
   // modelo (dentro del mismo tab), y el nuevo modelo no tiene generaciones
@@ -940,7 +969,19 @@ export function GenerationProvider({
     const poll = async () => {
       try {
         const client = await getClient();
-        if (!client || cancelled) return;
+        if (cancelled) return;
+
+        // FIX: Si no hay cliente, es porque los túneles están caídos.
+        // Contar como idle para disparar el orphan guard y liberar la UI.
+        if (!client) {
+          if (withinOrphanGrace()) return;
+          pollIdleCountRef.current += 1;
+          if (pollIdleCountRef.current >= ORPHAN_POLL_THRESHOLD) {
+            markOrphan();
+          }
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         if (!token) return;
@@ -1272,6 +1313,7 @@ export function GenerationProvider({
           it.status === "failed" ||
           it.status === "cancelled"
         ))
+        .filter((it: any) => !isItemDeleted({ id: String(it.id), prompt: it.prompt }, deletedIdsRef.current))
         .map(mapBackendItem);
     } catch (err) {
       void 0;
@@ -1306,7 +1348,7 @@ export function GenerationProvider({
       if (cancelled) return;
       setHistoryForCap('image', prev => {
         if (items.length === 0 && prev.length > 0) return prev;
-        return reconcileWithBackend(items, prev, (id) => isItemDeleted({ id } as SessionItem, deletedIdsRef.current));
+        return reconcileWithBackend(items, prev, (item) => isItemDeleted(item, deletedIdsRef.current));
       });
     })();
     return () => { cancelled = true; };
@@ -1363,7 +1405,7 @@ export function GenerationProvider({
     // prompt), se prefiere la versión del backend y se descarta la copia
     // local. Esto es lo que evita las "2 generaciones" cuando el backend
     // reporta el item que el frontend ya había creado optimistic.
-    return reconcileWithBackend(items, prev, (id) => isItemDeleted({ id } as SessionItem, deletedIdsRef.current));
+    return reconcileWithBackend(items, prev, (item) => isItemDeleted(item, deletedIdsRef.current));
   };
 
   const hasGeneratingImage = sessionHistoryByCapability.image.some(it => it.isGenerating);
