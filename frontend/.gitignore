@@ -6,3 +6,6 @@ dist/
 # Env
 .env
 *.bak*
+frontend/migrate_thumbnails.py
+frontend/fix_thumb_paths.py
+.venv-migration/
