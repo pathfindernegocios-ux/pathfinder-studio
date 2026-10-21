@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 const CACHE_KEY = 'pf_r2_url_cache_v1';
-const CACHE_TTL_MS = 240000;
+const CACHE_TTL_MS = 82800000; // 23 horas (alineado con la expiración de 24h de R2)
 
 function getCache(): Record<string, { url: string; timestamp: number }> {
   try {

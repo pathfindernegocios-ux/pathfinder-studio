@@ -7,6 +7,9 @@ import AudioPlayer from '../components/AudioPlayer';
 import { useCreations } from '../hooks/useCreations';
 import { useAuth } from '../hooks/useAuth';
 import { useGenerationContext, hasRenderableMedia, getMediaCount, type SessionItem } from '../context/GenerationContext';
+import { useHistoryStore } from '../stores/useHistoryStore';
+import { useGenerationStore } from '../stores/useGenerationStore';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useR2SignedUrl } from '../hooks/useR2SignedUrl';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -23,6 +26,7 @@ import PathfinderLogo from '../components/PathfinderLogo';
 import { useR2MediaPoller } from '../hooks/useR2MediaPoller';
 import { ChatMedia } from '../components/ChatMedia';
 import VideoPlayer from '../components/VideoPlayer';
+import { addTombstone, removeTombstone } from '../lib/tombstones';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -121,7 +125,7 @@ const ChatMediaWrapper: React.FC<{ item: any, currentIdx: number, currentUrl: st
   }
 
   if (finalKey) {
-    return <ChatMedia r2Key={finalKey} mediaType={item.mediaType as 'image' | 'video'} aspectRatio={item.aspectRatio} />;
+    return <ChatMedia r2Key={finalKey} thumbKey={item.thumbKey} mediaType={item.mediaType as 'image' | 'video'} aspectRatio={item.aspectRatio} />;
   }
 
   return (
@@ -146,20 +150,31 @@ const StudioPage: React.FC = () => {
     'U'
   ).toUpperCase();
   const {
-    sessionHistory,
     getResolvedUrl,
-    isLoading,
     updateSessionItem,
     removeSessionItem,
     capability,
     activeImageModelId,
     activeVideoModelId,
     stationStatusMap,
-    generationInfo,
     hasMoreSupabase,
     isLoadingMoreSupabase,
     loadMoreFromSupabase,
   } = useGenerationContext();
+
+  // Pilar 2: Historial y generación leídos de Zustand
+  const sessionHistory = useHistoryStore((s) => s.sessionHistoryByCapability[capability] || []);
+  const generationInfo = useGenerationStore((s) => s.generationInfo);
+  
+  // isLoading se calcula aquí, de forma aislada, sin depender del contexto
+  const isLoading = useHistoryStore((s) => {
+    const activeRuntimeId = capability === 'image' ? activeImageModelId : capability === 'audio' ? 'tts-dual' : activeVideoModelId;
+    return s.sessionHistoryByCapability[capability].some(
+      (it: SessionItem) => it.isGenerating && (it.modelId === activeRuntimeId || !it.modelId)
+    );
+  });
+
+
 
   const [visibleItemsCount, setVisibleItemsCount] = useState(50);
 
@@ -320,6 +335,16 @@ const StudioPage: React.FC = () => {
   // ── Confirmación de eliminación ──
   const [discardTargetId, setDiscardTargetId] = useState<string | null>(null);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
+  // ── VIRTUALIZACIÓN (Pilar 1) ──
+  const filteredHistory = sessionHistory.filter((item: SessionItem) => !deletingIds.has(item.id)).slice(-visibleItemsCount);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredHistory.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 350,
+    overscan: 5,
+  });
+
   const handleDiscard = (id: string) => setDiscardTargetId(id);
   const handleConfirmDiscard = async () => {
     if (discardTargetId) {
@@ -333,6 +358,7 @@ const StudioPage: React.FC = () => {
 
       // 2. Optimistic UI: Ocultar visualmente de inmediato usando estado local
       setDeletingIds(prev => new Set(prev).add(idToDelete));
+      addTombstone(idToDelete); // PILAR 4: tombstone ANTES del backend
 
       // 3. Borrar del backend y R2 esperando respuesta (Atomicidad)
       try {
@@ -346,6 +372,7 @@ const StudioPage: React.FC = () => {
             return next;
           });
           setBannerError(result.error || "No se pudo eliminar de R2. Intenta de nuevo.");
+          removeTombstone(idToDelete); // PILAR 4: rollback
           return;
         }
         
@@ -364,6 +391,7 @@ const StudioPage: React.FC = () => {
           return next;
         });
         setBannerError("Error de red al conectar con el servidor. Intenta de nuevo.");
+        removeTombstone(idToDelete); // PILAR 4: rollback
       }
     }
   };
@@ -1076,7 +1104,10 @@ const StudioPage: React.FC = () => {
                   : 'Cargar más (desde servidor)'}
             </button>
           )}
-          {sessionHistory.filter(item => !deletingIds.has(item.id)).slice(-visibleItemsCount).map((item) => {
+          <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const item = filteredHistory[virtualRow.index];
+            if (!item) return null;
             const frameWidth = frameWidthStyle(item.aspectRatio || '1/1');
             const currentIdx = getSelectedIndex(item.id, getMediaCount(item));
             const currentUrl = getResolvedUrl(item, currentIdx);
@@ -1085,13 +1116,18 @@ const StudioPage: React.FC = () => {
             return (
               <div
                 key={item.id}
+                ref={rowVirtualizer.measureElement}
+                data-index={virtualRow.index}
                 style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
                   width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '6px',
-                  animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                  marginBottom: item.isGenerating ? '0' : '14px'
+                  paddingBottom: item.isGenerating ? '0' : '14px'
                 }}
               >
                 {/* Prompt Usuario — burbuja premium */}
@@ -1286,7 +1322,7 @@ const StudioPage: React.FC = () => {
                           <div style={{ display: 'grid',
                                         gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                                         gap: '8px', width: '100%' }}>
-                            {item.sceneUrls.map((u, i) => (
+                            {item.sceneUrls.map((u: string, i: number) => (
                               <div key={i} style={{ borderRadius: '10px', overflow: 'hidden',
                                                     border: '1px solid rgba(139,92,246,0.25)' }}>
                                 <video src={u} muted loop playsInline controls
@@ -1395,7 +1431,7 @@ const StudioPage: React.FC = () => {
 
                           {item.storyboardMeta && item.storyboardMeta.scenes.length > 0 && (
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                              {item.storyboardMeta.scenes.map((scene, i) => (
+                              {item.storyboardMeta.scenes.map((scene: any, i: number) => (
                                 <SceneChip key={i} scene={scene} />
                               ))}
                             </div>
@@ -1434,6 +1470,7 @@ const StudioPage: React.FC = () => {
               </div>
             );
           })}
+          </div>
 
         </div>
       </div>
