@@ -386,9 +386,10 @@ function mapCreationToSessionItem(row: Creation): SessionItem {
   const meta = (row.metadata && typeof row.metadata === 'object')
     ? (row.metadata as Record<string, unknown>)
     : {};
+  const parentId = (meta.parent_id as string) || row.id;
 
   return {
-    id: row.id,
+    id: parentId,
     prompt: row.prompt,
     mediaUrls: [],
     mediaType,
@@ -852,7 +853,28 @@ export function GenerationProvider({
           
           // ── HURRICANE-PROOF: Extraer r2_keys del poller y actualizar el item ──
           if (info?.status === "complete" && info.id) {
-            const r2Keys = (info as any).r2_keys;
+            let r2Keys = (info as any).r2_keys as string[] | undefined;
+
+            // ── FUENTE AUTORITATIVA: consultar `creations` SIEMPRE al ver complete.
+            // El backend ya insertó (Hurricane-Proof). Buscamos por `id` (LTX)
+            // o por `metadata->>parent_id` (Qwen: id es UUID nuevo por imagen).
+            // Esto garantiza las claves reales independientemente del notebook.
+            try {
+              const { data } = await supabase
+                .from("creations")
+                .select("storage_key")
+                .or(`id.eq.${info.id},metadata->>parent_id.eq.${info.id}`)
+                .order("created_at", { ascending: true });
+              if (Array.isArray(data) && data.length > 0) {
+                const fromDb = data
+                  .map((r: any) => r.storage_key)
+                  .filter((k: any): k is string => typeof k === "string" && k.length > 0);
+                if (fromDb.length > 0) r2Keys = fromDb;
+              }
+            } catch (e) {
+              console.warn("[poller] creations lookup falló:", e);
+            }
+
             const cap = (info.capability || capability) as CapabilityId;
             setHistoryForCapRef.current(cap, prev => prev.map(it =>
               it.id === info.id ? { 
@@ -1808,7 +1830,7 @@ export function GenerationProvider({
   // El fallback al túnel se mantiene para items viejos sin r2Keys.
   const [r2UrlCache, setR2UrlCache] = useState<Map<string, { url: string; ts: number }>>(new Map());
   const r2FetchInflightRef = useRef<Set<string>>(new Set());
-  const r2FetchFailedRef = useRef<Set<string>>(new Set());
+  // r2FetchFailedRef eliminado: permitimos reintentos automáticos.
 
   useEffect(() => {
     const now = Date.now();
@@ -1822,7 +1844,6 @@ export function GenerationProvider({
           const cached = r2UrlCache.get(key);
           if (cached && now - cached.ts < 240_000) continue;
           if (r2FetchInflightRef.current.has(key)) continue;
-          if (r2FetchFailedRef.current.has(key)) continue;
           toFetch.push(key);
         }
       }
@@ -1841,10 +1862,11 @@ export function GenerationProvider({
           if (!error && data?.url) {
             updates.set(key, { url: data.url, ts: Date.now() });
           } else {
-            r2FetchFailedRef.current.add(key);
+            // Reintentar en 2s forzando un re-render del efecto
+            setTimeout(() => setR2UrlCache(prev => new Map(prev)), 2000);
           }
         } catch {
-          r2FetchFailedRef.current.add(key);
+          setTimeout(() => setR2UrlCache(prev => new Map(prev)), 2000);
         } finally {
           r2FetchInflightRef.current.delete(key);
         }
@@ -1899,15 +1921,6 @@ export function GenerationProvider({
 
     try {
       let cursor = supabaseCursorRef.current[modelKey];
-      if (cursor === undefined || cursor === null) {
-        const locals = sessionHistoryByCapability[cap].filter(it => it.modelId === currentModelId);
-        const savedLocals = locals.filter(it => !!it.creationId);
-        if (savedLocals.length > 0) {
-          const oldest = savedLocals.reduce((a, b) => a.createdAt < b.createdAt ? a : b);
-          cursor = new Date(oldest.createdAt).toISOString();
-          supabaseCursorRef.current[modelKey] = cursor;
-        }
-      }
 
       const page = await fetchCreationsPage({
         cursor: cursor ?? undefined,
@@ -1916,7 +1929,20 @@ export function GenerationProvider({
         modelId: currentModelId,
       });
 
-      const newItems = page.items.map(mapCreationToSessionItem);
+      // Agrupar las filas por parent_id para no crear burbujas duplicadas
+      const groupedMap = new Map<string, SessionItem>();
+      for (const row of page.items) {
+        const item = mapCreationToSessionItem(row);
+        if (!groupedMap.has(item.id)) {
+          groupedMap.set(item.id, item);
+        } else {
+          const existing = groupedMap.get(item.id)!;
+          if (row.storage_key && !existing.r2Keys?.includes(row.storage_key)) {
+            existing.r2Keys = [...(existing.r2Keys || []), row.storage_key];
+          }
+        }
+      }
+      const newItems = Array.from(groupedMap.values());
 
       setSessionHistoryByCapability(prev => {
         // Deduplicar por id. Si el item ya existe en el estado local
@@ -1993,12 +2019,155 @@ export function GenerationProvider({
     const key = `${capability}:${currentModelId}`;
     if (autoLoadedCapsRef.current[key]) return;
     
-    // Si el historial local para esta capability está vacío, pedimos a Supabase.
-    if (sessionHistoryByCapability[capability].length === 0) {
-      autoLoadedCapsRef.current[key] = true;
-      void loadMoreFromSupabase();
-    }
+    // FORZAR CARGA DESDE SUPABASE: No importa si IndexedDB ya tenía algo,
+    // siempre pedimos la verdad absoluta a la base de datos la primera vez.
+    autoLoadedCapsRef.current[key] = true;
+    void loadMoreFromSupabase();
   }, [sessionHydrated, capability, activeImageModelId, activeVideoModelId, sessionHistoryByCapability, loadMoreFromSupabase]);
+
+  // ── POLLER DIRECTO A SUPABASE (acelera la entrega de archivos) ──
+  // Consulta `creations` cada 500ms para items en generación. En cuanto
+  // aparecen las filas con `parent_id`, actualiza `r2Keys` en el item.
+  // No espera al `complete` del túnel de Gradio. Funciona para TODOS los notebooks.
+  const generatingIdsKey = (() => {
+    const ids: string[] = [];
+    for (const cap of ['image', 'video', 'audio'] as const) {
+      for (const it of sessionHistoryByCapability[cap]) {
+        if (it.isGenerating) ids.push(it.id);
+      }
+    }
+    return ids.join(',');
+  })();
+
+  useEffect(() => {
+    if (!generatingIdsKey) return;
+    const ids = generatingIdsKey.split(',');
+    let cancelled = false;
+
+    const check = async () => {
+      if (cancelled) return;
+      for (const cap of ['image', 'video', 'audio'] as const) {
+        const items = sessionHistoryByCapability[cap].filter(it => ids.includes(it.id) && it.isGenerating);
+        for (const item of items) {
+          try {
+            const { data, error } = await supabase
+              .from('creations')
+              .select('storage_key')
+              .or(`id.eq.${item.id},metadata->>parent_id.eq.${item.id}`)
+              .order('created_at', { ascending: true });
+            if (cancelled) return;
+            if (!error && Array.isArray(data) && data.length > 0) {
+              const keys = data.map((r: any) => r.storage_key).filter(Boolean);
+              if (keys.length > 0) {
+                setHistoryForCapRef.current(cap, prev => prev.map(it =>
+                  it.id === item.id ? { ...it, r2Keys: keys } : it
+                ));
+              }
+            }
+          } catch { /* ignorar red */ }
+        }
+      }
+    };
+
+    check();
+    const interval = window.setInterval(check, 500);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatingIdsKey]);
+
+  // ── CAPA 3: Supabase Realtime ──
+  // Escucha INSERTs y DELETEs en `creations` del usuario actual vía WebSocket.
+  // El backend inserta en Supabase → el frontend recibe la novedad en ~200ms sin polling.
+  // Cubre cross-tab y cross-device. Es el mecanismo industrial.
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.id) setAuthUserId(data.user.id);
+    });
+  }, []);
+  useEffect(() => {
+    if (!authUserId) return;
+    let cancelled = false;
+
+    const channel = supabase
+      .channel(`creations-realtime-${authUserId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'creations', filter: `user_id=eq.${authUserId}` },
+        (payload) => {
+          if (cancelled) return;
+          const row = payload.new as any;
+          if (!row || typeof row.id !== 'string') return;
+
+          const cap = (row.media_type === 'video' ? 'video' : row.media_type === 'audio' ? 'audio' : 'image') as CapabilityId;
+          
+          // CLAVE: Agrupar por parent_id (el ID del lote) o por el id de la fila.
+          // Esto evita que un lote de 3 imágenes cree 3 burbujas separadas en el chat.
+          const parentId = row.metadata?.parent_id || row.id;
+
+          setHistoryForCapRef.current(cap, prev => {
+            // Buscar si ya existe la burbuja del lote (por parentId o por row.id)
+            const existingIdx = prev.findIndex(it => it.id === parentId || it.id === row.id);
+            
+            if (existingIdx !== -1) {
+              // Si ya existe, le agregamos la nueva llave a su array de r2Keys
+              const existing = prev[existingIdx];
+              const currentKeys = existing.r2Keys || [];
+              // Evitar duplicados
+              const newKeys = currentKeys.includes(row.storage_key) 
+                ? currentKeys 
+                : [...currentKeys, row.storage_key];
+              
+              const updated = [...prev];
+              updated[existingIdx] = { 
+                ...existing, 
+                r2Keys: newKeys,
+              };
+              return updated;
+            }
+
+            // Si no existe, creamos la burbuja (esto pasa si la generación viene de otra pestaña)
+            const newItem: SessionItem = {
+              id: parentId, // Usamos el parentId para que futuras imágenes de este lote se agrupen aquí
+              prompt: row.prompt || '',
+              mediaUrls: [],
+              mediaType: cap,
+              modelId: row.model_id || '',
+              modelLabel: row.model_id || '',
+              aspectRatio: row.aspect_ratio || '1/1',
+              createdAt: new Date(row.created_at).getTime(),
+              status: 'temporary',
+              isGenerating: false, // Si viene de otra pestaña, asumimos que ya terminó
+              creationId: row.id,
+              r2Keys: [row.storage_key],
+            };
+            const merged = [...prev, newItem];
+            merged.sort((a, b) => a.createdAt - b.createdAt);
+            return merged;
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'creations', filter: `user_id=eq.${authUserId}` },
+        (payload) => {
+          if (cancelled) return;
+          const row = payload.old as any;
+          if (!row?.id) return;
+          for (const cap of ['image', 'video', 'audio'] as const) {
+            setHistoryForCapRef.current(cap, prev => prev.filter(it => it.id !== row.id));
+          }
+          void sessionStore.deleteItem(row.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;
 }

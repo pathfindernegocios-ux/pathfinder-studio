@@ -13,13 +13,16 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { Download, Trash2, RefreshCw, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
 import SceneChip from '../components/SceneChip';
-import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { getRuntimeLabel } from '../config/models';
 import { AtmosphereLayer } from '../components/marketing/Atmosphere';
 import { SkeletonImage, SkeletonVideo, SkeletonAudio, SkeletonStyles } from '../components/studio/Skeletons';
 import { useUIStore } from '../stores/useUIStore';
 import PathfinderLogo from '../components/PathfinderLogo';
+
+import { useR2MediaPoller } from '../hooks/useR2MediaPoller';
+import { ChatMedia } from '../components/ChatMedia';
+import VideoPlayer from '../components/VideoPlayer';
 
 // NOTA IMPORTANTE: esta página YA NO monta su propio <Sidebar/>. El Sidebar
 // vive una sola vez, en App.tsx, y esta página simplemente llena el espacio
@@ -102,6 +105,31 @@ function MediaLightbox({ selectedMedia, onClose }: { selectedMedia: { item: Sess
     </div>
   );
 }
+
+
+const ChatMediaWrapper: React.FC<{ item: any, currentIdx: number, currentUrl: string, openLightbox: any }> = ({ item, currentIdx, currentUrl, openLightbox }) => {
+  // Extraemos cuántos archivos esperamos (ej. 1 video, o 3 imágenes)
+  const expectedCount = item.params?.numImages || 1;
+  const { r2Keys } = useR2MediaPoller(item.id, !currentUrl && item.status !== 'temporary', expectedCount);
+  
+  const finalKey = item.r2Keys?.[currentIdx] || r2Keys?.[currentIdx] || null;
+
+  if (currentUrl) {
+    return item.mediaType === 'video' 
+      ? <VideoPlayer src={currentUrl} autoPlay={false} />
+      : <img src={currentUrl} alt={item.prompt} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} onClick={() => openLightbox(item, currentIdx)} />;
+  }
+
+  if (finalKey) {
+    return <ChatMedia r2Key={finalKey} mediaType={item.mediaType as 'image' | 'video'} aspectRatio={item.aspectRatio} />;
+  }
+
+  return (
+    <div style={{ width: '100%', height: '100%', background: 'var(--pf-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pf-text-muted)', fontSize: '0.875rem' }}>
+      Cargando...
+    </div>
+  );
+};
 
 const StudioPage: React.FC = () => {
   const { saveError , deleteCreation} = useCreations();
@@ -291,23 +319,51 @@ const StudioPage: React.FC = () => {
 
   // ── Confirmación de eliminación ──
   const [discardTargetId, setDiscardTargetId] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const handleDiscard = (id: string) => setDiscardTargetId(id);
-  const handleConfirmDiscard = () => {
+  const handleConfirmDiscard = async () => {
     if (discardTargetId) {
       const idToDelete = discardTargetId;
-      
-      // 1. Cerrar modal y borrar de la UI INMEDIATAMENTE (Optimistic UI)
-      // Esto evita que React intente renderizar un item que ya se está borrando.
-      setDiscardTargetId(null);
-      removeSessionItem(idToDelete);
-
-      // 2. Borrar del backend y R2 en segundo plano (fire-and-forget)
-      // No bloqueamos la UI esperando a que termine.
       const item = sessionHistory.find(i => i.id === idToDelete);
-      if (item && (item.status === 'saved' || item.creationId || (item.r2Keys && item.r2Keys.length > 0))) {
-        void deleteCreation(idToDelete).catch(err => {
-          console.warn(`[delete] fallo al borrar ${idToDelete} de Supabase/R2:`, err);
+      
+      // 1. Cerrar modal
+      setDiscardTargetId(null);
+      
+      if (!item) return;
+
+      // 2. Optimistic UI: Ocultar visualmente de inmediato usando estado local
+      setDeletingIds(prev => new Set(prev).add(idToDelete));
+
+      // 3. Borrar del backend y R2 esperando respuesta (Atomicidad)
+      try {
+        const result = await deleteCreation(idToDelete, 'batch');
+        
+        if (!result.success) {
+          // Rollback: Volver a mostrar el item y lanzar banner de error
+          setDeletingIds(prev => {
+            const next = new Set(prev);
+            next.delete(idToDelete);
+            return next;
+          });
+          setBannerError(result.error || "No se pudo eliminar de R2. Intenta de nuevo.");
+          return;
+        }
+        
+        // 4. Éxito: Borrar definitivamente de React, IndexedDB y marcar tombstone
+        removeSessionItem(idToDelete);
+        // Limpiamos el ID del estado de "deleting"
+        setDeletingIds(prev => {
+          const next = new Set(prev);
+          next.delete(idToDelete);
+          return next;
         });
+      } catch (err) {
+        setDeletingIds(prev => {
+          const next = new Set(prev);
+          next.delete(idToDelete);
+          return next;
+        });
+        setBannerError("Error de red al conectar con el servidor. Intenta de nuevo.");
       }
     }
   };
@@ -1020,7 +1076,7 @@ const StudioPage: React.FC = () => {
                   : 'Cargar más (desde servidor)'}
             </button>
           )}
-          {sessionHistory.slice(-visibleItemsCount).map((item) => {
+          {sessionHistory.filter(item => !deletingIds.has(item.id)).slice(-visibleItemsCount).map((item) => {
             const frameWidth = frameWidthStyle(item.aspectRatio || '1/1');
             const currentIdx = getSelectedIndex(item.id, getMediaCount(item));
             const currentUrl = getResolvedUrl(item, currentIdx);
@@ -1291,20 +1347,13 @@ const StudioPage: React.FC = () => {
                             overflow: 'hidden',
                             boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                           }}>
-                            {!currentUrl ? (
-                              <div style={{ width: '100%', height: '100%', background: 'var(--pf-bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pf-text-muted)', fontSize: '0.875rem' }}>
-                                Cargando...
-                              </div>
-                            ) : item.mediaType === 'video' ? (
-                              <VideoPlayer src={currentUrl} autoPlay={false} />
-                            ) : (
-                              <img
-                                src={currentUrl}
-                                alt={item.prompt}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-                                onClick={() => openLightbox(item, currentIdx)}
-                              />
-                            )}
+                            {/* Nuevo componente: busca el R2 key directo en la BD si el estado no lo tiene */}
+                            <ChatMediaWrapper 
+                              item={item} 
+                              currentIdx={currentIdx} 
+                              currentUrl={currentUrl}
+                              openLightbox={openLightbox} 
+                            />
                           </div>
 
                           {hasMultiple && (
