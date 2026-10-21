@@ -1,7 +1,7 @@
 // src/components/CreationThumbnail.tsx
 // Card de creación — imagen / video / audio.
 // Hairline + hover lift + metadata mono + expiry pill.
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
@@ -9,7 +9,7 @@ import { Archive } from '@phosphor-icons/react/dist/csr/Archive';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Play } from '@phosphor-icons/react/dist/csr/Play';
 import { Pause } from '@phosphor-icons/react/dist/csr/Pause';
-import { useSignedUrl } from '../hooks/useSignedUrl';
+import { useR2SignedUrl } from '../hooks/useR2SignedUrl';
 import { useCreations } from '../hooks/useCreations';
 import ConfirmDialog from './ConfirmDialog';
 import type { Creation } from '../types';
@@ -270,7 +270,26 @@ interface CreationThumbnailProps {
 }
 
 export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }) => {
-  const { url, loading, error } = useSignedUrl(creation.id);
+  // Usamos el thumbKey si existe, si no, el storage_key original de R2.
+  const thumbKey = (creation.metadata as any)?.thumb_key || null;
+  const originalKey = creation.storage_key;
+  const primaryKey = thumbKey || originalKey;
+
+  const [currentKey, setCurrentKey] = useState(primaryKey);
+  const { url, loading, error } = useR2SignedUrl(currentKey);
+
+  useEffect(() => {
+    // Si falla el thumbKey, y tenemos un original, hacemos fallback.
+    if (error && currentKey === thumbKey && originalKey) {
+      console.warn(`[CreationThumbnail] Falló el thumbKey, usando original: ${originalKey}`);
+      setCurrentKey(originalKey);
+    }
+  }, [error, currentKey, thumbKey, originalKey]);
+
+  useEffect(() => {
+    // Resetear si la creación cambia (por virtualización o paginación)
+    setCurrentKey(primaryKey);
+  }, [primaryKey]);
   const { deleteCreation, getDownloadUrl } = useCreations();
   const [mediaBroken, setMediaBroken] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -486,7 +505,17 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
         >
           {isAudio ? (
             <AudioThumbnailBody url={url} creationId={creation.id} />
+          ) : isVideo && thumbKey ? (
+            // Si es video y tiene thumbnail, mostramos la imagen estática en la tarjeta
+            <img
+              src={url}
+              alt={creation.prompt}
+              loading="lazy"
+              decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
           ) : isVideo ? (
+            // Fallback para videos viejos sin thumbnail
             <>
               <video
                 src={url}

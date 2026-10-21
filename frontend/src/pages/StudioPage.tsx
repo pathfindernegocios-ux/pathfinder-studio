@@ -247,64 +247,84 @@ const StudioPage: React.FC = () => {
   // SCROLL AUTOMÁTICO INTELIGENTE
   // Solo scrollea al final si el usuario ya estaba al final (respeta
   // cuando está leyendo historial arriba).
-  const lastItem = sessionHistory[sessionHistory.length - 1];
-  const lastItemIsGenerating = lastItem?.isGenerating ?? false;
-  const lastItemMediaCount = lastItem ? getMediaCount(lastItem) : 0;
 
-  // Restaurar scroll al cambiar de pestaña/capability o al recargar (F5)
+  // Restaurar scroll al cambiar de pestaña o al recargar (F5).
+  // Deps: [capability, sessionHistory.length] para que se dispare CUANDO llegan los items.
+  // Solo actúa una vez por capability (hasRestoredScrollRef) para no saltar en cada hidratación.
+  const hasRestoredScrollRef = useRef(false);
   useLayoutEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    
-    // Si hay una generación activa en esta pestaña, siempre ir al fondo
+    if (sessionHistory.length === 0) return;
+    if (hasRestoredScrollRef.current) {
+      // Ya restauramos. Solo sincronizamos el botón, sin scroll.
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      isAtBottomRef.current = distanceFromBottom < 150;
+      setShowScrollToBottom(distanceFromBottom >= 150);
+      return;
+    }
+    hasRestoredScrollRef.current = true;
+
     const hasActiveGeneration = sessionHistory.some(it => it.isGenerating);
     if (hasActiveGeneration) {
       el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
       isAtBottomRef.current = true;
+      setShowScrollToBottom(false);
       return;
     }
 
-    // Intentar restaurar desde sessionStorage (sobrevive F5)
     const savedStr = sessionStorage.getItem(`pf_scroll_${capability}`);
     const saved = savedStr !== null ? parseInt(savedStr, 10) : scrollPositionsRef.current[capability];
-    
-    if (saved !== undefined && !isNaN(saved)) {
+
+    if (saved !== undefined && !isNaN(saved) && saved > 0) {
       el.scrollTo({ top: saved, behavior: 'instant' });
       isAtBottomRef.current = saved >= el.scrollHeight - el.clientHeight - 150;
     } else {
-      // Si es la primera vez en esta pestaña, ir al fondo
       el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
       isAtBottomRef.current = true;
     }
-    // Sincronizar el botón flotante con la posición restaurada
     setShowScrollToBottom(!isAtBottomRef.current);
+  }, [capability, sessionHistory.length]);
+
+  // Reset del flag al cambiar de capability.
+  useEffect(() => {
+    hasRestoredScrollRef.current = false;
   }, [capability]);
 
-  // 1. Autoscroll suave cuando llegan mensajes nuevos o termina una generación
+  // 1. Autoscroll INSTANTÁNEO solo cuando ENTRA un item nuevo (no cuando el skeleton cambia de altura).
+  // Deps: solo el ID del último item. Si el último item es el mismo, no se dispara.
+  const lastItemId = sessionHistory[sessionHistory.length - 1]?.id;
   useEffect(() => {
+    if (!lastItemId) return;
     if (!isAtBottomRef.current) return;
     const el = scrollContainerRef.current;
     if (!el) return;
-
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-      });
+      el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
     });
-  }, [sessionHistory.length, lastItemIsGenerating, lastItemMediaCount]);
+  }, [lastItemId]);
 
-  // 2. Mantener el fondo si el FCM cambia de tamaño (ej. abrir ajustes avanzados)
+  // 2. Mantener el fondo si el contenedor cambia de tamaño (FCM, sidebar, resize).
+  // Debounce via requestAnimationFrame para no pelear con el virtualizer en cada frame.
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    
+
+    let rafId: number | null = null;
     const ro = new ResizeObserver(() => {
-      if (isAtBottomRef.current) {
-        el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
-      }
+      if (!isAtBottomRef.current) return;
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const el2 = scrollContainerRef.current;
+        if (el2) el2.scrollTo({ top: el2.scrollHeight, behavior: 'instant' });
+        rafId = null;
+      });
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
   }, []);
 
   // Fallback de huérfanos: si un item lleva >60s en isGenerating Y la estación
