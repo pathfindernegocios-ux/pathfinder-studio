@@ -275,6 +275,7 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [hover, setHover] = useState(false);
 
   const isVideo = creation.media_type === 'video';
@@ -326,11 +327,16 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await deleteCreation(creation.id);
+      const result = await deleteCreation(creation.id, 'single');
+      if (!result.success) {
+        setDeleteError(result.error || "No se pudo eliminar. Intenta de nuevo.");
+        return; // Mantener el modal abierto si falla
+      }
+      setShowDeleteDialog(false);
     } finally {
       setIsDeleting(false);
-      setShowDeleteDialog(false);
     }
   };
 
@@ -428,13 +434,13 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
         <ConfirmDialog
           open={showDeleteDialog}
           title="¿Eliminar esta pieza?"
-          description="Esta acción no se puede deshacer."
+          description={deleteError ? `⚠️ ${deleteError}` : "Esta acción no se puede deshacer."}
           confirmLabel="Sí, eliminar"
           cancelLabel="Cancelar"
           danger
           loading={isDeleting}
           onConfirm={handleConfirmDelete}
-          onCancel={() => setShowDeleteDialog(false)}
+          onCancel={() => { setShowDeleteDialog(false); setDeleteError(null); }}
         />
       </>
     );
@@ -727,13 +733,13 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
       <ConfirmDialog
         open={showDeleteDialog}
         title="¿Eliminar esta pieza?"
-        description="Esta acción no se puede deshacer. La creación y su archivo se eliminarán de forma permanente."
+        description={deleteError ? `⚠️ ${deleteError}` : "Esta acción no se puede deshacer. La creación y su archivo se eliminarán de forma permanente."}
         confirmLabel="Sí, eliminar"
         cancelLabel="Cancelar"
         danger
         loading={isDeleting}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setShowDeleteDialog(false)}
+        onCancel={() => { setShowDeleteDialog(false); setDeleteError(null); }}
       />
     </>
   );

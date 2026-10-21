@@ -26,7 +26,7 @@ interface SaveCreationParams {
 export async function fetchCreationsPage(
   opts?: { cursor?: string; limit?: number; capability?: "image" | "video" | "audio"; modelId?: string }
 ): Promise<{ items: Creation[]; hasMore: boolean; nextCursor: string | null }> {
-  const limit = opts?.limit ?? 50;
+  const limit = opts?.limit ?? 1000;
   const cursor = opts?.cursor;
   const capability = opts?.capability;
   const modelId = opts?.modelId;
@@ -193,19 +193,46 @@ export function useCreations() {
     return list;
   }, []);
 
-  const deleteCreation = useCallback(async (creationId: string) => {
-    const { error } = await supabase.functions.invoke("delete-creation", {
-      body: { creationId },
-    });
+  const deleteCreation = useCallback(async (
+    creationId: string,
+    mode: 'single' | 'batch' = 'batch'
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.functions.invoke("delete-creation", {
+        body: { creationId, mode },
+      });
 
-    if (error) {
-      void 0;
-      return false;
+      if (error) {
+        // Intentar extraer el mensaje de error devuelto por la Edge Function (502 R2_ERROR)
+        let errorMsg = "No se pudo borrar el archivo físico. Intenta de nuevo.";
+        try {
+          const errBody = await error.context?.json();
+          if (errBody?.details) errorMsg = errBody.details;
+          else if (errBody?.error) errorMsg = errBody.error;
+        } catch { /* ignorar error de parseo */ }
+        
+        return { success: false, error: errorMsg };
+      }
+
+      // Éxito: Actualizar el estado local de React
+      setCreations((prev) => {
+        if (mode === 'single') {
+          // Borrado individual (Mis Creaciones)
+          return prev.filter((c) => c && c.id !== creationId);
+        } else {
+          // Borrado por lote (Chat): Borrar el id o cualquier hijo con el mismo parent_id
+          return prev.filter((c) => 
+            c && 
+            c.id !== creationId && 
+            (c.metadata as any)?.parent_id !== creationId
+          );
+        }
+      });
+      
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Error de red al conectar con el servidor." };
     }
-
-    // FIX: Blindar contra items undefined en el state.
-    setCreations((prev) => prev.filter((c) => c && c.id !== creationId));
-    return true;
   }, []);
 
   const getDownloadUrl = useCallback(async (creationId: string) => {
