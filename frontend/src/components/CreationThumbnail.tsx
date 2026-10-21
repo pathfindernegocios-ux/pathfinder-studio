@@ -14,6 +14,7 @@ import { useCreations } from '../hooks/useCreations';
 import ConfirmDialog from './ConfirmDialog';
 import type { Creation } from '../types';
 import { fetchAudioBlob } from '../lib/audioBlobCache';
+import { addTombstone, removeTombstone } from '../lib/tombstones';
 
 // ============================================================
 // HELPERS
@@ -328,9 +329,11 @@ export const CreationThumbnail: React.FC<CreationThumbnailProps> = ({ creation }
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     setDeleteError(null);
+    addTombstone(creation.id); // PILAR 4: tombstone ANTES del backend
     try {
       const result = await deleteCreation(creation.id, 'single');
       if (!result.success) {
+        removeTombstone(creation.id); // PILAR 4: rollback
         setDeleteError(result.error || "No se pudo eliminar. Intenta de nuevo.");
         return; // Mantener el modal abierto si falla
       }

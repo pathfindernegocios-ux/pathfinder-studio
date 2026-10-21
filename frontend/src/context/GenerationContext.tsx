@@ -1,5 +1,8 @@
 // src/context/GenerationContext.tsx
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Client } from '@gradio/client';
+import { useHistoryStore } from '../stores/useHistoryStore';
+import { useGenerationStore } from '../stores/useGenerationStore';
 import type { ReactNode } from "react";
 import type { CapabilityId, Creation, GenerationInfo, LogEntry, Status } from "../types";
 import { supabase } from "../lib/supabaseClient";
@@ -9,6 +12,7 @@ import { getChatLabel, getRuntimeId } from "../config/models";
 import { useRuntime } from "../hooks/useRuntime";
 import { useStationStatus } from "../hooks/useStationStatus";
 import { fetchCreationsPage } from "../hooks/useCreations";
+import { getTombstoneSet, isTombstoned } from '../lib/tombstones';
 
 type RecoveryState = "checking" | "idle" | "active";
 
@@ -101,6 +105,7 @@ export interface SessionItem {
    * el túnel como fallback o mostrar "Archivo temporal expirado".
    */
   legacy?: boolean;
+  thumbKey?: string | null;
 }
 
 /**
@@ -208,11 +213,11 @@ interface GenerateParams {
 }
 
 interface GenerationContextValue {
+  isLoading: boolean;
   stationId: string | null;
   gradioUrl: string | null;
   capability: CapabilityId;
   setCapability: (c: CapabilityId) => void;
-  isLoading: boolean;
   generationInfo: GenerationInfo | null;
   logs: LogEntry[];
   videoSrc: string | null;
@@ -388,7 +393,10 @@ function mapCreationToSessionItem(row: Creation): SessionItem {
     : {};
   const parentId = (meta.parent_id as string) || row.id;
 
+  const thumbKey = (meta.thumb_key as string) || null;
+
   return {
+    thumbKey: thumbKey,
     id: parentId,
     prompt: row.prompt,
     mediaUrls: [],
@@ -479,9 +487,21 @@ export function GenerationProvider({
   // Historial por capability. Cada notebook (imagen / video / audio)
   // mantiene su propia slice. Cambiar de capability sólo cambia la vista,
   // no pisa items de las otras.
-  const [sessionHistoryByCapability, setSessionHistoryByCapability] = useState<Record<CapabilityId, SessionItem[]>>({
-    image: [], video: [], audio: [],
-  });
+  const sessionHistoryByCapability = useHistoryStore(s => s.sessionHistoryByCapability);
+
+  // Wrapper compatible con la firma original. Redirige a Zustand.
+  const setSessionHistoryByCapability = useCallback(
+    (updaterOrValue: Record<CapabilityId, SessionItem[]> | ((prev: Record<CapabilityId, SessionItem[]>) => Record<CapabilityId, SessionItem[]>)) => {
+      const prev = useHistoryStore.getState().sessionHistoryByCapability;
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue;
+      for (const cap of ['image', 'video', 'audio'] as const) {
+        if (next[cap] !== prev[cap]) {
+          useHistoryStore.getState().setHistoryForCap(cap, next[cap]);
+        }
+      }
+    },
+    []
+  );
 
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const lastPersistedRef = useRef<Map<string, string>>(new Map());
@@ -523,8 +543,11 @@ export function GenerationProvider({
       const items = await sessionStore.getAllItems<SessionItem>();
       if (cancelled) return;
       if (items.length > 0) {
+        // PILAR 4: filtrar items borrados antes de hidratar
+        const tombstoneSet = getTombstoneSet();
+        const filteredItems = items.filter(it => !tombstoneSet.has(it.id));
         const byCap: Record<CapabilityId, SessionItem[]> = { image: [], video: [], audio: [] };
-        for (const it of items) {
+        for (const it of filteredItems) {
           const cap: CapabilityId = it.mediaType === 'video' ? 'video' : it.mediaType === 'audio' ? 'audio' : 'image';
           byCap[cap].push(it);
         }
@@ -535,7 +558,7 @@ export function GenerationProvider({
           const hasAny = prev.image.length + prev.video.length + prev.audio.length > 0;
           if (hasAny) return prev;
           const m = new Map<string, string>();
-          for (const it of items) m.set(it.id, hashItem(it));
+          for (const it of filteredItems) m.set(it.id, hashItem(it));
           lastPersistedRef.current = m;
           return byCap;
         });
@@ -639,12 +662,12 @@ export function GenerationProvider({
     // configurado) aparecieran en TODOS los modelos, dando la sensación de
     // que uno "infiere" del otro. Ahora cada modelo ve SOLO lo suyo.
     const filtered = currentModelId
-      ? slice.filter(it => it.modelId === currentModelId)
+      ? slice.filter((it: SessionItem) => it.modelId === currentModelId)
       : slice;
 
     // Orden estricto por createdAt (más viejo arriba, más nuevo abajo).
     // Evita que los items de error o los que vienen del backend se mezclen.
-    filtered.sort((a, b) => a.createdAt - b.createdAt);
+    filtered.sort((a: SessionItem, b: SessionItem) => a.createdAt - b.createdAt);
 
     const urlForItem = (item: SessionItem): string | null => {
       if (capability === 'image' && item.modelId) {
@@ -654,12 +677,12 @@ export function GenerationProvider({
       return gradioUrl;
     };
 
-    return filtered.map((item) => {
+    return filtered.map((item: SessionItem) => {
       const url = urlForItem(item);
       if (!url) return item;
       return {
         ...item,
-        mediaUrls: item.mediaUrls.map((u) => rebaseMediaUrl(u, url)),
+        mediaUrls: item.mediaUrls.map((u: string) => rebaseMediaUrl(u, url)),
         startImageUrl: item.startImageUrl
           ? rebaseMediaUrl(item.startImageUrl, url)
           : undefined,
@@ -668,10 +691,10 @@ export function GenerationProvider({
           : undefined,
         audioUrl: item.audioUrl ? rebaseMediaUrl(item.audioUrl, url) : undefined,
         sceneUrls: item.sceneUrls
-          ? item.sceneUrls.map((u) => rebaseMediaUrl(u, url))
+          ? item.sceneUrls.map((u: string) => rebaseMediaUrl(u, url))
           : undefined,
         refUrls: item.refUrls
-          ? item.refUrls.map((u) => rebaseMediaUrl(u, url))
+          ? item.refUrls.map((u: string) => rebaseMediaUrl(u, url))
           : undefined,
       };
     });
@@ -713,7 +736,8 @@ export function GenerationProvider({
   useEffect(() => { activeVideoModelIdRef.current = activeVideoModelId; }, [activeVideoModelId]);
 
   // isLoading se calcula con useMemo (abajo) a partir del historial.
-  const [generationInfo, setGenerationInfo] = useState<GenerationInfo | null>(null);
+  const generationInfo = useGenerationStore((s) => s.generationInfo);
+  const setGenerationInfo = useGenerationStore((s) => s.setGenerationInfo);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [imageSrcs, setImageSrcs] = useState<string[] | null>(null);
@@ -803,6 +827,20 @@ export function GenerationProvider({
   // Derivado síncrono: isLoading refleja la generación del modelo activo
   // en la capability activa. Calculado con useMemo para que cambie en el
   // mismo render que 'capability', sin lag de 1 frame.
+
+  // isLoading se calcula a partir de Zustand (Pilar 2: aislamiento de re-renders)
+  const pollClientCacheRef = useRef<Record<string, Client>>({});
+  const getPollClient = async (url: string) => {
+    if (pollClientCacheRef.current[url]) return pollClientCacheRef.current[url];
+    try {
+      const client = await Client.connect(url);
+      pollClientCacheRef.current[url] = client;
+      return client;
+    } catch {
+      return null;
+    }
+  };
+
   const isLoading = useMemo(() => {
     const activeRuntimeId = capability === 'image'
       ? activeImageModelId
@@ -810,7 +848,7 @@ export function GenerationProvider({
         ? 'tts-dual'
         : activeVideoModelId;
     return sessionHistoryByCapability[capability].some(
-      it => it.isGenerating && (it.modelId === activeRuntimeId || !it.modelId)
+      (it: SessionItem) => it.isGenerating && (it.modelId === activeRuntimeId || !it.modelId)
     );
   }, [capability, activeImageModelId, activeVideoModelId, sessionHistoryByCapability]);
 
@@ -822,93 +860,88 @@ export function GenerationProvider({
     return () => window.clearInterval(interval);
   }, [isLoading]);
 
+  // ── POLLER MULTI-MODELO (Pilar 5) ──
+  // Itera sobre TODOS los items en generación, no solo el modelo activo.
+  // Usa stationRuntimesMap para encontrar la URL de cada modelo.
+  const generatingItems = useMemo(() => {
+    const items: SessionItem[] = [];
+    for (const cap of ['image', 'video', 'audio'] as const) {
+      items.push(...sessionHistoryByCapability[cap].filter(it => it.isGenerating));
+    }
+    return items;
+  }, [sessionHistoryByCapability]);
+
+  const generatingKey = generatingItems.map(it => it.id).join(',');
+
   useEffect(() => {
-    if (!isLoading || !gradioUrl) return;
+    if (!generatingKey) return;
     let cancelled = false;
 
     const poll = async () => {
-      try {
-        const client = await getClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+
+      for (const item of generatingItems) {
         if (cancelled) return;
+        const modelId = item.modelId || '';
+        const cap = item.mediaType;
+        const modelKey = `${cap}:${modelId}`;
+        
+        const row = stationRuntimesMap[modelId];
+        if (!row) continue;
+        const urls = (row.gradio_urls && row.gradio_urls.length > 0) ? row.gradio_urls : (row.gradio_url ? [row.gradio_url] : []);
+        if (urls.length === 0) continue;
 
-        // Si no hay cliente, el túnel está caído o congestionado. El WATCHDOG
-        // DE ESTADO (useEffect de stationStatusMap) se encargará de matar la
-        // generación si el notebook realmente se apagó. Aquí solo esperamos.
-        if (!client) return;
+        // Probar con la primera URL (ideal: iterar si falla, pero mantenemos simple)
+        const client = await getPollClient(urls[0]);
+        if (!client) continue;
 
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (!token) return;
-        const result = await client.predict("/generation_status", [token]);
-        const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-        // El backend devuelve {} si el JWT no es válido — tratarlo como null
-        const info = (raw && typeof raw === "object" && Object.keys(raw as object).length > 0)
-          ? raw as GenerationInfo
-          : undefined;
+        try {
+          const result = await client.predict('/generation_status', [token]);
+          const raw = Array.isArray(result.data) ? result.data[0] : result.data;
+          const info = (raw && typeof raw === 'object' && Object.keys(raw as object).length > 0) ? raw as GenerationInfo : undefined;
 
-        if (info?.started_at != null && info.started_at + 1 < generationStartRef.current) return;
+          if (!cancelled && info) {
+            useGenerationStore.getState().setGenerationInfoByModel(modelKey, info);
 
-        if (!cancelled) {
-          setGenerationInfo(info ?? null);
-          
-          // ── HURRICANE-PROOF: Extraer r2_keys del poller y actualizar el item ──
-          if (info?.status === "complete" && info.id) {
-            let r2Keys = (info as any).r2_keys as string[] | undefined;
+            // Hurricane-Proof: extraer r2_keys del poller y actualizar el item
+            if (info.status === 'complete' && info.id) {
+              let r2Keys = (info as any).r2_keys as string[] | undefined;
+              try {
+                const { data } = await supabase
+                  .from('creations')
+                  .select('storage_key')
+                  .or(`id.eq.${info.id},metadata->>parent_id.eq.${info.id}`)
+                  .order('created_at', { ascending: true });
+                if (Array.isArray(data) && data.length > 0) {
+                  const fromDb = data.map((r: any) => r.storage_key).filter((k: any): k is string => typeof k === 'string' && k.length > 0);
+                  if (fromDb.length > 0) r2Keys = fromDb;
+                }
+              } catch {}
 
-            // ── FUENTE AUTORITATIVA: consultar `creations` SIEMPRE al ver complete.
-            // El backend ya insertó (Hurricane-Proof). Buscamos por `id` (LTX)
-            // o por `metadata->>parent_id` (Qwen: id es UUID nuevo por imagen).
-            // Esto garantiza las claves reales independientemente del notebook.
-            try {
-              const { data } = await supabase
-                .from("creations")
-                .select("storage_key")
-                .or(`id.eq.${info.id},metadata->>parent_id.eq.${info.id}`)
-                .order("created_at", { ascending: true });
-              if (Array.isArray(data) && data.length > 0) {
-                const fromDb = data
-                  .map((r: any) => r.storage_key)
-                  .filter((k: any): k is string => typeof k === "string" && k.length > 0);
-                if (fromDb.length > 0) r2Keys = fromDb;
-              }
-            } catch (e) {
-              console.warn("[poller] creations lookup falló:", e);
-            }
-
-            const cap = (info.capability || capability) as CapabilityId;
-            setHistoryForCapRef.current(cap, prev => prev.map(it =>
-              it.id === info.id ? { 
-                ...it, 
-                isGenerating: false, 
-                r2Keys: r2Keys && r2Keys.length > 0 ? r2Keys : it.r2Keys, 
-                status: 'temporary' 
-              } : it
-            ));
-          } else if (info?.status === "error" || info?.status === "cancelled") {
-            const cap = (info.capability || capability) as CapabilityId;
-            setHistoryForCapRef.current(cap, prev => prev.map(it =>
-              it.id === info.id ? { ...it, isGenerating: false, errorMessage: info.error || 'Generación fallida' } : it
-            ));
-          }
-
-          if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
-            if (info.status === "complete" && capability === "video") {
-              const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
-              if (storedUrl) setVideoSrc(storedUrl);
+              setHistoryForCapRef.current(cap, prev => prev.map(it =>
+                it.id === item.id ? { ...it, isGenerating: false, r2Keys: r2Keys && r2Keys.length > 0 ? r2Keys : it.r2Keys, status: 'temporary' } : it
+              ));
+            } else if (info.status === 'error' || info.status === 'cancelled') {
+              setHistoryForCapRef.current(cap, prev => prev.map(it =>
+                it.id === item.id ? { ...it, isGenerating: false, errorMessage: info.error || 'Generación fallida' } : it
+              ));
             }
           }
+        } catch {
+          // Si el poll falla, no matamos el cliente ni el item. Solo esperamos al siguiente ciclo.
         }
-      } catch (err) {
-        // Si el poll falla por timeout o red, es probable que el notebook
-        // esté al 100% de GPU. El heartbeat (stationStatusMap) es la única
-        // fuente de verdad para saber si el notebook murió. No matamos nada.
-        if (cancelled) return;
       }
     };
+
     poll();
     const interval = window.setInterval(poll, GENERATION_POLL_MS);
     return () => { cancelled = true; window.clearInterval(interval); };
-  }, [isLoading, gradioUrl, getClient, capability]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatingKey, stationRuntimesMap]);
+
+
 
   useEffect(() => {
     if (!isLoading || !gradioUrl) return;
@@ -2047,7 +2080,7 @@ export function GenerationProvider({
     const check = async () => {
       if (cancelled) return;
       for (const cap of ['image', 'video', 'audio'] as const) {
-        const items = sessionHistoryByCapability[cap].filter(it => ids.includes(it.id) && it.isGenerating);
+        const items = sessionHistoryByCapability[cap].filter((it: SessionItem) => ids.includes(it.id) && it.isGenerating);
         for (const item of items) {
           try {
             const { data, error } = await supabase
@@ -2105,6 +2138,9 @@ export function GenerationProvider({
           // Esto evita que un lote de 3 imágenes cree 3 burbujas separadas en el chat.
           const parentId = row.metadata?.parent_id || row.id;
 
+          // PILAR 4: si el item está tombstoned, ignorar el INSERT.
+          if (isTombstoned(parentId) || isTombstoned(row.id)) return;
+
           setHistoryForCapRef.current(cap, prev => {
             // Buscar si ya existe la burbuja del lote (por parentId o por row.id)
             const existingIdx = prev.findIndex(it => it.id === parentId || it.id === row.id);
@@ -2154,10 +2190,15 @@ export function GenerationProvider({
           if (cancelled) return;
           const row = payload.old as any;
           if (!row?.id) return;
+          // PILAR 4: intentar borrar tanto por id de fila como por parent_id
+          const parentId = row.metadata?.parent_id || null;
           for (const cap of ['image', 'video', 'audio'] as const) {
-            setHistoryForCapRef.current(cap, prev => prev.filter(it => it.id !== row.id));
+            setHistoryForCapRef.current(cap, prev => prev.filter(it => 
+              it.id !== row.id && (!parentId || it.id !== parentId)
+            ));
           }
           void sessionStore.deleteItem(row.id);
+          if (parentId) void sessionStore.deleteItem(parentId);
         }
       )
       .subscribe();
@@ -2168,6 +2209,57 @@ export function GenerationProvider({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
+
+
+  // ── PREFETCH INDUSTRIAL ──
+  // En cuanto Realtime o el Poller detectan una nueva r2Key, pedimos la URL firmada
+  // inmediatamente y la guardamos en caché. Así el usuario no ve "Firmando" al hacer scroll.
+  useEffect(() => {
+    const prefetchUrls = async () => {
+      const allItems = [
+        ...sessionHistoryByCapability.image,
+        ...sessionHistoryByCapability.video,
+        ...sessionHistoryByCapability.audio,
+      ];
+      
+      const keysToFetch = new Set<string>();
+      for (const item of allItems) {
+        for (const key of item.r2Keys || []) {
+          const cache = sessionStorage.getItem('pf_r2_url_cache_v1');
+          const parsed = cache ? JSON.parse(cache) : {};
+          if (!parsed[key]) {
+            keysToFetch.add(key);
+          }
+        }
+      }
+
+      if (keysToFetch.size === 0) return;
+
+      const cache = sessionStorage.getItem('pf_r2_url_cache_v1');
+      const parsed = cache ? JSON.parse(cache) : {};
+      let changed = false;
+
+      for (const key of Array.from(keysToFetch).slice(0, 10)) {
+        try {
+          const { data, error } = await supabase.functions.invoke('r2-sign-download', {
+            body: { r2_key: key }
+          });
+          if (!error && data?.url) {
+            parsed[key] = { url: data.url, timestamp: Date.now() };
+            changed = true;
+          }
+        } catch { /* ignorar */ }
+      }
+
+      if (changed) {
+        sessionStorage.setItem('pf_r2_url_cache_v1', JSON.stringify(parsed));
+        // Forzar un re-render de los componentes de imagen
+        window.dispatchEvent(new Event('pf_r2_cache_updated'));
+      }
+    };
+
+    prefetchUrls();
+  }, [sessionHistoryByCapability]);
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;
 }
