@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useR2SignedUrl } from '../hooks/useR2SignedUrl';
 import VideoPlayer from './VideoPlayer';
 
@@ -10,12 +10,25 @@ interface ChatMediaProps {
 }
 
 export const ChatMedia: React.FC<ChatMediaProps> = ({ r2Key, thumbKey, mediaType, aspectRatio }) => {
-  // Usamos el thumbKey para el render rápido, y el r2Key como fallback
-  // SOLO las imágenes pueden usar thumbnail.
-  // Video y audio siempre usan el original (r2Key), porque el thumbnail es un PNG
-  // que rompería el <video> o el <audio>.
-  const displayKey = mediaType === 'image' ? (thumbKey || r2Key) : r2Key;
-  const { url, loading, error } = useR2SignedUrl(displayKey);
+  // primaryKey: usa el thumbKey si es imagen y existe, sino el original.
+  const primaryKey = mediaType === 'image' ? (thumbKey || r2Key) : r2Key;
+  const [currentKey, setCurrentKey] = useState(primaryKey);
+  
+  const { url, loading, error } = useR2SignedUrl(currentKey);
+
+  // BLINDAJE: Si falla la firma del thumbKey, cambiamos al original.
+  // Gracias al fix del hook, el error se resetea y no hay falsos positivos.
+  useEffect(() => {
+    if (error && currentKey !== r2Key) {
+      console.warn(`[ChatMedia] Falló el thumbKey, usando original: ${r2Key}`);
+      setCurrentKey(r2Key);
+    }
+  }, [error, currentKey, r2Key]);
+
+  // Sincronizar si las props cambian (ej. el item se actualiza en tiempo real)
+  useEffect(() => {
+    setCurrentKey(primaryKey);
+  }, [primaryKey]);
 
   if (loading) {
     return (

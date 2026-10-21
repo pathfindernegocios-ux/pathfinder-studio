@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 const CACHE_KEY = 'pf_r2_url_cache_v1';
-const CACHE_TTL_MS = 82800000; // 23 horas (alineado con la expiración de 24h de R2)
+const CACHE_TTL_MS = 82800000; // 23 horas
 
 function getCache(): Record<string, { url: string; timestamp: number }> {
   try {
@@ -28,63 +28,63 @@ export const useR2SignedUrl = (r2Key: string | null) => {
     if (!r2Key) return null;
     const cache = getCache();
     const cached = cache[r2Key];
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.url;
-    }
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) return cached.url;
     return null;
   });
-  
-  const [loading, setLoading] = useState<boolean>(() => !url && !!r2Key);
+  const [loading, setLoading] = useState<boolean>(!!r2Key && !url);
   const [error, setError] = useState<boolean>(false);
 
   useEffect(() => {
     if (!r2Key) {
       setUrl(null);
+      setError(false);
       setLoading(false);
       return;
     }
 
-    if (url) return;
-
+    // Cache hit: no fetch, no parpadeo
     const cache = getCache();
     const cached = cache[r2Key];
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
       setUrl(cached.url);
+      setError(false);
       setLoading(false);
       return;
     }
 
-    let isMounted = true;
+    // Cache miss: reset y fetch
+    setUrl(null);
+    setError(false);
     setLoading(true);
 
+    let cancelled = false;
     const fetchUrl = async () => {
       try {
         const { data, error: fnError } = await supabase.functions.invoke('r2-sign-download', {
-          body: { r2_key: r2Key }
+          body: { r2_key: r2Key },
         });
+        if (cancelled) return;
         if (fnError) throw fnError;
-        
-        if (isMounted && data?.url) {
+        if (data?.url) {
           const now = Date.now();
           const currentCache = getCache();
           currentCache[r2Key] = { url: data.url, timestamp: now };
           setCache(currentCache);
-          
           setUrl(data.url);
           setError(false);
-        } else if (isMounted) {
+        } else {
           setError(true);
         }
       } catch {
-        if (isMounted) setError(true);
+        if (!cancelled) setError(true);
       } finally {
-        if (isMounted) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchUrl();
-    return () => { isMounted = false; };
-  }, [r2Key, url]);
+    return () => { cancelled = true; };
+  }, [r2Key]); // ← SOLO r2Key. Sin `url` en deps. Sin loop.
 
   return { url, loading, error };
 };

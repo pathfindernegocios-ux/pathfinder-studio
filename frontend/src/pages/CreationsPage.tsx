@@ -92,13 +92,16 @@ const SectionHeader: React.FC<{ label: string; count: number }> = ({ label, coun
 );
 
 const MasonryGrid: React.FC<{ items: Creation[] }> = ({ items }) => (
-  <div style={{ columnWidth: '320px', columnGap: '20px' }}>
+  <div style={{ 
+    display: 'grid', 
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+    gap: '20px',
+    alignItems: 'start' 
+  }}>
     {items.map((creation, index) => (
       <div
         key={creation.id}
         style={{
-          breakInside: 'avoid',
-          marginBottom: '20px',
           animation: 'pfCreationIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both',
           animationDelay: `${Math.min(index * 0.03, 0.3)}s`,
         }}
