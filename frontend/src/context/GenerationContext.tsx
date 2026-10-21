@@ -279,43 +279,6 @@ const GenerationContext = createContext<GenerationContextValue | null>(null);
 const GENERATION_POLL_MS = 2000;
 const LOGS_POLL_MS = 2500;
 
-function mapBackendParams(raw: any): Record<string, unknown> | undefined {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
-  const r = raw as Record<string, unknown>;
-  // Fix: null/undefined seed → -1 (aleatorio), no 0
-  const normalizeSeed = (v: unknown): number => {
-    if (v === null || v === undefined) return -1;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : -1;
-  };
-  return {
-    negativePrompt: r.negative_prompt,
-    steps: r.steps,
-    resolution: r.resolution,
-    seed: normalizeSeed(r.seed),
-    numImages: r.num_images,
-    guideScale: r.guide_scale,
-    embeddedGuidance: r.embedded_guidance,
-    refModeLabel: r.ref_mode,
-    modelModeLabel: r.model_mode,
-    fluxGuideScale: r.guide_scale,  // alias: mismo valor que guideScale en Flux
-    stylePreset: r.style_preset,
-    duration: r.duration,
-    matchAudioDur: r.match_audio_dur,
-    // ── TTS Dual ──
-    audioMode: r.mode,
-    voiceMode: r.voice_mode,
-    language: r.language,
-    durationLabel: r.duration,
-    // ── Wan 2.1 Dual ──
-    wanMode: r.mode,
-    wanShift: r.shift,
-    wanSampler: r.sampler,
-    // ── LoRAs (Wan + LTX 2.5 MSR) ──
-    extraLoras: r.extra_loras,
-    loraMults: r.lora_mults,
-  };
-}
 
 // Estilos de Krea — se aplican concatenando un sufijo al prompt.
 // Krea 2 Turbo no acepta style_preset como input del /generate, así que
@@ -364,18 +327,12 @@ function isItemDeleted(
   item: { id: string; prompt?: string; createdAt?: number },
   records: DeletedItemRecord[],
 ): boolean {
+  // La eliminacion es estrictamente por ID exacto.
+  // Se elimino el fallback por 'prompt + createdAt' porque causaba
+  // que al borrar una generacion, se borraran todas las anteriores
+  // que compartian el mismo prompt (variaciones).
   for (const rec of records) {
     if (rec.id === item.id) return true;
-    if (
-      rec.prompt &&
-      item.prompt &&
-      rec.prompt === item.prompt &&
-      typeof rec.deletedAt === 'number' &&
-      typeof item.createdAt === 'number' &&
-      item.createdAt < rec.deletedAt
-    ) {
-      return true;
-    }
   }
   return false;
 }
@@ -405,21 +362,6 @@ function persistDeletedItems(records: DeletedItemRecord[]) {
   } catch {
     // noop
   }
-}
-
-// Reconciliación local ↔ backend. Evita duplicación cuando el backend
-// reporta el mismo item que ya existe localmente como optimistic (creado al
-// click de Generar). Regla: si un item del backend tiene el mismo
-// (modelId + prompt) que un item de prev, el local se DESCARTA — el del
-// backend tiene el id real, la media real y el estado real.
-function reconcileWithBackend(
-  backendItems: SessionItem[],
-  prev: SessionItem[],
-  isDeleted: (item: SessionItem) => boolean,
-): SessionItem[] {
-  const backendIds = new Set(backendItems.map((b) => b.id));
-  const preserved = prev.filter((it) => !backendIds.has(it.id));
-  return [...backendItems, ...preserved].filter((it) => !isDeleted(it));
 }
 
 function hashItem(it: SessionItem): string {
@@ -474,58 +416,6 @@ function mapCreationToSessionItem(row: Creation): SessionItem {
   };
 }
 
-function mapBackendItem(raw: any): SessionItem {
-  const status = raw.status as string;
-  const isGenerating = status === "preparing" || status === "running";
-  const startedAtSec = typeof raw.started_at === "number" ? raw.started_at : Date.now() / 1000;
-  return {
-    id: String(raw.id ?? ""),
-    prompt: String(raw.prompt ?? ""),
-    mediaUrls: Array.isArray(raw.output_urls) ? raw.output_urls : [],
-    mediaType: raw.capability === "video" ? "video" : raw.capability === "audio" ? "audio" : "image",
-    modelId: String(raw.model_id ?? ""),
-    modelLabel: String(raw.model_label ?? ""),
-    aspectRatio: String(raw.aspect_ratio ?? "1/1"),
-    createdAt: Math.round(startedAtSec * 1000),
-    status: "temporary",
-    isGenerating,
-    errorMessage: (() => {
-      if (status !== 'error' && status !== 'failed') return undefined;
-      const fromErrorMessage = typeof raw.error_message === 'string' && raw.error_message.trim() ? raw.error_message.trim() : null;
-      const fromError = typeof raw.error === 'string' && raw.error.trim() ? raw.error.trim() : null;
-      return fromErrorMessage ?? fromError ?? 'No se pudo completar la generación.';
-    })(),
-    params: mapBackendParams(raw.parameters),
-    refUrls: Array.isArray(raw.ref_urls) ? raw.ref_urls.map(String) : undefined,
-    startImageUrl: typeof raw.start_image_url === 'string' && raw.start_image_url ? String(raw.start_image_url) : undefined,
-    endImageUrl: typeof raw.end_image_url === 'string' && raw.end_image_url ? String(raw.end_image_url) : undefined,
-    audioUrl: typeof raw.audio_url === 'string' && raw.audio_url ? String(raw.audio_url) : undefined,
-    sceneUrls: Array.isArray(raw.scene_urls) ? raw.scene_urls.map(String) : undefined,
-    elapsedSeconds: (() => {
-      const meta = (raw.metadata && typeof raw.metadata === 'object') ? raw.metadata : {};
-      const fromMeta = typeof meta.gen_elapsed_seconds === 'number' ? meta.gen_elapsed_seconds : null;
-      const fromTimestamps = (typeof raw.finished_at === 'number' && typeof raw.started_at === 'number' && raw.finished_at > raw.started_at)
-        ? raw.finished_at - raw.started_at
-        : null;
-      const val = fromMeta ?? fromTimestamps;
-      return (typeof val === 'number' && val > 0) ? val : undefined;
-    })(),
-    r2Keys: Array.isArray(raw.r2_keys) ? raw.r2_keys.map(String) : undefined,
-    legacy: !isGenerating && (!Array.isArray(raw.r2_keys) || raw.r2_keys.length === 0),
-    storyboardMeta: raw.storyboard_meta ? {
-      totalScenes: Number(raw.storyboard_meta.total_scenes ?? 0),
-      currentScene: Number(raw.storyboard_meta.current_scene ?? 1),
-      scenes: Array.isArray(raw.storyboard_meta.scenes)
-        ? raw.storyboard_meta.scenes.map((s: any, i: number) => ({
-            index: Number(s.index ?? i),
-            mode: (s.mode === 'first' || s.mode === 'cut' || s.mode === 'continue') ? s.mode : 'cut',
-            durationSec: Number(s.duration_sec ?? 5),
-            prompt: String(s.prompt ?? ''),
-          }))
-        : [],
-    } : undefined,
-  };
-}
 
 export function GenerationProvider({
   stationId,
@@ -893,7 +783,6 @@ export function GenerationProvider({
               changed = true;
               return {
                 ...it,
-                isGenerating: false,
                 status: 'temporary' as const,
                 errorMessage: 'La estación se desconectó o el notebook se apagó.'
               };
@@ -960,6 +849,26 @@ export function GenerationProvider({
 
         if (!cancelled) {
           setGenerationInfo(info ?? null);
+          
+          // ── HURRICANE-PROOF: Extraer r2_keys del poller y actualizar el item ──
+          if (info?.status === "complete" && info.id) {
+            const r2Keys = (info as any).r2_keys;
+            const cap = (info.capability || capability) as CapabilityId;
+            setHistoryForCapRef.current(cap, prev => prev.map(it =>
+              it.id === info.id ? { 
+                ...it, 
+                isGenerating: false, 
+                r2Keys: r2Keys && r2Keys.length > 0 ? r2Keys : it.r2Keys, 
+                status: 'temporary' 
+              } : it
+            ));
+          } else if (info?.status === "error" || info?.status === "cancelled") {
+            const cap = (info.capability || capability) as CapabilityId;
+            setHistoryForCapRef.current(cap, prev => prev.map(it =>
+              it.id === info.id ? { ...it, isGenerating: false, errorMessage: info.error || 'Generación fallida' } : it
+            ));
+          }
+
           if (info?.status === "complete" || info?.status === "error" || info?.status === "cancelled") {
             if (info.status === "complete" && capability === "video") {
               const storedUrl = sessionStorage.getItem(`gen_video_${info.id}`);
@@ -1203,8 +1112,9 @@ export function GenerationProvider({
   }, []);
 
   const removeSessionItem = useCallback((id: string) => {
-    // Guardar el record completo (id + prompt + createdAt) para poder matchear
-    // tambien contra el ID real del backend si el optimista msg-* cambia a gen-*.
+    // 1. Borrar de IndexedDB para que no reviva al hacer F5
+    void sessionStore.deleteItem(id);
+    // El resto de la logica de tombstones y React state sigue abajo...
     setSessionHistoryByCapability(prev => {
       // Buscar el item en cualquier slice para extraer prompt + createdAt
       const found =
@@ -1240,30 +1150,10 @@ export function GenerationProvider({
   }, []);
 
   // Toma un client explícito. Lo usan los 3 hydrates (uno por capability).
-  const fetchSessionHistoryFor = useCallback(async (client: any): Promise<SessionItem[]> => {
-    try {
-      if (!client) return [];
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) return [];
-      const result = await client.predict("/session_history", [token]);
-      const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-      if (!Array.isArray(raw)) return [];
-      return raw
-        .filter((it: any) => it && (
-          it.status === "complete" ||
-          it.status === "preparing" ||
-          it.status === "running" ||
-          it.status === "error" ||
-          it.status === "failed" ||
-          it.status === "cancelled"
-        ))
-        .filter((it: any) => !isItemDeleted({ id: String(it.id), prompt: it.prompt }, deletedIdsRef.current))
-        .map(mapBackendItem);
-    } catch (err) {
-      void 0;
-      return [];
-    }
+  const fetchSessionHistoryFor = useCallback(async (_client: any): Promise<SessionItem[]> => {
+    // ARQUITECTURA INDUSTRIAL: El frontend es dueño del historial (IndexedDB + Supabase).
+    // El backend solo reporta generaciones en curso. Ignoramos session_history.
+    return [];
   }, []);
 
   // Compat: el código existente (polling, refetch en handleGenerate) sigue
@@ -1284,60 +1174,8 @@ export function GenerationProvider({
 
   // Hydrate por capability: cada slice se hidrata desde su propio notebook.
   // Cambiar de capability ya no pisa items de las otras.
-  useEffect(() => {
-    if (!stationId || !imageRuntime.gradioUrl) return;
-    let cancelled = false;
-    (async () => {
-      const client = await imageRuntime.getClient();
-      const items = await fetchSessionHistoryFor(client);
-      if (cancelled) return;
-      setHistoryForCap('image', prev => {
-        if (items.length === 0 && prev.length > 0) return prev;
-        return reconcileWithBackend(items, prev, (item) => isItemDeleted(item, deletedIdsRef.current));
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [imageRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
 
-  useEffect(() => {
-    if (!stationId || !videoRuntime.gradioUrl) return;
-    let cancelled = false;
-    (async () => {
-      const client = await videoRuntime.getClient();
-      const items = await fetchSessionHistoryFor(client);
-      if (cancelled) return;
-      setHistoryForCap('video', prev => {
-        if (items.length === 0 && prev.length > 0) return prev;
-        if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
-        const backendIds = new Set(items.map(it => it.id));
-        const otherModels = prev.filter(
-          it => it.modelId && it.modelId !== activeVideoModelId && !backendIds.has(it.id)
-        );
-        return [...items, ...otherModels].filter(it => !isItemDeleted(it, deletedIdsRef.current));
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [videoRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
 
-  useEffect(() => {
-    if (!stationId || !audioRuntime.gradioUrl) return;
-    let cancelled = false;
-    (async () => {
-      const client = await audioRuntime.getClient();
-      const items = await fetchSessionHistoryFor(client);
-      if (cancelled) return;
-      setHistoryForCap('audio', prev => {
-        if (items.length === 0 && prev.length > 0) return prev;
-        if (items.length < prev.length && prev.every(it => !it.isGenerating)) return prev;
-        const backendIds = new Set(items.map(it => it.id));
-        const otherModels = prev.filter(
-          it => it.modelId && it.modelId !== 'tts-dual' && !backendIds.has(it.id)
-        );
-        return [...items, ...otherModels].filter(it => !isItemDeleted(it, deletedIdsRef.current));
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [audioRuntime.gradioUrl, stationId, fetchSessionHistoryFor, setHistoryForCap]);
 
   // ===== Polling per-capability =====
   // Cada slice mira SU notebook. Si un item se está generando en image,
@@ -1345,89 +1183,11 @@ export function GenerationProvider({
   // Corta solo cuando su slice deja de tener items isGenerating.
   // Cada polling preserva el skeleton local (isGenerating:true con id msg-*)
   // que todavía no aparece en el backend.
-  const mergeWithOrphans = (items: SessionItem[], prev: SessionItem[], _activeModel: string | null) => {
-    // Reconciliación: si el backend ya conoce este item (mismo modelId +
-    // prompt), se prefiere la versión del backend y se descarta la copia
-    // local. Esto es lo que evita las "2 generaciones" cuando el backend
-    // reporta el item que el frontend ya había creado optimistic.
-    return reconcileWithBackend(items, prev, (item) => isItemDeleted(item, deletedIdsRef.current));
-  };
-
-  const hasGeneratingImage = sessionHistoryByCapability.image.some(it => it.isGenerating);
-  const hasGeneratingVideo = sessionHistoryByCapability.video.some(it => it.isGenerating);
-  const hasGeneratingAudio = sessionHistoryByCapability.audio.some(it => it.isGenerating);
-
   // Image
-  useEffect(() => {
-    if (!hasGeneratingImage || !imageRuntime.gradioUrl) return;
-    let cancelled = false;
-    const poll = async () => {
-      while (!cancelled) {
-        try {
-          const client = await imageRuntime.getClient();
-          const items = await fetchSessionHistoryFor(client);
-          if (cancelled) return;
-          if (items.length > 0) {
-            const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('image', prev => mergeWithOrphans(items.filter(it => !isItemDeleted(it, deletedIdsRef.current)), prev, activeImageModelIdRef.current));
-            if (!stillGenerating) return;
-          }
-        } catch { /* noop */ }
-        await new Promise(r => setTimeout(r, 2000));
-      }
-    };
-    poll();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasGeneratingImage, imageRuntime.gradioUrl, fetchSessionHistoryFor, setHistoryForCap]);
 
   // Video
-  useEffect(() => {
-    if (!hasGeneratingVideo || !videoRuntime.gradioUrl) return;
-    let cancelled = false;
-    const poll = async () => {
-      while (!cancelled) {
-        try {
-          const client = await videoRuntime.getClient();
-          const items = await fetchSessionHistoryFor(client);
-          if (cancelled) return;
-          if (items.length > 0) {
-            const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('video', prev => mergeWithOrphans(items.filter(it => !isItemDeleted(it, deletedIdsRef.current)), prev, activeVideoModelIdRef.current));
-            if (!stillGenerating) return;
-          }
-        } catch { /* noop */ }
-        await new Promise(r => setTimeout(r, 2000));
-      }
-    };
-    poll();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasGeneratingVideo, videoRuntime.gradioUrl, fetchSessionHistoryFor, setHistoryForCap]);
 
   // Audio
-  useEffect(() => {
-    if (!hasGeneratingAudio || !audioRuntime.gradioUrl) return;
-    let cancelled = false;
-    const poll = async () => {
-      while (!cancelled) {
-        try {
-          const client = await audioRuntime.getClient();
-          const items = await fetchSessionHistoryFor(client);
-          if (cancelled) return;
-          if (items.length > 0) {
-            const stillGenerating = items.some(it => it.isGenerating);
-            setHistoryForCap('audio', prev => mergeWithOrphans(items.filter(it => !isItemDeleted(it, deletedIdsRef.current)), prev, 'tts-dual'));
-            if (!stillGenerating) return;
-          }
-        } catch { /* noop */ }
-        await new Promise(r => setTimeout(r, 2000));
-      }
-    };
-    poll();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasGeneratingAudio, audioRuntime.gradioUrl, fetchSessionHistoryFor, setHistoryForCap]);
 
   const handleGenerate = useCallback(
     async (params: GenerateParams) => {
@@ -1569,14 +1329,13 @@ export function GenerationProvider({
                 return {
                   ...item,
                   mediaUrls: [tempUrl],
-                  isGenerating: false,
                   status: 'temporary' as const,
                 };
               }
               return item;
             }));
 
-            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            
             if (statusText) setStatusMsg(statusText);
           } else {
             setErrorMsg("No se devolvió un video válido.");
@@ -1632,14 +1391,13 @@ export function GenerationProvider({
                 return {
                   ...item,
                   mediaUrls: [tempUrl],
-                  isGenerating: false,
                   status: 'temporary' as const,
                 };
               }
               return item;
             }));
 
-            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            
             if (statusText) setStatusMsg(statusText);
           } else {
             setErrorMsg("No se devolvió un video válido.");
@@ -1673,14 +1431,13 @@ export function GenerationProvider({
                 return {
                   ...item,
                   mediaUrls: [tempUrl],
-                  isGenerating: false,
                   status: 'temporary' as const
                 };
               }
               return item;
             }));
 
-            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            
             if (statusText) setStatusMsg(statusText);
           } else {
             setErrorMsg("No se devolvió un video válido.");
@@ -1806,18 +1563,9 @@ export function GenerationProvider({
 
           if (absoluteUrls.length > 0) {
             setImageSrcs(absoluteUrls);
-            setHistoryForCap(cap, prev => prev.map(item => {
-              if (item.id === userItemId) {
-                return {
-                  ...item,
-                  mediaUrls: absoluteUrls,
-                  isGenerating: false,
-                  status: 'temporary' as const
-                };
-              }
-              return item;
-            }));
-            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            // NO apagamos isGenerating aquí. Dejamos que el poller lo haga
+            // cuando reciba las r2_keys confirmadas por el backend.
+            
           } else {
             setErrorMsg("No se devolvieron imágenes.");
           }
@@ -1863,7 +1611,6 @@ export function GenerationProvider({
                 return {
                   ...item,
                   mediaUrls: absoluteUrls,
-                  isGenerating: false,
                   status: 'temporary' as const,
                   params: {
                     ...item.params,
@@ -1886,7 +1633,7 @@ export function GenerationProvider({
               return item;
             }));
 
-            setGenerationInfo(prev => ({ ...prev, status: "complete", progress: 1, stage: "complete", finished_at: Date.now() / 1000 }));
+            
             if (statusText) setStatusMsg(statusText);
           } else {
             setErrorMsg("No se devolvió un audio válido.");
@@ -2009,7 +1756,6 @@ export function GenerationProvider({
               return {
                 ...item,
                 mediaUrls: [tempUrl!],
-                isGenerating: false,
                 status: 'temporary' as const,
               };
             }
@@ -2115,7 +1861,8 @@ export function GenerationProvider({
       const cached = r2UrlCache.get(r2Key);
       if (cached) return cached.url;
     }
-    return item.mediaUrls[idx] || item.mediaUrls[0] || '';
+    // Si no hay R2, no hay archivo (sistema viejo erradicado)
+    return '';
   }, [r2UrlCache]);
 
   // Carga la siguiente página de creaciones (más antiguas) desde Supabase.
@@ -2175,7 +1922,10 @@ export function GenerationProvider({
         // Deduplicar por id. Si el item ya existe en el estado local
         // (porque se generó en esta sesión), no lo insertamos de nuevo.
         const existingIds = new Set(prev[cap].map(it => it.id));
-        const filtered = newItems.filter(it => !existingIds.has(it.id));
+        // FILTRO CRÍTICO: Descartar los items que el usuario ya borró (tombstones)
+        const filtered = newItems.filter(it => 
+          !existingIds.has(it.id) && !isItemDeleted(it, deletedIdsRef.current)
+        );
         if (filtered.length === 0) return prev;
         const merged = [...filtered, ...prev[cap]];
         merged.sort((a, b) => a.createdAt - b.createdAt);
@@ -2225,6 +1975,30 @@ export function GenerationProvider({
     isLoadingMoreSupabase: currentModelKeyForPag ? (isLoadingMoreSupabaseMap[currentModelKeyForPag] ?? false) : false,
     loadMoreFromSupabase,
   };
+
+  // ── SINCRONIZACIÓN AUTOMÁTICA ──
+  // Si el usuario inicia sesión en un dispositivo nuevo (IndexedDB vacío),
+  // disparamos automáticamente loadMoreFromSupabase para traer su historial
+  // desde Supabase. Solo se ejecuta una vez por capability/modelo.
+  const autoLoadedCapsRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    if (!sessionHydrated) return;
+    const currentModelId = capability === 'image'
+      ? activeImageModelId
+      : capability === 'audio'
+        ? 'tts-dual'
+        : activeVideoModelId;
+    if (!currentModelId) return;
+    
+    const key = `${capability}:${currentModelId}`;
+    if (autoLoadedCapsRef.current[key]) return;
+    
+    // Si el historial local para esta capability está vacío, pedimos a Supabase.
+    if (sessionHistoryByCapability[capability].length === 0) {
+      autoLoadedCapsRef.current[key] = true;
+      void loadMoreFromSupabase();
+    }
+  }, [sessionHydrated, capability, activeImageModelId, activeVideoModelId, sessionHistoryByCapability, loadMoreFromSupabase]);
 
   return <GenerationContext.Provider value={value}>{children}</GenerationContext.Provider>;
 }
