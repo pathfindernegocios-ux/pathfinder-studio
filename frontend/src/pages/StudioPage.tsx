@@ -10,9 +10,8 @@ import { useGenerationContext, hasRenderableMedia, getMediaCount, type SessionIt
 import { useR2SignedUrl } from '../hooks/useR2SignedUrl';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { Download, Trash2, RefreshCw, Save, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
-import Callout from '../components/Callout';
 import SceneChip from '../components/SceneChip';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -79,10 +78,10 @@ function getGenerationProgress(
 function MediaLightbox({ selectedMedia, onClose }: { selectedMedia: { item: SessionItem; index: number; type: 'image' | 'video' }; onClose: () => void }) {
   const { item, index, type } = selectedMedia;
   const r2Key = item.r2Keys?.[index] || null;
-  const { url: r2Url, loading } = useR2SignedUrl(r2Key);
+  const { url: r2Url } = useR2SignedUrl(r2Key);
 
-  const fallbackUrl = item.mediaUrls[index] || item.mediaUrls[0];
-  const finalUrl = r2Url || (loading ? null : fallbackUrl);
+  // Solo usamos R2.
+  const finalUrl = r2Url;
 
   if (!finalUrl) {
     return (
@@ -105,7 +104,7 @@ function MediaLightbox({ selectedMedia, onClose }: { selectedMedia: { item: Sess
 }
 
 const StudioPage: React.FC = () => {
-  const { saveCreation, saveError , deleteCreation} = useCreations();
+  const { saveError , deleteCreation} = useCreations();
   const isMobile = useIsMobile();
   const { profile } = useAuth();
   const studioTheme = useUIStore((s) => s.studioTheme);
@@ -287,71 +286,8 @@ const StudioPage: React.FC = () => {
     }
   }, [boot.isError, boot.isStale, sessionHistory, updateSessionItem]);
 
-  // Callout de Guardar: aparece la primera vez que existe un item con media
-  // y status temporary. Se recuerda con localStorage (global, una vez por usuario).
-  const [guardCalloutVisible, setGuardCalloutVisible] = useState(false);
-  const guardCalloutShownRef = useRef(false);
-  useEffect(() => {
-    if (guardCalloutShownRef.current) return;
-    if (localStorage.getItem('pf_guard_callout_seen') === '1') return;
-    const hasTempWithMedia = sessionHistory.some(
-      it => it.status === 'temporary' && hasRenderableMedia(it)
-    );
-    if (!hasTempWithMedia) return;
-    guardCalloutShownRef.current = true;
-    const t = window.setTimeout(() => setGuardCalloutVisible(true), 800);
-    return () => window.clearTimeout(t);
-  }, [sessionHistory]);
 
-  const dismissGuardCallout = () => {
-    localStorage.setItem('pf_guard_callout_seen', '1');
-    setGuardCalloutVisible(false);
-  };
 
-  const lastTemporaryWithMediaId = (() => {
-    for (let i = sessionHistory.length - 1; i >= 0; i--) {
-      const it = sessionHistory[i];
-      if (it.status === 'temporary' && hasRenderableMedia(it)) return it.id;
-    }
-    return null;
-  })();
-
-  const handleSave = async (item: SessionItem) => {
-    if (item.status === 'saved' || !hasRenderableMedia(item)) return;
-
-    const currentIdx = getSelectedIndex(item.id, getMediaCount(item));
-    const currentUrl = getResolvedUrl(item, currentIdx);
-    if (!currentUrl) return;
-
-    try {
-      updateSessionItem(item.id, { status: 'saving' });
-
-      const result = await saveCreation({
-        tempUrl: currentUrl,
-        clientRequestId: item.id,
-        prompt: item.prompt || '',
-        seed: -1,
-        duration: item.mediaType === 'video' ? '5s' : '',
-        resolution: 'Standard',
-        aspectRatio: item.aspectRatio?.replace('/', ':') || '1:1',
-        guideScale: 0,
-        matchAudioDur: false,
-        mediaType: item.mediaType,
-        modelId: item.modelId
-      });
-
-      if (result) {
-        updateSessionItem(item.id, { status: 'saved' });
-      } else {
-        // saveCreation devolvió null → no se guardó. Volver a 'temporary'
-        // para que reaparezca el botón "Guardar". El banner ya muestra el motivo.
-        updateSessionItem(item.id, { status: 'temporary' });
-      }
-    } catch (error) {
-      console.error("Manual save failed:", error);
-      updateSessionItem(item.id, { status: 'temporary' });
-    }
-  };
 
   // ── Confirmación de eliminación ──
   const [discardTargetId, setDiscardTargetId] = useState<string | null>(null);
@@ -368,7 +304,7 @@ const StudioPage: React.FC = () => {
       // 2. Borrar del backend y R2 en segundo plano (fire-and-forget)
       // No bloqueamos la UI esperando a que termine.
       const item = sessionHistory.find(i => i.id === idToDelete);
-      if (item && item.status === 'saved') {
+      if (item && (item.status === 'saved' || item.creationId || (item.r2Keys && item.r2Keys.length > 0))) {
         void deleteCreation(idToDelete).catch(err => {
           console.warn(`[delete] fallo al borrar ${idToDelete} de Supabase/R2:`, err);
         });
@@ -376,38 +312,6 @@ const StudioPage: React.FC = () => {
     }
   };
 
-  // Auto-Guardado: detecta items completados con r2Keys que no se han guardado
-  useEffect(() => {
-    const processAutoSave = async () => {
-      for (const item of sessionHistory) {
-        if (!item.isGenerating && item.r2Keys && item.r2Keys.length > 0 && item.status === 'temporary') {
-          // Marcar como saving para no procesarlo dos veces
-          updateSessionItem(item.id, { status: 'saving' });
-          
-          try {
-            await saveCreation({
-              r2Key: item.r2Keys[0],
-              clientRequestId: item.id,
-              prompt: item.prompt || '',
-              seed: -1,
-              duration: item.mediaType === 'video' ? '5s' : '',
-              resolution: 'Standard',
-              aspectRatio: item.aspectRatio?.replace('/', ':') || '1:1',
-              guideScale: 0,
-              matchAudioDur: false,
-              mediaType: item.mediaType,
-              modelId: item.modelId,
-            });
-            updateSessionItem(item.id, { status: 'saved' });
-          } catch (e) {
-            console.error("Auto-save failed", e);
-            updateSessionItem(item.id, { status: 'temporary' }); // Reintentar en el siguiente render
-          }
-        }
-      }
-    };
-    processAutoSave();
-  }, [sessionHistory, saveCreation, updateSessionItem]);
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
@@ -1461,31 +1365,6 @@ const StudioPage: React.FC = () => {
 
                     {!item.isGenerating && (
                       <div style={{ display: 'flex', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
-                        {item.status === 'temporary' && (
-                          <div style={{ position: 'relative', display: 'inline-block' }}>
-                            <ActionButton
-                              onClick={() => handleSave(item)}
-                              icon={<Save size={14} />}
-                              label="Guardar"
-                              primary
-                            />
-                            {guardCalloutVisible && item.id === lastTemporaryWithMediaId && (
-                              <Callout
-                                title="Guárdalo en Mis Creaciones"
-                                body="Así no se pierde si reinicias la sesión o cambias de modelo."
-                                align="left"
-                                onDismiss={dismissGuardCallout}
-                              />
-                            )}
-                          </div>
-                        )}
-                        {item.status === 'saving' && (
-                          <ActionButton
-                            disabled
-                            icon={<Loader2 size={14} className="animate-spin" />}
-                            label="Guardando..."
-                          />
-                        )}
                         {hasRenderableMedia(item) && (
                           <ActionButton
   onClick={() => handleDownload(item, currentIdx)}
