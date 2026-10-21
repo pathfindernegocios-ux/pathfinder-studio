@@ -804,12 +804,26 @@ export function GenerationProvider({
         next[cap] = prev[cap].map(it => {
           if (it.isGenerating) {
             const modelStatus = stationStatusMap[it.modelId];
-            if (modelStatus === 'offline') {
+            const isBooting = stationBootingIds.includes(it.modelId);
+            
+            // Si la estación está offline O si se está reiniciando (booting), matamos la generación.
+            if (modelStatus === 'offline' || isBooting) {
               changed = true;
+              // Si esta era la generación activa en el store global, la apagamos
+              const currentGen = useGenerationStore.getState().generationInfo;
+              if (currentGen?.id === it.id) {
+                useGenerationStore.getState().setGenerationInfo({
+                  ...currentGen,
+                  status: 'error',
+                  error: 'La estación se desconectó o el notebook se apagó.',
+                  finished_at: Date.now() / 1000
+                });
+              }
               return {
                 ...it,
+                isGenerating: false, // <-- LA LLAVE QUE FALTABA
                 status: 'temporary' as const,
-                errorMessage: 'La estación se desconectó o el notebook se apagó.'
+                errorMessage: 'La estación se desconectó o se está reiniciando.'
               };
             }
           }

@@ -13,7 +13,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useR2SignedUrl } from '../hooks/useR2SignedUrl';
 import { useStationBoot } from '../hooks/useStationBoot';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { Download, Trash2, RefreshCw, Loader2, HelpCircle, Play, AlertTriangle } from 'lucide-react';
+import { Download, Trash2, RefreshCw, Loader2, HelpCircle, AlertTriangle } from 'lucide-react';
 import AssistantAvatar from '../components/AssistantAvatar';
 import SceneChip from '../components/SceneChip';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -459,29 +459,7 @@ const StudioPage: React.FC = () => {
     }
   };
 
-  const handleContinueFromVideo = async (item: SessionItem) => {
-    const url = getResolvedUrl(item, 0);
-    if (!url) return;
-    try {
-      const r = await fetch(url);
-      const blob = await r.blob();
-      const reader = new FileReader();
-      const b64: string = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-      window.dispatchEvent(new CustomEvent('pathfinder-continue-video', {
-        detail: {
-          videoB64: b64,
-          aspectRatio: item.aspectRatio,
-          resolution: (item.params as any)?.resolution || '480p',
-        },
-      }));
-    } catch (e) {
-      console.warn('[continue] no se pudo preparar el video:', e);
-    }
-  };
+  /* handleContinueFromVideo deshabilitado temporalmente para el lanzamiento */
 
   const handleRetry = (item: SessionItem) => {
     void 0;
@@ -1478,9 +1456,11 @@ const StudioPage: React.FC = () => {
   disabled={downloadingId !== null && downloadingId !== item.id}
 />
                         )}
+                        {/* Bloque Continuar deshabilitado temporalmente
                         {item.mediaType === 'video' && item.modelId === 'ltx-2.3' && hasRenderableMedia(item) && !item.storyboardMeta && (
                           <ActionButton onClick={() => handleContinueFromVideo(item)} icon={<Play size={14} />} label="Continuar" />
                         )}
+                        */}
                         <ActionButton onClick={() => handleRetry(item)} icon={<RefreshCw size={14} />} label={item.errorMessage ? "Reintentar" : "Variación"} />
                         <ActionButton onClick={() => handleDiscard(item.id)} icon={<Trash2 size={14} />} label="Eliminar" danger />
                       </div>

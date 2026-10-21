@@ -24,6 +24,7 @@ interface StoryboardStripProps {
   onPromptChange: (v: string) => void;
   onScenesChange?: (scenes: StoryboardSceneLocal[]) => void;
   disabled?: boolean;
+  initialScenes?: StoryboardSceneLocal[];
 }
 
 const DURATIONS = [3, 5, 8, 10, 15, 20];
@@ -57,7 +58,7 @@ function newScene(idx: number): StoryboardSceneLocal {
 
 /** Devuelve los modos permitidos según la posición de la escena. */
 function availableModes(idx: number): SceneMode[] {
-  return idx === 0 ? ['first', 'cut'] : ['cut', 'continue'];
+  return idx === 0 ? ['first', 'continue', 'cut'] : ['cut', 'continue'];
 }
 
 const StoryboardStrip: React.FC<StoryboardStripProps> = ({
@@ -65,8 +66,11 @@ const StoryboardStrip: React.FC<StoryboardStripProps> = ({
   onPromptChange,
   onScenesChange,
   disabled = false,
+  initialScenes,
 }) => {
-  const [scenes, setScenes] = useState<StoryboardSceneLocal[]>(() => [newScene(0)]);
+  const [scenes, setScenes] = useState<StoryboardSceneLocal[]>(() => {
+    return (initialScenes && initialScenes.length > 0) ? initialScenes : [newScene(0)];
+  });
   const [selectedIdx, setSelectedIdx] = useState(0);
 
   // Notificar cambios al padre (por si en 4c necesita acceso)

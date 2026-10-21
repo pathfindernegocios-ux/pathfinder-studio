@@ -171,10 +171,10 @@ function loadVideoLoras(): { name: string; mult: string; enabled: boolean }[] {
 /** Carga las LoRAs de LTX 2.5 MSR desde localStorage.
  *  Si no hay persistidas, devuelve el default: Product Commercial enabled. */
 /** Carga el modo (single | storyboard) desde localStorage. Default: 'single'. */
-function loadStoryboardMode(): 'single' | 'storyboard' {
+/* function loadStoryboardMode(): 'single' | 'storyboard' {
   const persisted = loadPersistedStudioSelection()?.mode;
   return persisted === 'storyboard' ? 'storyboard' : 'single';
-}
+} */
 
 // ── Persistencia del draft de params por modelo ──
 // Guarda solo primitivos (strings, numbers, booleans, null).
@@ -575,10 +575,12 @@ const FloatingCommandCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(() => loadPersistedStudioSelection()?.activeTab || 'video');
 
   // Modo Single / Storyboard — solo aplica a la pestaña de Video. Persiste en localStorage.
-  const [storyboardMode, setStoryboardMode] = useState<'single' | 'storyboard'>(() => loadStoryboardMode());
+  // LANZAMIENTO: Forzado a 'single' para deshabilitar temporalmente el modo Storyboard
+  const [storyboardMode, setStoryboardMode] = useState<'single' | 'storyboard'>('single');
 
   // Escenas del storyboard (nivel local del FCM). Se sincroniza vía onScenesChange.
   const [storyboardScenes, setStoryboardScenes] = useState<StoryboardSceneLocal[]>([]);
+  const [sbVersion, setSbVersion] = useState(0);
 
   // PF_STORYBOARD_MODE_EFFECT — persiste el modo sin tocar el resto del objeto persistido.
   useEffect(() => {
@@ -663,7 +665,8 @@ const FloatingCommandCenter: React.FC = () => {
     if (!isVideoLtx) return true;
     if (storyboardScenes.length === 0) return false;
     if (storyboardScenes.some(s => !s.prompt.trim())) return false;
-    if (storyboardScenes[0]?.mode === 'continue') return false;
+    // Solo bloquear continue en la primera escena si NO hay un video padre inicial
+    if (storyboardScenes[0]?.mode === 'continue' && !(window as any).__pf_initial_video) return false;
     return true;
   }, [storyboardMode, activeTab, isVideoLtx, storyboardScenes]);
 
@@ -1150,14 +1153,15 @@ const FloatingCommandCenter: React.FC = () => {
   useEffect(() => {
     const handleContinueVideo = (e: Event) => {
       const detail = (e as CustomEvent).detail as {
-        videoB64: string;
+        videoUrl: string;
         aspectRatio?: string;
         resolution?: string;
       };
-      if (!detail?.videoB64) return;
+      if (!detail?.videoUrl) return;
 
-      // Activar modo storyboard con 1 escena en continue
-      setStoryboardMode('storyboard');
+      // LANZAMIENTO: Deshabilitado temporalmente
+      // setStoryboardMode('storyboard');
+      setSbVersion(v => v + 1); // <-- Fuerza remontaje
       setStoryboardScenes([{
         id: `scene-${Date.now()}`,
         mode: 'continue',
@@ -1169,7 +1173,7 @@ const FloatingCommandCenter: React.FC = () => {
         matchAudioDur: false,
         inheritStartFromPrev: true,
       }]);
-      (window as any).__pf_initial_video = detail.videoB64;
+      (window as any).__pf_initial_video = detail.videoUrl;
 
       if (detail.resolution) {
         setVideoParams(p => ({ ...p, resolution: detail.resolution! }));
@@ -1921,6 +1925,9 @@ const FloatingCommandCenter: React.FC = () => {
               })
             );
 
+            const currentInitialVideo = (window as any).__pf_initial_video ?? null;
+            delete (window as any).__pf_initial_video; // Limpieza para no contaminar el siguiente storyboard
+
             await handleGenerateStoryboard({
               global: {
                 resolution_label: videoParams.resolution,
@@ -1929,7 +1936,7 @@ const FloatingCommandCenter: React.FC = () => {
                 seed: videoParams.seed,
                 extra_loras: videoParams.loraItems.filter(x => x.enabled).map(x => x.name),
                 lora_mults: videoParams.loraItems.filter(x => x.enabled).map(x => x.mult || '1.0').join(' '),
-                initial_video: (window as any).__pf_initial_video ?? null,
+                initial_video: currentInitialVideo,
               },
               scenes: scenesPayload,
             });
@@ -2231,13 +2238,15 @@ const FloatingCommandCenter: React.FC = () => {
               >
                 {(['single', 'storyboard'] as const).map((m) => {
                   const active = storyboardMode === m;
+                  if (m === 'storyboard') return null; // <-- OCULTA EL BOTÓN PARA EL LANZAMIENTO
+
                   return (
                     <button
                       key={m}
                       role="tab"
                       aria-selected={active}
                       onClick={() => setStoryboardMode(m)}
-                      title={m === 'single' ? 'Una sola escena' : 'Storyboard multi-escena (próximamente)'}
+                                            title={m === 'single' ? 'Una sola escena' : 'Storyboard multi-escena (próximamente)'}
                       style={{
                         padding: '3px 9px',
                         borderRadius: '6px',
@@ -2394,9 +2403,11 @@ const FloatingCommandCenter: React.FC = () => {
           {/* Film strip de Storyboard (multi-escena) */}
           {activeTab === 'video' && isVideoLtx && storyboardMode === 'storyboard' && (
             <StoryboardStrip
+              key={sbVersion}
               prompt={prompt}
               onPromptChange={setPrompt}
               onScenesChange={setStoryboardScenes}
+              initialScenes={storyboardScenes}
             />
           )}
 
