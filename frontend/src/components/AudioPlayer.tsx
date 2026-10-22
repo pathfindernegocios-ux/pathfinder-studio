@@ -9,9 +9,12 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import { getCachedAudio, fetchAudioBlob } from "../lib/audioBlobCache";
+import { useR2SignedUrl } from "../hooks/useR2SignedUrl";
 
 interface AudioPlayerProps {
   src: string;
+  /** Fallback: si src está vacío, se firma esta llave directamente. */
+  r2Key?: string | null;
   /** Cantidad de barras del waveform. Default: 40. */
   bars?: number;
   onReady?: (duration: number) => void;
@@ -37,13 +40,17 @@ function seededPeaks(seed: string, count: number): number[] {
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
   src,
+  r2Key,
   bars = 40,
   onReady,
 }) => {
+  // BLINDAJE: si src está vacío, firmamos la r2Key directamente para no depender del r2UrlCache global.
+  const { url: signedUrl } = useR2SignedUrl(src ? null : (r2Key || null));
+  const effectiveSrc = src || signedUrl || '';
   const audioRef = useRef<HTMLAudioElement>(null);
   const blobUrlRef = useRef<string | null>(null);
 
-  const [peaks, setPeaks] = useState<number[]>(() => seededPeaks(src, bars));
+  const [peaks, setPeaks] = useState<number[]>(() => seededPeaks(effectiveSrc, bars));
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -53,8 +60,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   // Regenerar peaks si cambia la URL
   useEffect(() => {
-    setPeaks(seededPeaks(src, bars));
-  }, [src, bars]);
+    setPeaks(seededPeaks(effectiveSrc, bars));
+  }, [effectiveSrc, bars]);
 
   // Cargar el blob al montar (con progreso visible)
   useEffect(() => {
@@ -71,7 +78,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setDuration(0);
     setCurrentTime(0);
 
-    const cached = getCachedAudio(src);
+    if (!effectiveSrc) return;
+    const cached = getCachedAudio(effectiveSrc);
     if (cached) {
       const url = URL.createObjectURL(cached);
       blobUrlRef.current = url;
@@ -82,7 +90,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     const load = async () => {
       try {
-        const blob = await fetchAudioBlob(src, {
+        const blob = await fetchAudioBlob(effectiveSrc, {
           timeoutMs: 120000,
           onProgress: (pct) => { if (!cancelled) setProgress(pct); },
         });
@@ -107,14 +115,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         blobUrlRef.current = null;
       }
     };
-  }, [src]);
+  }, [effectiveSrc]);
 
   const retryLoad = useCallback(() => {
     setLoadError(false);
     setProgress(0);
     const load = async () => {
       try {
-        const blob = await fetchAudioBlob(src, {
+        const blob = await fetchAudioBlob(effectiveSrc, {
           timeoutMs: 120000,
           onProgress: (pct) => setProgress(pct),
         });
@@ -128,7 +136,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     };
     load();
-  }, [src]);
+  }, [effectiveSrc]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;

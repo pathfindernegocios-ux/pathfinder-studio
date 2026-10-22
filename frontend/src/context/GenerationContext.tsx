@@ -804,10 +804,10 @@ export function GenerationProvider({
         next[cap] = prev[cap].map(it => {
           if (it.isGenerating) {
             const modelStatus = stationStatusMap[it.modelId];
-            const isBooting = stationBootingIds.includes(it.modelId);
             
-            // Si la estación está offline O si se está reiniciando (booting), matamos la generación.
-            if (modelStatus === 'offline' || isBooting) {
+            // WATCHDOG RELAJADO: Solo matamos si está estrictamente 'offline'.
+            // Si está 'booting', confiamos en que el poller del backend confirmará si vive o muere.
+            if (modelStatus === 'offline') {
               changed = true;
               // Si esta era la generación activa en el store global, la apagamos
               const currentGen = useGenerationStore.getState().generationInfo;
@@ -821,9 +821,9 @@ export function GenerationProvider({
               }
               return {
                 ...it,
-                isGenerating: false, // <-- LA LLAVE QUE FALTABA
+                isGenerating: false,
                 status: 'temporary' as const,
-                errorMessage: 'La estación se desconectó o se está reiniciando.'
+                errorMessage: 'La estación se desconectó o el notebook se apagó.'
               };
             }
           }
@@ -833,6 +833,39 @@ export function GenerationProvider({
       return changed ? next : prev;
     });
   }, [stationStatusMap]);
+
+  // ── SELF-HEALING (Auto-reparación) ──
+  // Si la UI mató un item por un falso positivo, pero el backend nos dice
+  // que la generación sigue viva (preparing o running), lo revivimos.
+  useEffect(() => {
+    const currentGen = useGenerationStore.getState().generationInfo;
+    if (!currentGen?.id) return;
+    if (currentGen.status !== 'preparing' && currentGen.status !== 'running') return;
+
+    setSessionHistoryByCapability(prev => {
+      let changed = false;
+      const next = { ...prev };
+      
+      for (const cap of ['image', 'video', 'audio'] as const) {
+        next[cap] = prev[cap].map(it => {
+          // Si es el item de esta generación, no está generando (fue matado)
+          // y no tiene r2Keys (no ha terminado), lo revivimos.
+          if (it.id === currentGen.id && !it.isGenerating) {
+            changed = true;
+            return {
+              ...it,
+              isGenerating: true,
+              errorMessage: undefined, // Borramos el error falso
+              status: 'temporary' as const,
+            };
+          }
+          return it;
+        });
+      }
+      return changed ? next : prev;
+    });
+  }, [generationInfo?.status, generationInfo?.id]);
+
 
   // Multi-notebook: isLoading refleja si el MODELO ACTIVO en la capability
   // activa tiene una generación corriendo. Si el user cambia de tab o de
