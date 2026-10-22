@@ -8,8 +8,6 @@ import { useCreations } from '../hooks/useCreations';
 import type { Creation } from '../types';
 import { CreationThumbnail } from '../components/CreationThumbnail';
 import { readLiveCache, writeLiveCache } from '../lib/liveCache';
-import { AtmosphereLayer } from '../components/marketing/Atmosphere';
-import { useUIStore } from '../stores/useUIStore';
 
 // ============================================================
 // CACHE
@@ -289,8 +287,7 @@ const LoadingState: React.FC = () => (
 // ============================================================
 const CreationsPage: React.FC = () => {
   const { getCreations } = useCreations();
-  const studioTheme = useUIStore((s) => s.studioTheme);
-
+  
   const _cached = readLiveCache<CreationsCache>(LIVE_CACHE_KEY, LIVE_CACHE_TTL_MS);
   const [creations, setCreations] = useState<Creation[]>(() => _cached?.items ?? []);
   const [loading, setLoading] = useState<boolean>(() => _cached === null);
@@ -343,7 +340,7 @@ const CreationsPage: React.FC = () => {
     { id: 'audio', label: 'AUDIO', count: stats.audios },
   ];
 
-  const hasSpaceAtmosphere = studioTheme === 'space';
+  const hasSpaceAtmosphere = false;
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', position: 'relative' }}>
@@ -357,7 +354,7 @@ const CreationsPage: React.FC = () => {
             pointerEvents: 'none',
           }}
         >
-          <AtmosphereLayer />
+          null
         </div>
       )}
 

@@ -18,7 +18,6 @@ import AssistantAvatar from '../components/AssistantAvatar';
 import SceneChip from '../components/SceneChip';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { getRuntimeLabel } from '../config/models';
-import { AtmosphereLayer } from '../components/marketing/Atmosphere';
 import { SkeletonImage, SkeletonVideo, SkeletonAudio, SkeletonStyles } from '../components/studio/Skeletons';
 import { useUIStore } from '../stores/useUIStore';
 import PathfinderLogo from '../components/PathfinderLogo';
@@ -490,7 +489,7 @@ const StudioPage: React.FC = () => {
     <div style={{ position: 'relative', height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ATMÓSFERA — solo visible en tema Space */}
-      {studioTheme === 'space' && <AtmosphereLayer />}
+      
 
       {/* ESTACIÓN INDICATOR — pill enriquecido arriba a la derecha */}
       {currentModelId && (() => {
