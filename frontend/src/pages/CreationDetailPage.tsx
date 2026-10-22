@@ -21,8 +21,6 @@ import type { Creation } from '../types';
 import { fetchAudioBlob } from '../lib/audioBlobCache';
 import VideoPlayer from '../components/VideoPlayer';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { AtmosphereLayer } from '../components/marketing/Atmosphere';
-import { useUIStore } from '../stores/useUIStore';
 
 // ============================================================
 // CONSTANTS
@@ -320,8 +318,7 @@ const CreationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getCreations, deleteCreation, getDownloadUrl } = useCreations();
-  const studioTheme = useUIStore((s) => s.studioTheme);
-
+  
   const [creation, setCreation] = useState<Creation | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -414,7 +411,7 @@ const CreationDetailPage: React.FC = () => {
 
   const toggleLightbox = useCallback(() => setIsLightboxOpen((o) => !o), []);
 
-  const hasSpaceAtmosphere = studioTheme === 'space';
+  const hasSpaceAtmosphere = false;
 
   // ─── Loading ───
   if (loading) {
@@ -513,7 +510,7 @@ const CreationDetailPage: React.FC = () => {
             pointerEvents: 'none',
           }}
         >
-          <AtmosphereLayer />
+          null
         </div>
       )}
 

@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type StudioTheme = 'space' | 'dark' | 'light';
+export type StudioTheme = 'dark' | 'light';
 
 interface UIState {
   sidebarCollapsed: boolean;
@@ -20,7 +20,7 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       sidebarCollapsed: false,
-      studioTheme: 'space',
+      studioTheme: 'dark',
 
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),

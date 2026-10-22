@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useModels } from "../hooks/useModels";
 import { supabase } from "../lib/supabaseClient";
 import { useUIStore, type StudioTheme } from "../stores/useUIStore";
-import { Sun, Moon, Loader2, ExternalLink, Crown, Sparkles } from "lucide-react";
+import { Sun, Moon, Loader2, ExternalLink, Crown } from "lucide-react";
 import AvatarPicker from "../components/AvatarPicker";
 
 type Tab = "profile" | "account" | "security";
@@ -456,7 +456,7 @@ const AccountSettingsPage: React.FC = () => {
                 }}
               >
                 {[
-                  { id: "space" as StudioTheme, Icon: Sparkles, label: "Space" },
+                  
                   { id: "dark" as StudioTheme, Icon: Moon, label: "Dark" },
                   { id: "light" as StudioTheme, Icon: Sun, label: "Light" },
                 ].map((opt) => {

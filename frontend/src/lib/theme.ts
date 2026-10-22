@@ -9,8 +9,8 @@
 // sesión activa de Supabase. En páginas públicas (landing, pricing,
 // auth, etc.) el tema es siempre light.
 
-export type ThemePreference = "light" | "dark" | "system" | "neon";
-export type ResolvedTheme = "light" | "dark" | "neon";
+export type ThemePreference = "light" | "dark" | "system";
+export type ResolvedTheme = "light" | "dark";
 
 export const THEME_STORAGE_KEY = "pf_theme_preference";
 
@@ -34,14 +34,14 @@ export function hasSupabaseSession(): boolean {
 }
 
 export function getStoredThemePreference(): ThemePreference {
-  if (typeof window === "undefined") return "neon";
+  if (typeof window === "undefined") return "dark";
   try {
     const v = localStorage.getItem(THEME_STORAGE_KEY);
-    if (v === "light" || v === "dark" || v === "system" || v === "neon") return v;
+    if (v === "light" || v === "dark" || v === "system") return v;
   } catch {
     /* ignore */
   }
-  return "neon";
+  return "dark";
 }
 
 export function setStoredThemePreference(pref: ThemePreference): void {
@@ -84,7 +84,7 @@ export function applyThemePreference(pref: ThemePreference): ResolvedTheme {
  * "se escape" a la landing / pricing / auth / páginas legales.
  */
 export function initTheme(): ResolvedTheme {
-  if (typeof window === "undefined") return "neon";
+  if (typeof window === "undefined") return "dark";
 
   const pref = getStoredThemePreference();
   const resolved = resolveTheme(pref);
