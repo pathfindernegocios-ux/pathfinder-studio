@@ -1438,7 +1438,7 @@ const StudioPage: React.FC = () => {
 
                       {!item.isGenerating && hasRenderableMedia(item) && item.mediaType === 'audio' && (
                         <div style={{ width: 'min(440px, 100%)' }}>
-                          <AudioPlayer src={currentUrl} bars={44} />
+                          <AudioPlayer src={currentUrl} r2Key={item.r2Keys?.[0] || null} bars={44} />
                         </div>
                       )}
                     </div>
