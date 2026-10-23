@@ -134,6 +134,22 @@ const ChatMediaWrapper: React.FC<{ item: any, currentIdx: number, currentUrl: st
   );
 };
 
+const AudioMediaWrapper: React.FC<{ item: any, currentUrl: string }> = ({ item, currentUrl }) => {
+  const hasR2Key = !!item.r2Keys?.[0];
+  const { r2Keys } = useR2MediaPoller(item.id, !hasR2Key && !currentUrl && item.status !== 'temporary', 1);
+  
+  const finalKey = item.r2Keys?.[0] || r2Keys?.[0] || null;
+
+  return (
+    <AudioPlayer 
+      key={item.id} 
+      src={!finalKey ? currentUrl : undefined} 
+      r2Key={finalKey} 
+      bars={44} 
+    />
+  );
+};
+
 const StudioPage: React.FC = () => {
   const { saveError , deleteCreation} = useCreations();
   const isMobile = useIsMobile();
@@ -1152,6 +1168,9 @@ const StudioPage: React.FC = () => {
                         backdropFilter: 'blur(8px)',
                         WebkitBackdropFilter: 'blur(8px)',
                         boxShadow: '0 4px 16px -8px rgba(139,92,246,0.35)',
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        wordBreak: 'break-word',
                       }}
                     >
                       {item.prompt}
@@ -1438,7 +1457,7 @@ const StudioPage: React.FC = () => {
 
                       {!item.isGenerating && hasRenderableMedia(item) && item.mediaType === 'audio' && (
                         <div style={{ width: 'min(440px, 100%)' }}>
-                          <AudioPlayer src={currentUrl} r2Key={item.r2Keys?.[0] || null} bars={44} />
+                          <AudioMediaWrapper item={item} currentUrl={currentUrl} />
                         </div>
                       )}
                     </div>

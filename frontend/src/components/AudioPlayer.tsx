@@ -12,7 +12,7 @@ import { getCachedAudio, fetchAudioBlob } from "../lib/audioBlobCache";
 import { useR2SignedUrl } from "../hooks/useR2SignedUrl";
 
 interface AudioPlayerProps {
-  src: string;
+  src?: string;
   /** Fallback: si src está vacío, se firma esta llave directamente. */
   r2Key?: string | null;
   /** Cantidad de barras del waveform. Default: 40. */
