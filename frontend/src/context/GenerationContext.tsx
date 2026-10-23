@@ -970,7 +970,7 @@ export function GenerationProvider({
               setHistoryForCapRef.current(cap, prev => prev.map(it =>
                 it.id === item.id ? { ...it, isGenerating: false, r2Keys: r2Keys && r2Keys.length > 0 ? r2Keys : it.r2Keys, status: 'temporary' } : it
               ));
-            } else if (info.status === 'error' || info.status === 'cancelled') {
+            } else if ((info.status === 'error' || info.status === 'cancelled') && info.id === item.id) {
               setHistoryForCapRef.current(cap, prev => prev.map(it =>
                 it.id === item.id ? { ...it, isGenerating: false, errorMessage: info.error || 'Generación fallida' } : it
               ));
