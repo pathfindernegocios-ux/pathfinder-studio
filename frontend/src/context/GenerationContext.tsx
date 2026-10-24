@@ -2155,111 +2155,12 @@ export function GenerationProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generatingIdsKey]);
 
-  // ── CAPA 3: Supabase Realtime ──
-  // Escucha INSERTs y DELETEs en `creations` del usuario actual vía WebSocket.
-  // El backend inserta en Supabase → el frontend recibe la novedad en ~200ms sin polling.
-  // Cubre cross-tab y cross-device. Es el mecanismo industrial.
-  const [authUserId, setAuthUserId] = useState<string | null>(null);
-  useEffect(() => {
-    void supabase.auth.getUser().then(({ data }) => {
-      if (data?.user?.id) setAuthUserId(data.user.id);
-    });
-  }, []);
-  useEffect(() => {
-    if (!authUserId) return;
-    let cancelled = false;
-
-    const channel = supabase
-      .channel(`creations-realtime-${authUserId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'creations', filter: `user_id=eq.${authUserId}` },
-        (payload) => {
-          if (cancelled) return;
-          const row = payload.new as any;
-          if (!row || typeof row.id !== 'string') return;
-
-          const cap = (row.media_type === 'video' ? 'video' : row.media_type === 'audio' ? 'audio' : 'image') as CapabilityId;
-          
-          // CLAVE: Agrupar por parent_id (el ID del lote) o por el id de la fila.
-          // Esto evita que un lote de 3 imágenes cree 3 burbujas separadas en el chat.
-          const parentId = row.metadata?.parent_id || row.id;
-
-          // PILAR 4: si el item está tombstoned, ignorar el INSERT.
-          if (isTombstoned(parentId) || isTombstoned(row.id)) return;
-
-          setHistoryForCapRef.current(cap, prev => {
-            // Buscar si ya existe la burbuja del lote (por parentId o por row.id)
-            const existingIdx = prev.findIndex(it => it.id === parentId || it.id === row.id);
-            
-            if (existingIdx !== -1) {
-              // Si ya existe, le agregamos la nueva llave a su array de r2Keys
-              const existing = prev[existingIdx];
-              const currentKeys = existing.r2Keys || [];
-              // Evitar duplicados
-              const newKeys = currentKeys.includes(row.storage_key) 
-                ? currentKeys 
-                : [...currentKeys, row.storage_key];
-              
-              const updated = [...prev];
-              updated[existingIdx] = { 
-                ...existing, 
-                r2Keys: newKeys,
-              };
-              return updated;
-            }
-
-            // Si no existe, creamos la burbuja (esto pasa si la generación viene de otra pestaña)
-            const newItem: SessionItem = {
-              id: parentId, // Usamos el parentId para que futuras imágenes de este lote se agrupen aquí
-              prompt: row.prompt || '',
-              mediaUrls: [],
-              mediaType: cap,
-              modelId: row.model_id || '',
-              modelLabel: row.model_id || '',
-              aspectRatio: row.aspect_ratio || '1/1',
-              createdAt: new Date(row.created_at).getTime(),
-              status: 'temporary',
-              isGenerating: false, // Si viene de otra pestaña, asumimos que ya terminó
-              creationId: row.id,
-              r2Keys: [row.storage_key],
-            };
-            const merged = [...prev, newItem];
-            merged.sort((a, b) => a.createdAt - b.createdAt);
-            return merged;
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'creations', filter: `user_id=eq.${authUserId}` },
-        (payload) => {
-          if (cancelled) return;
-          const row = payload.old as any;
-          if (!row?.id) return;
-          // PILAR 4: intentar borrar tanto por id de fila como por parent_id
-          const parentId = row.metadata?.parent_id || null;
-          for (const cap of ['image', 'video', 'audio'] as const) {
-            setHistoryForCapRef.current(cap, prev => prev.filter(it => 
-              it.id !== row.id && (!parentId || it.id !== parentId)
-            ));
-          }
-          void sessionStore.deleteItem(row.id);
-          if (parentId) void sessionStore.deleteItem(parentId);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUserId]);
-
+  // Supabase Realtime no se utiliza para cerrar el ciclo de generación.
+  // El historial se carga desde Supabase y los resultados de la generación activa
+  // se reconcilian mediante el estado del runtime y la consulta de persistencia.
 
   // ── PREFETCH INDUSTRIAL ──
-  // En cuanto Realtime o el Poller detectan una nueva r2Key, pedimos la URL firmada
+  // En cuanto el historial o el sondeo detectan una nueva r2Key, pedimos la URL firmada
   // inmediatamente y la guardamos en caché. Así el usuario no ve "Firmando" al hacer scroll.
   useEffect(() => {
     const prefetchUrls = async () => {
